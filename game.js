@@ -2611,7 +2611,7 @@ function hud() {
     if (on) { if (f.cbKey !== f.cbN) { f.cbKey = f.cbN; el.innerHTML = `<b>${f.cbN}</b><i>HITS</i><span>${Math.round(f.cbD)} DMG  ${f.cbN >= 8 ? 'UNREAL!' : f.cbN >= 6 ? 'BRUTAL!' : f.cbN >= 4 ? 'GREAT!' : 'NICE'}</span>`; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); } } else f.cbKey = 0;
     el.classList.toggle('on', on);
   }
-  const lo = M.hp / M.maxhp; $('vig').style.opacity = !M.dead && lo < .28 && state !== 'over' ? ((.45 + .3 * Math.sin(now * 5)) * (1 - lo / .28 * .45)).toFixed(2) : 0; // red edges when you are nearly down
+  const lo = M.hp / M.maxhp, vg = !M.dead && lo < .28 && state !== 'over' ? ((.45 + .3 * Math.sin(now * 5)) * (1 - lo / .28 * .45)).toFixed(2) : '0'; if (hE('vig')._o !== vg) { hE('vig')._o = vg; $('vig').style.opacity = vg; } // red edges when you are nearly down; only written when it changes
   for (const [f, id] of [[P, 'A'], [E, 'B']]) { // status chips under the name
     const s = f.dead ? [] : STATUS_CHIPS.filter(x => f[x[0]] > 0), key = s.map(x => x[1]).join();
     if (f.stKey !== key) { f.stKey = key; $('st' + id).innerHTML = s.map(x => `<b style="--c:${x[2]}">${ico(x[1])}</b>`).join(''); }
