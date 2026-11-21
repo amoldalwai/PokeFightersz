@@ -405,6 +405,9 @@ const fxb = $('fxb').getContext('2d'), fxf = $('fxf').getContext('2d');
 const q = new URLSearchParams(location.search), demoUrl = q.has('demo'); let demo = demoUrl; // demo: both fighters are AI (?demo=1, or the Watch AI Fight button)
 const dexById = id => POKEDEX[id - 1];
 const other = f => f === P ? E : P;
+// online 1v1 (net.js fills this in): lockstep, both devices run the same simulation from the same inputs
+const NETG = { on: false, role: '', lobby: false, inP: {}, inE: {}, rngOn() { }, rngOff() { }, ready() { }, frame() { }, rematch() { }, leave() { }, refresh() { } };
+const meF = () => NETG.on && NETG.role === 'guest' ? E : P; // the fighter this device controls
 const LANE_PX = 26, DMG_SCALE = .78, laneY = f => f.lp * LANE_PX;
 const WALL_L = WORLD_W / 2 - 1500, WALL_R = WORLD_W / 2 + 1500; // the arena has edges: heavy hits bounce off them
 const ALT_H = [0, 50, 100, 150]; // altitudes a flyer can hold; the camera zooms out as it climbs
@@ -530,24 +533,27 @@ function makeFighter(p, side, isAI, hpMul, set) {
 }
 async function startMatch(opts) {
   tourOn = !!(opts && opts.tour); demo = demoUrl || !!(opts && opts.watch); document.body.classList.toggle('watch', demo && !demoUrl);
+  const ol = opts && opts.online; if (ol) { demo = false; spriteStyle = ol.sprite; bestOf = ol.bestOf; lowQ = false; themeIdx = ol.theme; setTheme(THEMES[themeIdx]); }
   MUS.battle = ['battleA', 'battleB', 'battleC'][(selYou * 7 + selRival * 3 + (typeof themeIdx === 'number' ? themeIdx : 0)) % 3];
   const d = DIFF[selDiff]; lab = !!(opts && opts.lab); practice = lab || !!(opts && opts.practice); document.body.classList.toggle('lab', lab); dummyMode = 0; $('dummyBtn').textContent = 'DUMMY: IDLE';
-  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane']) $(id).classList.remove('on'); $('title').classList.remove('on'); $('opts').classList.remove('on');
-  const pa = dexById(lab ? labId : selYou), pb = lab ? pa : dexById(selRival);
+  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane', 'netPane']) $(id).classList.remove('on'); $('title').classList.remove('on'); $('opts').classList.remove('on');
+  const pa = dexById(ol ? ol.pa : lab ? labId : selYou), pb = ol ? dexById(ol.pb) : lab ? pa : dexById(selRival);
   const [sa, sb] = await Promise.all([loadSet(pa), loadSet(pb)]);
-  P = makeFighter(pa, -1, false, 1, sa); E = makeFighter(pb, 1, true, d.hp * tourHp(), sb); aiPick = {};
+  NETG.rngOn(ol && ol.seed);
+  P = makeFighter(pa, -1, false, 1, sa); E = makeFighter(pb, 1, !ol, ol ? 1 : d.hp * tourHp(), sb); aiPick = {};
+  if (ol) { P.specs = ol.spP.map(i => P.kit.pool[i]); E.specs = ol.spE.map(i => E.kit.pool[i]); }
   if (lab) { P.ability = labAbility(pa); E.ability = { name: '' }; E.maxhp = E.hp = E.hpTrail = 1e7; } // practise: the target is an invisible, unbreakable dummy
   cur = { pa, pb, sa, sb }; rounds = { a: 0, b: 0, n: 1 }; stats = { dealt: 0, taken: 0, combo: 0, parry: 0 }; prepFighters(); if (SPV) { const wt = []; for (const f of [P, E]) { for (const s of f.specs) if (s) wt.push(s.type); wt.push(f.kit.ranged.type, f.kit.beam.type); } SPV.warm(wt); }
   $('faceA').src = `assets/pose/hg/${pa.name}.png`; $('faceB').src = `assets/pose/hg/${pb.name}.png`; // still portraits: no animated frames to pay for
   $('nameA').innerHTML = nm(pa.name).toUpperCase() + `<small>${P.ability.name}</small>`; $('nameB').innerHTML = nm(pb.name).toUpperCase() + `<small>${E.ability.name}</small>`;
-  resetField(); introT = practice ? 0 : -3.2; vsWait = !practice && !demo;
-  const k = P.kit, sp = P.specs;
+  resetField(); introT = practice ? 0 : -3.2; vsWait = !practice && !demo && !ol;
+  const mf = meF(), k = mf.kit, sp = mf.specs;
   $('legend').innerHTML = `<b>J</b> ${ico(k.melee.icon)} ${k.melee.name} · <b>K</b> ${ico(k.ranged.icon)} ${k.ranged.name} · ` + sp.map((s, i) => `<b>${'LON'[i]}</b> ${ico(s.icon)} ${s.name}`).join(' · ') + ` · <b>I</b> ${ico(k.beam.icon)} ${k.beam.name} · <b>Shift</b> ${ico('run-fast')} dash · <b>U</b> ${ico('battery-charging')} charge · <b>S</b> ${ico('shield')} duck + guard · <b>G</b> ${ico('hand-back-right')} grab · <b>Q/E</b> ${ico('swap-vertical')} lane`;
   btnCost = { tackle: ['sta', k.melee.sta], leaf: ['sta', k.ranged.sta], vine: ['sta', sp[0].sta], special2: ['sta', sp[1] ? sp[1].sta : 0], special3: ['sta', sp[2] ? sp[2].sta : 0], beam: ['ki', 50], dash: ['sta', DASH_STA] };
   $('ic_tackle').innerHTML = ico(k.melee.icon); $('ic_leaf').innerHTML = ico(k.ranged.icon); $('ic_vine').innerHTML = ico(sp[0].icon); $('ic_special2').innerHTML = sp[1] ? ico(sp[1].icon) : ''; $('ic_special3').innerHTML = sp[2] ? ico(sp[2].icon) : '';
   $('ic_beam').innerHTML = ico(k.beam.icon);
-  pickWeather(); pickTod(); updateTint(); setHudColours(); updatePips(); $('practiceUI').classList.toggle('on', practice); if (!practice) showVs(pa, pb);
-  state = 'intro';
+  pickWeather(); pickTod(); NETG.rngOff(); updateTint(); setHudColours(); updatePips(); $('practiceUI').classList.toggle('on', practice); if (!practice) showVs(pa, pb);
+  state = 'intro'; if (ol) NETG.ready();
 }
 function prepFighters() {
   for (const [f, id] of [[P, 'A'], [E, 'B']]) {
@@ -575,7 +581,7 @@ function roundOver() {
 }
 function nextRound() {
   const oP = P, oE = E; rounds.n++;
-  P = makeFighter(cur.pa, -1, false, 1, cur.sa); E = makeFighter(cur.pb, 1, true, DIFF[selDiff].hp * tourHp(), cur.sb);
+  P = makeFighter(cur.pa, -1, false, 1, cur.sa); E = makeFighter(cur.pb, 1, !NETG.on, NETG.on ? 1 : DIFF[selDiff].hp * tourHp(), cur.sb);
   P.stored = oP.stored; E.stored = oE.stored; P.specs = oP.specs; E.specs = oE.specs; E.ai.persona = oE.ai.persona; E.ai.habit = oE.ai.habit;
   prepFighters(); resetField(); $('msg').classList.remove('on'); state = 'intro';
 }
@@ -689,7 +695,7 @@ function vsBuild(s, p, role) {
 }
 function showVs(pa, pb) {
   const v = $('vsSplash'); v.classList.remove('on', 'out'); v.classList.toggle('demo', demo); v.classList.toggle('low', lowQ);
-  vsBuild('L', pa, demo ? (demoUrl ? 'CPU A' : 'YOUR PICK') : 'P1  YOU'); vsBuild('R', pb, demo ? (demoUrl ? 'CPU B' : 'RIVAL') : 'CPU'); vsParts = []; vsAcc = { L: {}, R: {} }; $('vsDemo').textContent = demoUrl ? 'DEMO' : 'AI BATTLE';
+  vsBuild('L', pa, demo ? (demoUrl ? 'CPU A' : 'YOUR PICK') : NETG.on ? (NETG.role === 'host' ? 'P1  YOU' : 'P1  FRIEND') : 'P1  YOU'); vsBuild('R', pb, demo ? (demoUrl ? 'CPU B' : 'RIVAL') : NETG.on ? (NETG.role === 'guest' ? 'P2  YOU' : 'P2  FRIEND') : 'CPU'); vsParts = []; vsAcc = { L: {}, R: {} }; $('vsDemo').textContent = demoUrl ? 'DEMO' : 'AI BATTLE';
   void v.offsetWidth; v.classList.add('on');
 }
 let vsWait = false; // the VS splash holds until the player presses START (watch mode just runs on)
@@ -963,7 +969,7 @@ function damage(att, def, amount, knock, pt, big, ty) {
   if (blocked && big && amount > 0 && staEff(def) <= 24) { blocked = false; gbreak = true; } // a heavy hit against a tired guard breaks it
   if (blocked && def.guardAge < .2 && amount > 0) { // a guard raised just in time parries: no damage and the attacker is staggered
     def.sta = Math.min(100, def.sta + 14); def.ki = Math.min(100, def.ki + 8); att.hitT = Math.max(att.hitT, .5); att.act = null; att.vx = 0; att.kvx = -att.face * 260; sfx('block'); shake = Math.max(shake, 8); freeze = Math.max(freeze, .09);
-    spark(pt.x, pt.y, '#fff8a0', 16); floatText(pt.x, pt.y - 36, 'PARRY!', '#fff8a0'); sfx('parry'); if (def === P || att === P) buzz(35); if (def === P) stats.parry++; return true;
+    spark(pt.x, pt.y, '#fff8a0', 16); floatText(pt.x, pt.y - 36, 'PARRY!', '#fff8a0'); sfx('parry'); if (def === meF() || att === meF()) buzz(35); if (def === meF()) stats.parry++; return true;
   }
   let d = d0;
   if (gbreak) { d = d0 * .8; def.sta = 0; floatText(pt.x, pt.y - 60, 'GUARD BREAK!', '#ff5a5a', 28); sfx('boom'); shake = Math.max(shake, 12); }
@@ -990,7 +996,7 @@ function damage(att, def, amount, knock, pt, big, ty) {
     def.pv = Math.floor(Math.random() * 3); def.sta = Math.max(0, def.sta - clamp(2 + d0 / def.maxhp * 110, 2.5, 11)); def.staDelay = Math.max(def.staDelay, .6); // being hit knocks stamina out of you even when the bar is full
     if (big && !att.launch && !att.hazard && !def.canJuggle && def.z < 20 && d0 >= def.maxhp * .035 && (crit || Math.random() < .22)) { // a crushing blow throws the foe across the arena and up into the sky
       def.smash = true; def.hv = -1; def.kvx = (Math.sign(def.x - att.x) || att.face) * 1500; def.vz = 1050; def.hitT = 1.9; def.hitBig = true; def.toss = 3; def.tossV = 460; slowT = Math.max(slowT, .45); punch = Math.max(punch, .1); shake = Math.max(shake, 26); flashCol = '255,255,255'; flashT = Math.max(flashT, .12);
-      floatText(pt.x, pt.y - 100, 'SMASH!', '#ff5a3a', 38); sfx('smash'); impacts.push({ x: pt.x, y: pt.y, t: 0, n: 18, col: '#fff', rot: 0 }); if (def === P) buzz(120);
+      floatText(pt.x, pt.y - 100, 'SMASH!', '#ff5a3a', 38); sfx('smash'); impacts.push({ x: pt.x, y: pt.y, t: 0, n: 18, col: '#fff', rot: 0 }); if (def === meF()) buzz(120);
     }
     if (big && !att.launch && !def.canJuggle) { def.inv = Math.max(def.inv, def.hitT + .5); def.ghostT = .14; } // no endless juggling: a knockdown is followed by a moment of invulnerability
     if (crit) { shake += 6; spark(pt.x, pt.y, '#ffd34d', 18); floatText(pt.x, pt.y - 70, 'CRITICAL!', '#ffd34d'); sfx('crit'); impactT = .08; impX = pt.x - camX; impY = pt.y; }
@@ -1003,9 +1009,9 @@ function damage(att, def, amount, knock, pt, big, ty) {
   if (def.ability.sturdy && !def.sturdyUsed && def.hp >= def.maxhp * .9 && d >= def.hp) { d = def.hp - 1; def.sturdyUsed = true; floatText(def.x, GROUND - def.z - def.lift - def.h - 30, 'STURDY!', '#d9c08a', 28); }
   def.hp = Math.max(0, def.hp - d); att.ki = Math.min(100, att.ki + (blocked ? 1 : 5)); if (!blocked && d > 0 && amount > 0) shockHit(def, d);
   if (!blocked) { if (now - (att.cbT ?? -9) < 1.3) { att.cbN++; att.cbD += d; } else { att.cbN = 1; att.cbD = d; } att.cbT = now; }
-  if (att === P) { stats.dealt += d; stats.combo = Math.max(stats.combo, att.cbN || 0); } if (def === P) stats.taken += d;
+  if (att === meF()) { stats.dealt += d; stats.combo = Math.max(stats.combo, att.cbN || 0); } if (def === meF()) stats.taken += d;
   if (!blocked && att.act && !att.hazard && (att.act.name === 'melee' || att.act.name === 'grab' || (att.act.name === 'sp' && CANCEL_KEYS.has(att.act.key)))) att.act.landed = true;
-  if (def === P) buzz(gbreak ? 90 : blocked ? 8 : Math.round(14 + 110 * clamp(d / def.maxhp * 6, 0, 1)) + (big ? 12 : 0)); else if (att === P && !blocked) buzz(12);
+  if (def === meF()) buzz(gbreak ? 90 : blocked ? 8 : Math.round(14 + 110 * clamp(d / def.maxhp * 6, 0, 1)) + (big ? 12 : 0)); else if (att === P && !blocked) buzz(12);
   floatText(pt.x, pt.y - 20, Math.round(d), blocked ? '#8cf' : eff > 1 ? colsOf(ty)[1] : (big ? '#ffd34d' : '#fff'), blocked ? 28 : eff > 1 ? 36 : eff < 1 ? 22 : 28);
   if (!blocked && eff !== 1 && now - def.effAt > .7) {
     def.effAt = now; const sup = eff > 1;
@@ -1312,7 +1318,7 @@ const SHK_WIN = 2.5, SHK_FRAC = .22, SHK_IMM = 8;
 function shockHit(f, d) { if (lab && f === E) return; (f.shkLog || (f.shkLog = [])).push([now, d]); }
 function shockOn(f) {
   f.shockV = Math.random() < .5 ? 1 : 2; f.shockT = f.shockLen = f.shockV === 1 ? 1.5 : 3; f.shockImm = f.shockLen + SHK_IMM; f.shkLog = []; f.shock = 0; f.act = null; f.charging = false; f.vx = 0;
-  floatText(f.x, GROUND - f.z - f.lift - f.h - 34, 'SHOCKED!', '#ffe54a', 30); sfx('zap'); shake = Math.max(shake, 10); flashCol = '255,255,255'; flashT = Math.max(flashT, .12); freeze = Math.max(freeze, .08); if (f === P) buzz(90);
+  floatText(f.x, GROUND - f.z - f.lift - f.h - 34, 'SHOCKED!', '#ffe54a', 30); sfx('zap'); shake = Math.max(shake, 10); flashCol = '255,255,255'; flashT = Math.max(flashT, .12); freeze = Math.max(freeze, .08); if (f === meF()) buzz(90);
 }
 function shockTick(f, dt) {
   if (f.shockT > 0) f.shockT -= dt; if (f.shockImm > 0) f.shockImm -= dt;
@@ -1502,7 +1508,7 @@ function aiInput(f, o, dt) {
 function playerInput() {
   const i = {
     l: keys.a || keys.arrowleft || joy.l, r: keys.d || keys.arrowright || joy.r, guard: keys.s || keys.arrowdown || held.guard || joy.d, down: keys.s || keys.arrowdown || joy.d, upHold: keys.w || keys.arrowup || keys[' '] || joy.up,
-    charge: keys.u || held.charge, up: pulse.up, dash: pulse.dash, laneBack: pulse.laneBack, laneFront: pulse.laneFront, melee: pulse.melee, ranged: pulse.ranged, special: pulse.special, special2: pulse.special2, special3: pulse.special3, beam: pulse.beam, grab: pulse.grab,
+    charge: keys.u || held.charge, up: pulse.up, dash: pulse.dash, laneBack: pulse.laneBack, laneFront: pulse.laneFront, melee: pulse.melee, ranged: pulse.ranged, special: pulse.special, special2: pulse.special2, special3: pulse.special3, beam: pulse.beam, grab: pulse.grab, tap: pulse.tap,
   };
   for (const k in pulse) { if (pulse[k] && practice) inputLog.push({ k, t: now }); pulse[k] = false; }
   return i;
@@ -1624,7 +1630,7 @@ function beamClashCheck(nb) {
 }
 function endBeamClash() { const c = bclash; if (!c) return; c.bp.hold = c.be.hold = false; P.bhold = E.bhold = false; bclash = null; $('tug').classList.remove('on'); $('tapBtn').classList.remove('on'); }
 function beamTap() {
-  const c = bclash; if (!c || c.ph !== 0 || demo) return; c.p = Math.min(1, c.p + .05); shake = Math.max(shake, 4); spark(c.x, c.y, c.cp, 4); rings.push({ x: c.x, y: c.y, t: 0, col: c.cp });
+  const c = bclash; if (!c || c.ph !== 0 || demo) return; if (NETG.on) { pulse.tap = true; return; } c.p = Math.min(1, c.p + .05); shake = Math.max(shake, 4); spark(c.x, c.y, c.cp, 4); rings.push({ x: c.x, y: c.y, t: 0, col: c.cp });
   if (now - c.tapT > .09) { c.tapT = now; sfx('block'); buzz(10); }
 }
 document.addEventListener('pointerdown', beamTap, true); document.addEventListener('keydown', e => { if (!e.repeat && e.code !== 'Escape' && e.code !== 'KeyP') beamTap(); }, true);
@@ -1633,14 +1639,14 @@ function finishClash(c) {
   const full = (wb.dmg || W.kit.beam.dmg) * Math.max(3, Math.round(wb.dur / .16)); // the winner's whole beam lands at once
   lb.t = 99; wb.t = Math.min(wb.t, .2); wb.nodmg = true; endBeamClash();
   Lz.act = null; damage(W, Lz, full, W.face * 700, center(Lz), true, ty);
-  floatText(Lz.x, GROUND - Lz.h - 40, W === P ? 'OVERPOWERED!' : 'BLASTED!', colsOf(ty)[1], 34); if (SPV) { SPV.boom(Lz.x, center(Lz).y, ty, 1.5); SPV.flash(.8); SPV.snd('boom2'); } sfx('smash'); shake = Math.max(shake, 24); punch = Math.max(punch, .08); if (W === P || Lz === P) buzz(140);
+  floatText(Lz.x, GROUND - Lz.h - 40, W === P ? 'OVERPOWERED!' : 'BLASTED!', colsOf(ty)[1], 34); if (SPV) { SPV.boom(Lz.x, center(Lz).y, ty, 1.5); SPV.flash(.8); SPV.snd('boom2'); } sfx('smash'); shake = Math.max(shake, 24); punch = Math.max(punch, .08); if (W === meF() || Lz === meF()) buzz(140);
 }
 function updBeamClash(dt) {
   const c = bclash; if (!c) return;
   if (P.dead || E.dead || state !== 'fight') { endBeamClash(); return; }
   c.t += dt; const mP = muzzle(P), mE = muzzle(E);
   if (c.ph === 0) {
-    c.time -= dt; c.p -= bcRate(c.t) * .047 * dt; // the AI never stops pushing
+    c.time -= dt; if (NETG.on) { for (const [f, d] of [[P, 1], [E, -1]]) if (f.tapIn) { c.p = clamp(c.p + .05 * d, 0, 1); shake = Math.max(shake, 4); spark(c.x, c.y, d > 0 ? c.cp : c.ce, 4); rings.push({ x: c.x, y: c.y, t: 0, col: d > 0 ? c.cp : c.ce }); if (f === meF() && now - c.tapT > .09) { c.tapT = now; sfx('block'); buzz(10); } } } else c.p -= bcRate(c.t) * .047 * dt; // the AI never stops pushing; online each tap comes from a player
     if (demo) { c.auto += (5.2 + 1.6 * Math.sin(c.t * 1.7 + .6)) * dt; while (c.auto >= 1) { c.auto -= 1; c.p += .05; } } // both sides are AI in demo mode
     c.p = clamp(c.p, 0, 1); c.disp = clamp(c.disp + (c.p - c.disp) * clamp(dt * 14, 0, 1), 0, 1);
     shake = Math.max(shake, 2 + 8 * Math.abs(c.disp - .5) * 2);
@@ -1665,7 +1671,7 @@ function clash(p, r) { // two shots meet: a big explosion that shakes and rattle
   boom(x, y, big, (p.cols && p.cols[1]) || '#ffd34d', 30); booms.push({ x, y, r: big * 1.4, t: 0, dur: .7, col: (r.cols && r.cols[1]) || '#ffffff' });
   clashes.push({ x, y, t: 0 }); clashT = .6; shake = Math.max(shake, 36); punch = Math.max(punch, .1); flashCol = '255,255,255'; flashT = .2; freeze = Math.max(freeze, .1); slowT = Math.max(slowT, .25);
   hitFx(x, y, 'shine', 4); for (let i = 0; i < 4; i++) hitFx(x + rnd(-90, 90), y + rnd(-70, 70), i % 2 ? 'flareball' : 'mistball', 2);
-  floatText(x, y - 60, 'CLASH!', '#fff', 40); sfx('block'); if (p.owner === P || r.owner === P) buzz(110);
+  floatText(x, y - 60, 'CLASH!', '#fff', 40); sfx('block'); if (p.owner === meF() || r.owner === meF()) buzz(110);
   for (const f of [P, E]) if (!f.dead && Math.abs(f.x - x) < 800) { f.kvx = (Math.sign(f.x - x) || -f.face) * 520; f.hitT = Math.max(f.hitT, .22); f.hitBig = false; f.act = null; f.vx = 0; }
 }
 function separate(a, b) {
@@ -2203,9 +2209,9 @@ let camSep = 600;
 function draw() {
   fxb.clearRect(0, 0, W, H); fxf.clearRect(0, 0, W, H);
   if (!P) { drawBg(0); return; }
-  let tx = (P.x + E.x) / 2 - W / 2; const follow = !demo && !lab && !P.dead && !E.dead; // the player stays in the free middle of the screen, clear of the buttons; a far-away foe may leave the view
-  if (follow) { const s = Math.sign(E.x - P.x) || 1; tx = clamp(tx, P.x - (s > 0 ? .48 : .64) * W, P.x - (s > 0 ? .30 : .52) * W); }
-  camX += (clamp(tx, 0, WORLD_W - W) - camX) * .12; if (follow) camX = clamp(clamp(camX, P.x - .70 * W, P.x - .26 * W), 0, WORLD_W - W);
+  let tx = (P.x + E.x) / 2 - W / 2; const M = meF(), O = other(M), follow = !demo && !lab && !P.dead && !E.dead; // the player stays in the free middle of the screen, clear of the buttons; a far-away foe may leave the view
+  if (follow) { const s = Math.sign(O.x - M.x) || 1; tx = clamp(tx, M.x - (s > 0 ? .48 : .64) * W, M.x - (s > 0 ? .30 : .52) * W); }
+  camX += (clamp(tx, 0, WORLD_W - W) - camX) * .12; if (follow) camX = clamp(clamp(camX, M.x - .70 * W, M.x - .26 * W), 0, WORLD_W - W);
   drawBg(camX);
   clashDim += ((bclash ? 1 : 0) - clashDim) * Math.min(1, hudDt * 7); if (clashDim > .01) { fxb.fillStyle = `rgba(0,0,14,${(.8 * clashDim).toFixed(3)})`; fxb.fillRect(0, 0, W, H); } // the arena darkens during a beam clash so the eye stays on the beams
   fxb.save(); fxb.translate(-camX, 0); fxf.save(); fxf.translate(-camX, 0);
@@ -2570,6 +2576,7 @@ const sw = (id, v) => { const e = hE(id); if (e._w !== v) { e._w = v; e.style.wi
 const stx = (id, v) => { const e = hE(id); if (e._t !== v) { e._t = v; e.textContent = v; } };
 const pct = v => (Math.round(v * 2) / 2) + '%'; // half-percent steps: the bars only touch the page when they move a visible amount
 function hud() {
+  const M = meF();
   sw('hpA', pct(P.hp / P.maxhp * 100)); sw('hpB', pct(E.hp / E.maxhp * 100));
   for (const [f, id] of [[P, 'A'], [E, 'B']]) { f.hpTrail = f.hp > f.hpTrail ? f.hp : Math.max(f.hp, f.hpTrail - (f.maxhp * .05 + (f.hpTrail - f.hp) * 1.6) * hudDt); sw('hp' + id + 't', pct(f.hpTrail / f.maxhp * 100)); }
   stx('hpAn', `${Math.ceil(P.hp)}/${Math.round(P.maxhp)}`); stx('hpBn', `${Math.ceil(E.hp)}/${Math.round(E.maxhp)}`);
@@ -2580,21 +2587,21 @@ function hud() {
   for (const [f, id] of [[P, 'A'], [E, 'B']]) { stx('sp' + id, Math.round(f.sta) + '%'); const e = hE('sp' + id), cl = 'spct' + (f.sta < 25 ? ' lo' : f.sta < 50 ? ' mid' : ''); if (e.className !== cl) e.className = cl; // stamina badge colour and the banked-level pips
     if (f._lv !== f.stored) { f._lv = f.stored; [...hE('lv' + id).children].forEach((p, k) => p.classList.toggle('on', k < f.stored)); } }
   $('staA').parentNode.classList.toggle('warn', P.warnT > 0); $('staB').parentNode.classList.toggle('warn', E.warnT > 0);
-  for (const k in btnCost) { const [kind, c] = btnCost[k]; btnEl[k] && btnEl[k].classList.toggle('dim', (kind === 'ki' ? P.ki : staEff(P)) < c || (k === 'beam' && staEff(P) < P.kit.beam.sta)); }
+  for (const k in btnCost) { const [kind, c] = btnCost[k]; btnEl[k] && btnEl[k].classList.toggle('dim', (kind === 'ki' ? M.ki : staEff(M)) < c || (k === 'beam' && staEff(M) < M.kit.beam.sta)); }
   stx('timer', practice ? '∞' : String(Math.max(0, Math.ceil(matchTime))));
   if (practice) { inputLog = inputLog.filter(x => now - x.t < 3).slice(-9); $('inlog').innerHTML = inputLog.map(x => `<b>${INLABEL[x.k] || x.k}</b>`).join(''); }
-  const sp = P.specs, cdv = { leaf: P.cool.ranged / P.kit.ranged.cool, vine: sp[0] ? P.cool.s0 / ARCH[sp[0].key].cool : 0, special2: sp[1] ? P.cool.s1 / ARCH[sp[1].key].cool : 0, special3: sp[2] ? P.cool.s2 / ARCH[sp[2].key].cool : 0, dash: P.dashCool / .6, beam: P.cool.beam / 7 };
+  const sp = M.specs, cdv = { leaf: M.cool.ranged / M.kit.ranged.cool, vine: sp[0] ? M.cool.s0 / ARCH[sp[0].key].cool : 0, special2: sp[1] ? M.cool.s1 / ARCH[sp[1].key].cool : 0, special3: sp[2] ? M.cool.s2 / ARCH[sp[2].key].cool : 0, dash: M.dashCool / .6, beam: M.cool.beam / 7 };
   for (const k in cdv) { const v = Math.round(clamp(cdv[k], 0, 1) * 25) * 4; if (btnEl[k] && btnEl[k]._cd !== v) { btnEl[k]._cd = v; btnEl[k].style.setProperty('--cd', v); } }
-  const cdsec = { leaf: P.cool.ranged, vine: P.cool.s0, special2: P.cool.s1, special3: P.cool.s2, dash: P.dashCool, beam: P.cool.beam };
+  const cdsec = { leaf: M.cool.ranged, vine: M.cool.s0, special2: M.cool.s1, special3: M.cool.s2, dash: M.dashCool, beam: M.cool.beam };
   for (const k in cdsec) { const s = cdsec[k] > .05 ? cdsec[k].toFixed(1) : ''; if (btnEl[k] && btnEl[k]._cs !== s) { btnEl[k]._cs = s; btnEl[k].dataset.cd = s; } }
-  if (btnEl.beam) btnEl.beam.classList.toggle('rdy', P.ki >= 50 && staEff(P) >= P.kit.beam.sta && !P.dead);
+  if (btnEl.beam) btnEl.beam.classList.toggle('rdy', M.ki >= 50 && staEff(M) >= M.kit.beam.sta && !M.dead);
   for (const [f, id] of [[P, 'A'], [E, 'B']]) { // pulse the bars when the beam is ready or stamina is nearly out
     $('ki' + id).classList.toggle('rdy', f.ki >= 50); $('hp' + id).parentNode.classList.toggle('lowhp', f.hp < f.maxhp * .25 && !f.dead); $('kib' + id).parentNode.classList.toggle('rdy', f.ki >= 50); $('sta' + id).parentNode.classList.toggle('low', f.sta < 20);
     const el = $('cb' + id), on = f.cbN >= 2 && now - f.cbT < 1.3 && state !== 'over'; // combo counter
     if (on) { if (f.cbKey !== f.cbN) { f.cbKey = f.cbN; el.innerHTML = `<b>${f.cbN}</b><i>HITS</i><span>${Math.round(f.cbD)} DMG  ${f.cbN >= 8 ? 'UNREAL!' : f.cbN >= 6 ? 'BRUTAL!' : f.cbN >= 4 ? 'GREAT!' : 'NICE'}</span>`; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); } } else f.cbKey = 0;
     el.classList.toggle('on', on);
   }
-  const lo = P.hp / P.maxhp; $('vig').style.opacity = !P.dead && lo < .28 && state !== 'over' ? ((.45 + .3 * Math.sin(now * 5)) * (1 - lo / .28 * .45)).toFixed(2) : 0; // red edges when you are nearly down
+  const lo = M.hp / M.maxhp; $('vig').style.opacity = !M.dead && lo < .28 && state !== 'over' ? ((.45 + .3 * Math.sin(now * 5)) * (1 - lo / .28 * .45)).toFixed(2) : 0; // red edges when you are nearly down
   for (const [f, id] of [[P, 'A'], [E, 'B']]) { // status chips under the name
     const s = f.dead ? [] : STATUS_CHIPS.filter(x => f[x[0]] > 0), key = s.map(x => x[1]).join();
     if (f.stKey !== key) { f.stKey = key; $('st' + id).innerHTML = s.map(x => `<b style="--c:${x[2]}">${ico(x[1])}</b>`).join(''); }
@@ -2655,12 +2662,20 @@ function drawCine() {
 
 // ---------------------------------------------------------------- loop
 function frame(ts) {
-  const raw = ts - last, rdt = Math.max(0, Math.min(.033, raw / 1000 || 0)); last = ts; now = ts / 1000;
+  const raw = ts - last; last = ts;
+  if (NETG.on) { NETG.frame(raw, step); if (SPV) { SPV.tick(); if (state !== 'fight') SPV.stopAll(); } if (cine) drawCine(); draw(); requestAnimationFrame(frame); return; }
+  const rdt = Math.max(0, Math.min(.033, raw / 1000 || 0)); now = ts / 1000;
   if (state === 'fight' && raw > 0) { fAvg += (Math.min(raw, 40) - fAvg) * .03; if (!lowQ && ++fCnt > 150 && fAvg > 26) { lowQ = true; bgDirty = true; } } // slow device: drop the optional effects
+  step(rdt);
+  if (SPV) { SPV.tick(); if (state !== 'fight') SPV.stopAll(); }
+  draw();
+  requestAnimationFrame(frame);
+}
+function step(rdt) { // one slice of game time; online it runs at a fixed rate on both devices
   const dt = slowT > 0 ? rdt * .35 : rdt; slowT = Math.max(0, slowT - rdt); hudDt = rdt;
   shake *= Math.pow(.004, dt);
   if (state === 'pause') { /* frozen */ }
-  else if (cine) { cine.t += dt; drawCine(); if (cine.t >= cine.dur) endCine(); }
+  else if (cine) { cine.t += dt; if (!NETG.on) drawCine(); if (cine.t >= cine.dur) endCine(); }
   else if (state === 'intro') {
     introT += dt; if (vsWait && introT > -.05) introT = -.05; $('vsSplash').classList.toggle('on', introT < 0); $('vsSplash').classList.toggle('out', introT < 0 && introT > -.25 && !vsWait);
     if (introT < 0) vsTick(dt); else vsClear();
@@ -2674,26 +2689,25 @@ function frame(ts) {
         matchTime -= dt; if (practice) { matchTime = 99; if (E.hp < E.maxhp * .3) E.hp = E.maxhp; if (P.hp < P.maxhp * .3) P.hp = P.maxhp; }
         if (lab) { P.sta = 100; P.ki = 100; P.staDelay = 0; } // practise moves: infinite stamina and ki
         if (!lab) { aiBeamAnswer(E, P); if (demo) aiBeamAnswer(P, E); }
-        updateFighter(P, E, demo ? aiInput(P, E, dt) : playerInput(), dt);
-        updateFighter(E, P, aiInput(E, P, dt), dt);
+        const iP = NETG.on ? NETG.inP : demo ? aiInput(P, E, dt) : playerInput(), iE = NETG.on ? NETG.inE : aiInput(E, P, dt);
+        if (NETG.on) { P.tapIn = !!iP.tap; E.tapIn = !!iE.tap; }
+        updateFighter(P, E, iP, dt);
+        updateFighter(E, P, iE, dt);
         if (lab) labGhost(dt); else separate(P, E);
         if (matchTime <= 0 && state === 'fight') { winner = P.hp / P.maxhp >= E.hp / E.maxhp ? P : E; state = 'ko'; showMsg('TIME UP', 1800); overT = 0; }
       } else { updateFighter(P, E, {}, dt); updateFighter(E, P, {}, dt); overT += dt; if (overT > 2.2) roundOver(); }
       updateWorld(dt);
     }
   }
-  if (SPV) { SPV.tick(); if (state !== 'fight') SPV.stopAll(); }
-  draw();
-  requestAnimationFrame(frame);
 }
 function endMatch() {
-  state = 'over'; const win = winner === P; jingle(win);
+  state = 'over'; const me = meF(), win = winner === me; jingle(win);
   $('winImg').src = spriteUrl(winner.p); $('over').classList.toggle('lose', !win && !demo);
   $('winStars').innerHTML = Array.from({ length: 26 }, (_, i) => { const a = i / 26 * 6.283, r = 70 + (i % 3) * 22; return `<i style="left:${95 + Math.cos(a) * r}px;top:${95 + Math.sin(a) * r}px;animation-delay:${(i * .09).toFixed(2)}s;--s:${(.6 + (i % 4) * .22).toFixed(2)}"></i>`; }).join('');
   $('overT').textContent = demo ? nm(winner.p.name).toUpperCase() + ' WINS' : win ? 'YOU WIN!' : 'YOU LOSE'; $('overT').style.color = win || demo ? '#ffd34d' : '#ff6a6a';
-  $('overS').textContent = demo ? `${nm(P.p.name)} vs ${nm(E.p.name)}.` + (bestOf > 1 ? ` Rounds ${rounds.a}-${rounds.b}.` : '') : (win ? `${nm(P.p.name)} beat ${nm(E.p.name)} on ${selDiff}.` : `${nm(E.p.name)} was too strong this time.`) + (bestOf > 1 ? ` Rounds ${rounds.a}-${rounds.b}.` : '');
+  $('overS').textContent = demo ? `${nm(P.p.name)} vs ${nm(E.p.name)}.` + (bestOf > 1 ? ` Rounds ${rounds.a}-${rounds.b}.` : '') : (win ? `${nm(me.p.name)} beat ${nm(other(me).p.name)}${NETG.on ? '.' : ' on ' + selDiff + '.'}` : NETG.on ? `${nm(other(me).p.name)} won this time.` : `${nm(E.p.name)} was too strong this time.`) + (bestOf > 1 ? ` Rounds ${rounds.a}-${rounds.b}.` : '');
   const ratio = stats.dealt / Math.max(1, stats.taken), grade = win ? (ratio >= 3 ? 'S' : ratio >= 1.8 ? 'A' : 'B') : (ratio >= .8 ? 'C' : 'D');
-  const pts = win && !practice && !demo ? Math.round(({ Easy: 20, Normal: 40, Hard: 80 }[selDiff] || 40) * (bestOf > 1 ? 1.5 : 1)) : 0; // points for the app's ball shop
+  const pts = win && !practice && !demo && !NETG.on ? Math.round(({ Easy: 20, Normal: 40, Hard: 80 }[selDiff] || 40) * (bestOf > 1 ? 1.5 : 1)) : 0; // points for the app's ball shop
   if (pts) { try { if (window.PF && window.PF.award) window.PF.award(pts); } catch (e) { } }
   $('ostats').innerHTML = [['DAMAGE', stats.dealt], ['TAKEN', stats.taken], ['BEST COMBO', stats.combo], ['PARRIES', stats.parry]].map(([l, v]) => `<div class="os"><b>${Math.round(v)}</b><small>${l}</small></div>`).join('') + `<div class="os rate"><b>${grade}</b><small>RATING</small></div>` + (pts ? `<div class="os" style="border-color:#ffd34d"><b style="color:#ffd34d">+${pts}</b><small>POINTS</small></div>` : '');
   if (tourOn) tourEnd(win); else { $('againBtn').textContent = demo ? 'WATCH AGAIN' : 'REMATCH'; $('menuBtn').style.display = ''; }
@@ -2823,7 +2837,7 @@ function tmWorld(dt) {
     z.age += dt; if (z.age < z.from || z.age > z.to) continue; z.acc += dt; if (z.acc < z.every) continue; z.acc = 0;
     const foe = other(z.owner); if (foe.dead || state !== 'fight' || foe.inv > 0) continue; const b = body(foe);
     if (z.glob || circleRect(z.x, GROUND - 40, z.r, b)) {
-      if (z.dmg) { const d = Math.round(D(z.owner, z.dmg) * DMG_SCALE * GM.dmg * (foe.shieldT > 0 ? .5 : 1)); foe.hp -= d; floatText(foe.x, GROUND - foe.z - foe.lift - foe.h - 6, String(d), colsOf(z.ty)[1], 20); if (z.owner === P) stats.dealt += d; if (foe.hp <= 0) { foe.hp = 0; ko(foe, z.owner); } }
+      if (z.dmg) { const d = Math.round(D(z.owner, z.dmg) * DMG_SCALE * GM.dmg * (foe.shieldT > 0 ? .5 : 1)); foe.hp -= d; floatText(foe.x, GROUND - foe.z - foe.lift - foe.h - 6, String(d), colsOf(z.ty)[1], 20); if (z.owner === meF()) stats.dealt += d; if (foe.hp <= 0) { foe.hp = 0; ko(foe, z.owner); } }
       if (z.st && !z.stDone) { z.stDone = 1; applyStatus(foe, z.st, true, z.owner); }
     }
   }
@@ -3046,7 +3060,7 @@ addEventListener('message', e => {
 let screenName = 'title', themeIdx = 0;
 function showScreen(n) {
   vsWait = false; screenName = n; state = 'menu'; cine = null; demo = demoUrl; document.body.classList.remove('watch'); $('cine').classList.remove('on'); $('msg').classList.remove('on');
-  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane']) $(id).classList.toggle('on', id === n);
+  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane', 'netPane']) $(id).classList.toggle('on', id === n);
   $('pickPane').classList.remove('on');
   if (n === 'title') { const a = POKEDEX[Math.floor(Math.random() * POKEDEX.length)], b = POKEDEX[Math.floor(Math.random() * POKEDEX.length)]; $('tImgA').src = spriteUrl(a); $('tImgB').src = spriteUrl(b); }
   if (n === 'menu') refreshMenu();
@@ -3069,7 +3083,7 @@ function drawPicker() { // one page of 15 cards, filtered by the search text, th
   $('pkPager').innerHTML = pages > 1 ? `<button class="pgb" data-pg="${pickPg - 1}"${pickPg === 0 ? ' disabled' : ''}>\u2039</button>` + pgNums(pickPg, pages).map(i => i === '\u2026' ? '<span class="pgd">\u2026</span>' : `<button class="pgb${i === pickPg ? ' sel' : ''}" data-pg="${i}">${i + 1}</button>`).join('') + `<button class="pgb" data-pg="${pickPg + 1}"${pickPg >= pages - 1 ? ' disabled' : ''}>\u203a</button><span id="pkPg">Page ${pickPg + 1} / ${pages}</span>` : '';
 }
 function openPicker(slot) { pickSlot = slot; if (slot !== 'lab' && slot !== 'tour') activeSlot = slot; $('pkTitle').textContent = slot === 'you' ? 'CHOOSE YOUR FIGHTER' : slot === 'tour' ? 'CHOOSE YOUR TOURNAMENT FIGHTER' : slot === 'lab' ? 'CHOOSE A POK\u00c9MON FOR THE LAB' : 'CHOOSE THE RIVAL'; $('pickPane').classList.add('on'); pickPg = -1; drawPicker(); $('pkGrid').scrollTop = 0; }
-function closePicker() { $('pickPane').classList.remove('on'); if (pickSlot === 'lab') refreshLab(); else refreshMenu(); }
+function closePicker() { $('pickPane').classList.remove('on'); if (pickSlot === 'lab') refreshLab(); else { refreshMenu(); if (NETG.lobby) NETG.refresh(); } }
 function buildMenu() {
   const types18 = ['normal', 'fire', 'water', 'electric', 'grass', 'ice', 'fighting', 'poison', 'ground', 'flying', 'psychic', 'bug', 'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy'];
   $('pkTypes').innerHTML = [['', 'ALL GENS', '#5b6cff'], ['1', 'GEN 1', '#e0563a'], ['2', 'GEN 2', '#2fb4c4'], ['3', 'GEN 3', '#3fbf7a']].map(([g, l, c]) => `<span class="tchip gen${g === pickGen ? ' sel' : ''}" data-g="${g}" style="--t:${c}">${l}</span>`).join('') + '<span class="tsep"></span>'
@@ -3102,7 +3116,7 @@ function buildMenu() {
     if (!owns(selYou)) { $('note').textContent = mine.size ? 'Pick one of your caught Pok\u00e9mon as YOU.' : 'Catch a first-generation Pok\u00e9mon with a Pok\u00e9 Ball first.'; return; }
     audio(); startMatch();
   };
-  $('againBtn').onclick = () => (tourOn ? openTour() : startMatch(demo && !demoUrl ? { watch: true } : undefined));
+  $('againBtn').onclick = () => (NETG.on ? NETG.rematch() : tourOn ? openTour() : startMatch(demo && !demoUrl ? { watch: true } : undefined));
   $('watchBtn').onclick = () => { // your picked Pokémon and its moves, against the rival, both played by the AI
     if (!owns(selYou)) { $('note').textContent = mine.size ? 'Pick one of your caught Pokémon as YOU.' : 'Catch a first-generation Pokémon with a Poké Ball first.'; return; }
     audio(); startMatch({ watch: true });
@@ -3200,6 +3214,7 @@ function optSpy() {
   $('optCur').textContent = $(id).querySelector('h2').textContent; $('optFade').style.opacity = end ? 0 : 1;
 }
 function togglePause() {
+  if (NETG.on) { $('pause').classList.toggle('on'); return; } // online the match never stops: the menu just sits on top of it
   if (state === 'pause') { state = resumeState; $('pause').classList.remove('on'); return; }
   if (state === 'fight' || state === 'intro' || state === 'ko') { resumeState = state; state = 'pause'; refreshPause(); $('pause').classList.add('on'); }
 }
@@ -3286,7 +3301,7 @@ $('arClose').onclick = () => $('arenaPane').classList.remove('on');
 $('arGrid').onclick = e => { const c = e.target.closest('.ar'); if (!c) return; themeIdx = +c.dataset.i; setTheme(THEMES[themeIdx]); $('arenaPane').classList.remove('on'); refreshMenu(); };
 $('arPager').onclick = e => { const b = e.target.closest('.pgb'); if (!b || b.disabled) return; arPg = +b.dataset.pg; drawArenas(); };
 
-function toMenu() { if (tourOn) { openTour(); return; } if (lab) { showScreen('labPane'); refreshLab(); } else showScreen('menu'); }
+function toMenu() { if (NETG.on) { NETG.leave(); return; } if (tourOn) { openTour(); return; } if (lab) { showScreen('labPane'); refreshLab(); } else showScreen('menu'); }
 function exitGame() { if (window.PF && window.PF.exit) window.PF.exit(); else { try { window.close(); } catch (e) { } location.href = 'about:blank'; } }
 // ---------------------------------------------------------------- how to play: the guide is its own page (howto.html) in a frame, loaded the first time it opens
 let htReady = false, htWant = null;
