@@ -3,7 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, INIT_D = 4, MAX_D = 10, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.4.3'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const NET_VER = '0.5.0'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -256,9 +256,13 @@
   setInterval(() => { if (N.linked) send({ t: 'p', s: performance.now() }); updateNet(); }, 1000);
 
   // ---- keep looks out of the shared fight: effect helpers draw from the real random generator, so a spark or puff that one phone shows and the other does not can never shift the fight's random numbers
-  for (const n of ['puff', 'spark', 'typeHit', 'landFx', 'rollFx', 'statusFx', 'boom', 'juiceHit', 'hitFx', 'tauntTick', 'speak']) {
+  for (const n of ['puff', 'spark', 'typeHit', 'landFx', 'rollFx', 'statusFx', 'boom', 'juiceHit', 'hitFx', 'noise', 'jingle']) { // sound synthesis alone asks for tens of thousands of random numbers per fight, and how many depends on mute and the device's audio sample rate
     const f = window[n]; if (typeof f !== 'function') continue;
     window[n] = function () { const s = simR; simR = null; try { return f.apply(this, arguments); } finally { simR = s; } };
+  }
+  if (typeof SPV !== 'undefined' && SPV) for (const k of Object.keys(SPV)) { // the shot-effects engine: looks only (has, T and ready are answers the fight uses, so they stay as they are)
+    const f = SPV[k]; if (typeof f !== 'function' || k === 'has' || k === 'T' || k === 'ready') continue;
+    SPV[k] = function () { const s = simR; simR = null; try { return f.apply(this, arguments); } finally { simR = s; } };
   }
   if (typeof SPV !== 'undefined' && SPV && typeof SPV.ready === 'function') { // whether the effect sprites have loaded must not change mid-fight
     const r0 = SPV.ready; SPV.ready = () => NETG.on && N.spvReady !== undefined ? N.spvReady : r0();

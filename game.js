@@ -197,7 +197,7 @@ const HIT_SFX = {
   ghost: () => { tone(240, .35, 'sawtooth', .04, -120); noise(.1, .08); }, bug: () => { tone(1000, .08, 'square', .04, 300); noise(.08, .08); }, flying: () => SFX.whip(),
   dragon: () => { noise(.2, .14); tone(90, .3, 'sawtooth', .09, -20); },
 };
-const hitSfx = (ty, cn = 1) => { if (muted) return; PJ = (.86 + Math.random() * .28) * (1 + Math.min(.5, (cn - 1) * .06)); try { (HIT_SFX[ty] || SFX.hit)(); } catch (e) { } PJ = 1; }; // a longer combo rises in pitch
+const hitSfx = (ty, cn = 1) => { if (muted) return; PJ = (.86 + NETG.vr() * .28) * (1 + Math.min(.5, (cn - 1) * .06)); try { (HIT_SFX[ty] || SFX.hit)(); } catch (e) { } PJ = 1; }; // a longer combo rises in pitch
 let vibeOn = true; try { vibeOn = localStorage.getItem('pf_vibe') !== '0'; } catch (e) { }
 let lastBuzz = 0;
 const buzz = ms => { // phone vibration: the app bridge when running in the Android app, the browser API otherwise
@@ -408,7 +408,7 @@ const q = new URLSearchParams(location.search), demoUrl = q.has('demo'); let dem
 const dexById = id => POKEDEX[id - 1];
 const other = f => f === P ? E : P;
 // online 1v1 (net.js fills this in): lockstep, both devices run the same simulation from the same inputs
-const NETG = { on: false, role: '', lobby: false, names: ['', ''], inP: {}, inE: {}, rngOn() { }, rngOff() { }, ready() { }, frame() { }, rematch() { }, leave() { }, refresh() { } };
+const NETG = { on: false, role: '', lobby: false, names: ['', ''], inP: {}, inE: {}, vr: Math.random /* the real random generator, for looks and sound only */, rngOn() { }, rngOff() { }, ready() { }, frame() { }, rematch() { }, leave() { }, refresh() { } };
 const meF = () => NETG.on && NETG.role === 'guest' ? E : P; // the fighter this device controls
 const LANE_PX = 26, DMG_SCALE = .78, laneY = f => f.lp * LANE_PX;
 const WALL_L = WORLD_W / 2 - 1500, WALL_R = WORLD_W / 2 + 1500; // the arena has edges: heavy hits bounce off them
