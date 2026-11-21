@@ -3,7 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, INIT_D = 4, MAX_D = 10, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.3.5'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const NET_VER = '0.3.6'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -12,7 +12,11 @@
   const nativeRnd = Math.random.bind(Math);
   let simR = null, rs = 1;
   const mulberry = () => { rs = (rs + 0x6D2B79F5) | 0; let t = Math.imul(rs ^ (rs >>> 15), 1 | rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  Math.random = () => simR ? simR() : nativeRnd();
+  const site = () => { // where in the code a random number was asked for (diagnostics only: __net.trace = true)
+    const s = (new Error().stack || '').split('\n').slice(3, 6).map(l => { const m = l.match(/at (?:async )?([\w$.<>]+) \(.*?([\w.]+\.js:\d+):\d+\)/) || l.match(/at .*?([\w.]+\.js:\d+):\d+/); return m ? (m.length > 2 ? m[1] + '@' + m[2] : m[1]) : '?'; });
+    return s.join('<');
+  };
+  Math.random = () => { if (!simR) return nativeRnd(); const v = simR(); const n = window.__net; if (n) { if (n.trace) n.calls.push(site()); else n.nCalls++; } return v; };
 
   const N = { role: '', peer: null, conn: null, code: '', linked: false, go: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, readyL: false, readyR: false, cfg: null, rmL: false, rmR: false, rival: null, stall: 0, hl: {}, hr: {}, desync: 0, saved: null, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], rtts: [], dbg: new URLSearchParams(location.search).has('netdbg') };
   window.__net = N;
@@ -130,6 +134,7 @@
     else if (d.t === 'start') { if (N.role === 'guest') begin(d.cfg); }
     else if (d.t === 'rdy') { N.readyR = true; N.fpR = d.fp || null; checkGo(); }
     else if (d.t === 'h') { N.hr[d.k] = d.h; cmp(d.k); }
+    else if (d.t === 'ring') { N.peerRing = d; compareRings(); }
     else if (d.t === 'rm') { N.rmR = true; checkRematch(); }
     else if (d.t === 'bye') onGone();
   }
@@ -140,7 +145,7 @@
   }
   function begin(cfg) {
     if (!N.saved) N.saved = { sprite: spriteStyle, best: bestOf, low: lowQ, theme: themeIdx, gm: [GM.dmg, GM.sta, GM.ki] };
-    Object.assign(N, { cfg, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], lastStall: 0, fpL: null, fpR: null, lastDiff: null, desyncAt: 0 });
+    Object.assign(N, { cfg, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], lastStall: 0, fpL: null, fpR: null, lastDiff: null, desyncAt: 0, ring: {}, calls: [], nCalls: 0, peerRing: null, diag: null, ringSent: false });
     setGM(cfg.gm);
     for (let t = 0; t < INIT_D; t++) { N.loc[t] = 0; N.rem[t] = 0; }
     NETG.on = true; NETG.role = N.role; NETG.lobby = false; NETG.inP = {}; NETG.inE = {}; NETG.names = (cfg.names || ['', '']).map(cleanName);
@@ -175,11 +180,20 @@
     add(1, matchTime); add(3, projectiles.length + beams.length * 7);
     return [...hs, rs].map(x => (x >>> 0).toString(36)).join('/');
   }
+  function compareRings() { // the first tick whose random-number state or fighter state differs tells where the fights split
+    const p = N.peerRing; if (!p || !N.ringSent || N.diag) return;
+    for (let i = 0; i < p.d.length; i++) {
+      const t = p.from + i, a = N.ring[t], b = p.d[i]; if (!a || !b) continue;
+      if (a[0] !== b[0] || a[2] !== b[2]) { N.diag = { tick: t, kind: a[0] !== b[0] ? 'random numbers' : 'positions/health', mine: a, theirs: b, prevMine: N.ring[t - 1], prevTheirs: p.d[i - 1] || null, state: state }; if (N.dbg) console.log('FIRST SPLIT', N.diag); return; }
+    }
+    N.diag = { tick: -1, kind: 'not within the last 100 ticks' };
+  }
   function cmp(k) {
     if (N.hl[k] === undefined || N.hr[k] === undefined) return;
     if (N.hl[k] !== N.hr[k]) {
       const a = N.hl[k].split('/'), b = N.hr[k].split('/'), diff = PARTS.filter((_, i) => a[i] !== b[i]);
       N.desync++; N.desyncAt = performance.now(); N.lastDiff = { tick: k, parts: diff };
+      if (!N.ringSent) { N.ringSent = true; const d = []; for (let t = k - 100; t < k; t++) d.push(N.ring[t] || null); send({ t: 'ring', from: k - 100, d }); compareRings(); } // trace where the two devices first disagreed
       if (N.desync === 1) toast('Out of sync (' + diff.join(', ') + '). The two screens may disagree from here.');
       if (N.dbg) console.log('DESYNC at tick', k, diff, 'mine', N.hl[k], 'theirs', N.hr[k]);
     }
@@ -201,6 +215,7 @@
     delete N.loc[t]; delete N.rem[t];
     now = N.simT; simR = mulberry;
     try { stepFn(TICK); } finally { simR = null; }
+    N.ring[N.tick] = [rs >>> 0, N.trace ? N.calls.join('|') : N.nCalls, Math.round((P.x + E.x * 3 + P.hp * 5 + E.hp * 7 + P.z * 11 + E.z * 13) * 100)]; N.calls = []; N.nCalls = 0; delete N.ring[N.tick - 400];
     N.tick++; N.simT += TICK;
     if (N.tick % HASH_EVERY === 0) { const h = hashState(); N.hl[N.tick] = h; send({ t: 'h', k: N.tick, h }); cmp(N.tick); }
   }
