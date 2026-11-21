@@ -41,3 +41,5 @@ body.online #nNet{display:block}
 #nPing{font-size:13px}
 .lv-ok{color:#7dff9a!important}.lv-mid{color:#ffd34d!important}.lv-bad{color:#ff7a6a!important}.lv-wait{color:#9fb0d8!important}
 .nmv{font:600 11px/1.3 var(--uif);color:#c4d2ff;margin-top:3px;max-width:210px}
+/* menus sit on a static backdrop, so the glass blur only costs GPU time (about a third of a core on the phone) */
+#title *,#menu *,#opts *,#movesPane *,#pickPane *,#labPane *,#tourPane *,#pause *,#over *,#netPane *,#arenaPane *,#htOffer *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
