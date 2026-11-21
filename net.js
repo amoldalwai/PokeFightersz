@@ -3,7 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, INIT_D = 4, MAX_D = 10, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.3.3'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const NET_VER = '0.3.4'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -210,12 +210,13 @@
       N.acc += rdt; let n = 0, stalled = false;
       while (N.acc >= TICK && n < 8) { if (N.rem[N.tick] === undefined) { stalled = true; break; } tick(stepFn); N.acc -= TICK; n++; }
       if (N.acc > TICK * 10) N.acc = TICK * 3; // came back from a hidden tab: do not race to catch up
-      if (stalled && N.stall === 0) { // a new wait: three in ten seconds means the link is jittery, so buffer more input
-        const t0 = performance.now(); N.stallEv = N.stallEv.filter(x => t0 - x < 10000); N.stallEv.push(t0);
+      const ms = performance.now(); // only waits over 80 ms count, and the first 5 s (loading, VS splash) are ignored: three in ten seconds means the link is jittery, so buffer more input
+      if (stalled && N.stall + rdt >= .08 && !N.stallCounted && N.tick > 300) {
+        N.stallCounted = true; N.stallEv = N.stallEv.filter(x => ms - x < 10000); N.stallEv.push(ms);
         if (N.stallEv.length >= 3 && N.wantD < MAX_D) { N.wantD = Math.min(MAX_D, N.wantD + 2); N.stallEv = []; }
       }
-      if (!stalled && N.stall > .1) N.hitch++;
-      if (stalled) N.lastStall = performance.now(); else if (N.wantD > INIT_D && performance.now() - N.lastStall > 20000) { N.wantD--; N.lastStall = performance.now() - 15000; }
+      if (!stalled) { if (N.stall > .1) N.hitch++; N.stallCounted = false; }
+      if (stalled && N.stall >= .08) N.lastStall = ms; else if (N.wantD > INIT_D && ms - N.lastStall > 10000) { N.wantD--; N.lastStall = ms - 7000; }
       N.stall = stalled ? N.stall + rdt : 0;
       if (N.stall > .7) showMsg('WAITING FOR FRIEND...', 0); else if (N.stall === 0 && $('msg').textContent.startsWith('WAITING')) $('msg').classList.remove('on');
       now = N.simT + Math.min(N.acc, TICK);
