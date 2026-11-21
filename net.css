@@ -24,3 +24,14 @@
 body.online #restartBtn{display:none}
 body.online #pause{background:rgba(10,6,20,.6)}
 #nDbg{position:absolute;left:4px;top:4px;z-index:40;font:700 11px monospace;color:#0f0;background:#000a;padding:2px 6px}
+#tVer{position:absolute;left:0;right:0;bottom:6px;text-align:center;font:700 11px var(--uif);letter-spacing:1px;color:#8fa0d6;opacity:.85;pointer-events:none;z-index:3}
+#nName{width:320px;box-sizing:border-box;text-align:center;font:800 20px var(--uif);letter-spacing:2px;text-transform:uppercase;background:#0b1126;color:#fff;border:2px solid #556;border-radius:12px;padding:8px;outline:none}
+#nName:focus{border-color:#ffd34d}
+#nVer{font:600 12px var(--uif);color:#8fa0d6}
+#nVer.bad{color:#ff8a7a;font-weight:800}
+.plt{display:none;position:absolute;top:107px;font:900 12px var(--uif);letter-spacing:1.2px;padding:1px 10px;border-radius:9px;color:#06210f;background:#9fe8ff;text-shadow:none;white-space:nowrap}
+.plt.r{background:#ffb066}
+.plt:empty{display:none!important}
+body.online .plt{display:block}
+#plA{left:14px}#plB{right:14px}
+body.online #vsGo{display:none!important}

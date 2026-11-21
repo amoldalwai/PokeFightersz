@@ -406,7 +406,7 @@ const q = new URLSearchParams(location.search), demoUrl = q.has('demo'); let dem
 const dexById = id => POKEDEX[id - 1];
 const other = f => f === P ? E : P;
 // online 1v1 (net.js fills this in): lockstep, both devices run the same simulation from the same inputs
-const NETG = { on: false, role: '', lobby: false, inP: {}, inE: {}, rngOn() { }, rngOff() { }, ready() { }, frame() { }, rematch() { }, leave() { }, refresh() { } };
+const NETG = { on: false, role: '', lobby: false, names: ['', ''], inP: {}, inE: {}, rngOn() { }, rngOff() { }, ready() { }, frame() { }, rematch() { }, leave() { }, refresh() { } };
 const meF = () => NETG.on && NETG.role === 'guest' ? E : P; // the fighter this device controls
 const LANE_PX = 26, DMG_SCALE = .78, laneY = f => f.lp * LANE_PX;
 const WALL_L = WORLD_W / 2 - 1500, WALL_R = WORLD_W / 2 + 1500; // the arena has edges: heavy hits bounce off them
@@ -2272,9 +2272,13 @@ function draw() {
   for (const s of sparks) { fxf.globalAlpha = 1 - s.t / s.life; if (s.col === '#fff' || s.col === '#ffd34d') { fxf.save(); fxf.globalCompositeOperation = 'lighter'; spr(fxf, 'shine', s.x, s.y, s.size * 4, s.t * 6); fxf.restore(); } else { fxf.fillStyle = s.col; fxf.fillRect(s.x - s.size / 2, s.y - s.size / 2, s.size, s.size); } } fxf.globalAlpha = 1;
   fxf.textAlign = 'center';
   for (const t of floaters) { fxf.globalAlpha = 1 - t.t / .9; const y = t.y - t.t * 70; fxf.font = `bold ${Math.round(t.size * (1 + .45 * Math.max(0, 1 - t.t / .12)))}px "Courier New",monospace`; fxf.lineJoin = 'round'; fxf.lineWidth = 6; fxf.strokeStyle = '#000'; fxf.strokeText(t.text, t.x, y); fxf.fillStyle = t.col; fxf.fillText(t.text, t.x, y); } fxf.globalAlpha = 1;
+  if (NETG.on) for (const [f, i] of [[P, 0], [E, 1]]) { // the players' names float over their Pokémon
+    const n = NETG.names[i]; if (!n || f.dead) continue; const y = GROUND + laneY(f) - f.z - f.lift - f.h - 8;
+    fxf.save(); fxf.font = '900 13px system-ui,sans-serif'; fxf.textAlign = 'center'; const tw = fxf.measureText(n).width + 20; fxf.globalAlpha = .92; fxf.fillStyle = i ? '#ffb066' : '#9fe8ff'; fxf.beginPath(); rrect(fxf, f.x - tw / 2, y - 18, tw, 19, 9.5); fxf.fill(); fxf.fillStyle = '#06210f'; fxf.fillText(n, f.x, y - 4); fxf.restore();
+  }
   for (const f of [P, E]) { // speech bubbles
     const u = now - (f.sayT || -9); if (!f.say || u < 0 || u > 2.3) continue;
-    const k = u < .12 ? .6 + u / .12 * .4 : 1, y = GROUND + laneY(f) - f.z - f.lift - f.h - 30;
+    const k = u < .12 ? .6 + u / .12 * .4 : 1, y = GROUND + laneY(f) - f.z - f.lift - f.h - (NETG.on ? 54 : 30);
     fxf.save(); fxf.globalAlpha = 1 - clamp((u - 2.0) / .3, 0, 1); fxf.font = '800 17px system-ui,sans-serif'; fxf.textAlign = 'center'; const tw = fxf.measureText(f.say).width + 24;
     fxf.translate(f.x, y); fxf.scale(k, k); fxf.fillStyle = '#fff'; fxf.beginPath(); rrect(fxf, -tw / 2, -30, tw, 32, 12); fxf.moveTo(-6, 1); fxf.lineTo(0, 11); fxf.lineTo(8, 1); fxf.fill(); fxf.fillStyle = '#111'; fxf.fillText(f.say, 0, -8); fxf.restore();
   }

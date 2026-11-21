@@ -3,6 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, DELAY = 3, HASH_EVERY = 20;
+  const NET_VER = '0.2.0'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -18,6 +19,20 @@
   const ALPHA = 'ACDEFGHJKLMNPQRSTUVWXYZ';
   const ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }]; // Wi-Fi only: no relay server
   const send = m => { try { if (N.conn && N.conn.open) N.conn.send(m); } catch (e) { } };
+  const cleanName = s => String(s || '').replace(/[^A-Za-z0-9 _\-]/g, '').trim().slice(0, 12).toUpperCase();
+  const myName = () => cleanName($('nName').value) || 'PLAYER';
+  try { $('nName').value = cleanName(localStorage.getItem('pf_name')); } catch (e) { }
+
+  // fingerprint of every script this build runs (the game code and its data): the same version number with different files would still drift apart
+  N.hash = ''; N.info = null;
+  const hashReady = new Promise(res => {
+    const srcs = [...document.scripts].map(s => s.getAttribute('src')).filter(s => s && !/peerjs/.test(s)); let left = srcs.length, h = 2166136261;
+    if (!left) { res(); return; }
+    const texts = new Array(srcs.length), done = () => { if (--left) return; for (const t of texts) for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 16777619); N.hash = (h >>> 0).toString(16).padStart(8, '0'); res(); };
+    srcs.forEach((u, i) => { const x = new XMLHttpRequest(); x.open('GET', u); x.onload = () => { texts[i] = x.responseText || ''; done(); }; x.onerror = () => { texts[i] = ''; N.hashBad = true; done(); }; x.send(); });
+  }).then(() => { if (N.hashBad) N.hash = ''; $('tVer').textContent = 'ONLINE v' + NET_VER + (N.hash ? ' \u00b7 ' + N.hash.slice(0, 6) : ''); if (N.linked) refresh(); });
+  $('tVer').textContent = 'ONLINE v' + NET_VER;
+  const verOk = () => !!N.info && N.info.ver === NET_VER && (!N.info.hash || !N.hash || N.info.hash === N.hash);
 
   NETG.rngOn = seed => { if (seed === undefined || seed === null) return; rs = seed >>> 0; simR = mulberry; hvLast.P = hvLast.E = -1; lkLast.P = lkLast.E = -1; };
   NETG.rngOff = () => { simR = null; };
@@ -32,19 +47,23 @@
     return pick && pick.length === Math.min(3, pool.length) && pick.every(i => pool[i]) ? pick.slice() : pool.slice(0, 3).map((_, i) => i);
   }
   const sendPick = () => send({ t: 'pick', pk: selYou, spec: specIdx(selYou) });
-  function card(id, p, who) {
-    $(id).innerHTML = p ? `<div class="nwho">${who}</div><img src="${stillUrl(p)}" onerror="this.onerror=null;this.src='${spriteUrl(p)}'" alt=""><div class="nnm">${nm(p.name)}</div><div class="tags">${tags(p.types)}</div>` : `<div class="nwho">${who}</div><div class="nwait">choosing...</div>`;
+  function card(id, p, who, name) {
+    $(id).innerHTML = p ? `<div class="nwho"></div><img src="${stillUrl(p)}" onerror="this.onerror=null;this.src='${spriteUrl(p)}'" alt=""><div class="nnm">${nm(p.name)}</div><div class="tags">${tags(p.types)}</div>` : `<div class="nwho"></div><div class="nwait">choosing...</div>`;
+    $(id).firstChild.textContent = who + (name ? ' \u00b7 ' + name : '');
   }
   function refresh() {
     if (!N.linked) return;
-    const mine = dexById(selYou), rival = N.rival ? dexById(N.rival.pk) : null, host = N.role === 'host';
-    card('nMe', mine, 'YOU'); card('nFr', rival, 'FRIEND');
+    const mine = dexById(selYou), rival = N.rival ? dexById(N.rival.pk) : null, host = N.role === 'host', ok = verOk();
+    card('nMe', mine, 'YOU', myName()); card('nFr', rival, 'FRIEND', N.info && cleanName(N.info.name));
     sendPick();
     $('nArena').textContent = THEMES[themeIdx].name || THEMES[themeIdx].id;
     for (const b of document.querySelectorAll('#nRounds .chip')) b.classList.toggle('sel', +b.dataset.r === bestOf);
     for (const e of document.querySelectorAll('.nhost')) e.style.display = host ? '' : 'none';
     for (const e of document.querySelectorAll('.nguest')) e.style.display = host ? 'none' : '';
-    $('nGo').disabled = !rival;
+    $('nGo').disabled = !rival || !ok;
+    const mv = 'v' + NET_VER + (N.hash ? ' (' + N.hash.slice(0, 6) + ')' : ''), fv = N.info ? 'v' + N.info.ver + (N.info.hash ? ' (' + N.info.hash.slice(0, 6) + ')' : '') : '...';
+    $('nVer').textContent = 'Your version ' + mv + ' \u00b7 friend ' + fv; $('nVer').classList.toggle('bad', !!N.info && !ok);
+    if (N.info && !ok) { stat('Different game versions. Both of you need the same version before you can fight.', true); return; }
     stat(rival ? (host ? 'Friend connected. Press FIGHT when you are both ready.' : 'Connected. Waiting for the host to start.') : 'Friend connected. Waiting for their pick...');
   }
   NETG.refresh = refresh;
@@ -74,13 +93,13 @@
   }
   function bind(c) {
     N.conn = c;
-    c.on('open', () => { N.linked = true; N.rival = null; step('nStepLobby'); refresh(); });
+    c.on('open', () => { N.linked = true; N.rival = null; N.info = null; step('nStepLobby'); refresh(); hashReady.then(() => send({ t: 'hello', ver: NET_VER, hash: N.hash, name: myName() })); });
     c.on('data', onData);
     c.on('close', () => { if (N.conn === c) onGone(); });
     c.on('error', () => { if (N.conn === c) onGone(); });
   }
   function closeNet() {
-    N.linked = false; const c = N.conn, p = N.peer; N.conn = null; N.peer = null;
+    N.linked = false; N.info = null; const c = N.conn, p = N.peer; N.conn = null; N.peer = null;
     try { if (c) c.close(); } catch (e) { } try { if (p) p.destroy(); } catch (e) { }
   }
   function onGone() {
@@ -103,6 +122,7 @@
   function onData(d) {
     if (!d || !d.t) return;
     if (d.t === 'i') N.rem[d.k] = d.m;
+    else if (d.t === 'hello') { N.info = { ver: String(d.ver), hash: String(d.hash || ''), name: cleanName(d.name) || 'FRIEND' }; if (NETG.lobby) refresh(); }
     else if (d.t === 'pick') { N.rival = { pk: d.pk, spec: d.spec }; if (NETG.lobby) refresh(); }
     else if (d.t === 'start') { if (N.role === 'guest') begin(d.cfg); }
     else if (d.t === 'rdy') { N.readyR = true; checkGo(); }
@@ -111,15 +131,16 @@
     else if (d.t === 'bye') onGone();
   }
   function fight() {
-    if (N.role !== 'host' || !N.rival) return;
-    const cfg = { seed: (nativeRnd() * 4294967296) >>> 0, pa: selYou, pb: N.rival.pk, spP: specIdx(selYou), spE: N.rival.spec, bestOf, theme: themeIdx, sprite: spriteStyle };
+    if (N.role !== 'host' || !N.rival || !verOk()) return;
+    const cfg = { seed: (nativeRnd() * 4294967296) >>> 0, pa: selYou, pb: N.rival.pk, spP: specIdx(selYou), spE: N.rival.spec, bestOf, theme: themeIdx, sprite: spriteStyle, names: [myName(), N.info.name] };
     send({ t: 'start', cfg }); begin(cfg);
   }
   function begin(cfg) {
     if (!N.saved) N.saved = { sprite: spriteStyle, best: bestOf, low: lowQ, theme: themeIdx };
     Object.assign(N, { cfg, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0 });
     for (let t = 0; t < DELAY; t++) { N.loc[t] = 0; N.rem[t] = 0; }
-    NETG.on = true; NETG.role = N.role; NETG.lobby = false; NETG.inP = {}; NETG.inE = {};
+    NETG.on = true; NETG.role = N.role; NETG.lobby = false; NETG.inP = {}; NETG.inE = {}; NETG.names = (cfg.names || ['', '']).map(cleanName);
+    $('plA').textContent = NETG.names[0]; $('plB').textContent = NETG.names[1];
     document.body.classList.add('online'); $('pause').classList.remove('on'); $('againBtn').textContent = 'REMATCH';
     startMatch({ online: cfg });
   }
@@ -169,8 +190,10 @@
 
   // ---- wiring
   $('tOnline').onclick = () => { audio(); NETG.open(); };
-  $('nHost').onclick = () => hostRoom();
-  $('nJoin').onclick = () => { N.role = 'guest'; step('nStepJoin'); stat(''); $('nIn').focus(); };
+  $('nHost').onclick = () => { saveName(); hostRoom(); };
+  $('nJoin').onclick = () => { saveName(); N.role = 'guest'; step('nStepJoin'); stat(''); $('nIn').focus(); };
+  function saveName() { const n = cleanName($('nName').value); $('nName').value = n; try { localStorage.setItem('pf_name', n); } catch (e) { } }
+  $('nName').onkeydown = e => e.stopPropagation(); $('nName').onkeyup = e => e.stopPropagation();
   $('nJoinGo').onclick = () => joinRoom($('nIn').value);
   $('nIn').oninput = e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); };
   $('nIn').onkeydown = e => { if (e.key === 'Enter') joinRoom($('nIn').value); e.stopPropagation(); };

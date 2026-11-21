@@ -733,7 +733,7 @@ body:has(#pause.on) #practiceUI{display:none}
   <div id="hud">
     <div class="side l"><div class="face"><img id="faceA" alt=""></div><div class="info"><div class="r1"><span class="pname" id="nameA"></span><span class="num" id="hpAn"></span></div><div class="hp"><div class="back"></div><div class="fill trail" id="hpAt"></div><div class="fill" id="hpA"></div></div><div class="r3"><span class="lbl">STAMINA</span><div class="sta"><i id="staA"></i></div><span class="spct" id="spA">0%</span></div><div class="r4"><span class="lbl">KI</span><div class="kibar"><i id="kibA"></i></div><span class="ki" id="kiA">0%</span><span class="lv" id="lvA"><i></i><i></i><i></i><i></i></span></div><div class="stat" id="stA"></div><div class="shk"><i id="shkA"></i></div></div></div>
     <div class="side r"><div class="face"><img id="faceB" alt=""></div><div class="info"><div class="r1"><span class="pname" id="nameB"></span><span class="num" id="hpBn"></span></div><div class="hp"><div class="back"></div><div class="fill trail" id="hpBt"></div><div class="fill" id="hpB"></div></div><div class="r3"><span class="lbl">STAMINA</span><div class="sta"><i id="staB"></i></div><span class="spct" id="spB">0%</span></div><div class="r4"><span class="lbl">KI</span><div class="kibar"><i id="kibB"></i></div><span class="ki" id="kiB">0%</span><span class="lv" id="lvB"><i></i><i></i><i></i><i></i></span></div><div class="stat" id="stB"></div><div class="shk"><i id="shkB"></i></div></div></div>
-    <div id="timerWrap"></div><div id="timer">99</div><div id="wx"></div><div class="pips l" id="pipA"></div><div class="pips r" id="pipB"></div>
+    <div class="plt" id="plA"></div><div class="plt r" id="plB"></div><div id="timerWrap"></div><div id="timer">99</div><div id="wx"></div><div class="pips l" id="pipA"></div><div class="pips r" id="pipB"></div>
   </div>
   <div class="combo l" id="cbA"></div><div class="combo r" id="cbB"></div>
   <div id="cine"><canvas id="cineCv" width="960" height="480"></canvas><img id="cineImg" alt=""><canvas id="cinePm" width="8" height="8" style="display:none;position:absolute"></canvas><div id="cineTxt"></div></div>
@@ -780,7 +780,7 @@ body:has(#pause.on) #practiceUI{display:none}
       <div class="trow"><button class="bigbtn dark" id="tOpts" data-ic="cog">SETTINGS</button><button class="bigbtn howb" id="tHow"><span class="htq">?</span>HOW TO PLAY</button></div>
     </div>
     <button class="ballb" id="tBalls" title="Poké Balls"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="#fff"/><path d="M3 24A21 21 0 0 1 45 24Z" fill="#e8402f"/><circle cx="24" cy="24" r="21" fill="none" stroke="#111" stroke-width="3"/><path d="M3 24H45" stroke="#111" stroke-width="4"/><circle cx="24" cy="24" r="7" fill="#fff" stroke="#111" stroke-width="3.5"/><circle cx="24" cy="24" r="2.5" fill="#d8d8d8"/></svg><b id="tBallPts"></b></button>
-    <button class="chip" id="tExit" data-ic="close">Exit</button>
+    <button class="chip" id="tExit" data-ic="close">Exit</button><div id="tVer"></div>
   </div>
 
   <div class="ov" id="menu">
@@ -823,7 +823,7 @@ body:has(#pause.on) #practiceUI{display:none}
   <div class="ov" id="netPane">
     <h2>ONLINE 1v1</h2>
     <div class="nsub">Fight a friend. Both of you need Wi-Fi (mobile data may not connect).</div>
-    <div id="nStep0" class="nstep"><button class="bigbtn gold" id="nHost">HOST A ROOM</button><button class="bigbtn" id="nJoin">JOIN A ROOM</button></div>
+    <div id="nStep0" class="nstep"><input id="nName" maxlength="12" placeholder="YOUR NAME" autocomplete="off" spellcheck="false"><button class="bigbtn gold" id="nHost">HOST A ROOM</button><button class="bigbtn" id="nJoin">JOIN A ROOM</button></div>
     <div id="nStepHost" class="nstep" style="display:none"><div class="nsub">ROOM CODE</div><div id="nCode">....</div><button class="chip" id="nCopy">COPY CODE</button></div>
     <div id="nStepJoin" class="nstep" style="display:none"><div class="nsub">TYPE THE 4 LETTER CODE</div><input id="nIn" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="go" id="nJoinGo">JOIN</button></div>
     <div id="nStepLobby" class="nstep" style="display:none">
@@ -834,7 +834,7 @@ body:has(#pause.on) #practiceUI{display:none}
       <button class="go nhost" id="nGo">FIGHT!</button>
       <div class="nguest nsub">The host picks the arena and starts the fight.</div>
     </div>
-    <div id="nStat"></div>
+    <div id="nVer"></div><div id="nStat"></div>
     <button class="chip" id="nBack">BACK</button>
   </div>
   <div id="nToast"></div>
