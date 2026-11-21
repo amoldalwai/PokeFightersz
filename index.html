@@ -733,7 +733,7 @@ body:has(#pause.on) #practiceUI{display:none}
   <div id="hud">
     <div class="side l"><div class="face"><img id="faceA" alt=""></div><div class="info"><div class="r1"><span class="pname" id="nameA"></span><span class="num" id="hpAn"></span></div><div class="hp"><div class="back"></div><div class="fill trail" id="hpAt"></div><div class="fill" id="hpA"></div></div><div class="r3"><span class="lbl">STAMINA</span><div class="sta"><i id="staA"></i></div><span class="spct" id="spA">0%</span></div><div class="r4"><span class="lbl">KI</span><div class="kibar"><i id="kibA"></i></div><span class="ki" id="kiA">0%</span><span class="lv" id="lvA"><i></i><i></i><i></i><i></i></span></div><div class="stat" id="stA"></div><div class="shk"><i id="shkA"></i></div></div></div>
     <div class="side r"><div class="face"><img id="faceB" alt=""></div><div class="info"><div class="r1"><span class="pname" id="nameB"></span><span class="num" id="hpBn"></span></div><div class="hp"><div class="back"></div><div class="fill trail" id="hpBt"></div><div class="fill" id="hpB"></div></div><div class="r3"><span class="lbl">STAMINA</span><div class="sta"><i id="staB"></i></div><span class="spct" id="spB">0%</span></div><div class="r4"><span class="lbl">KI</span><div class="kibar"><i id="kibB"></i></div><span class="ki" id="kiB">0%</span><span class="lv" id="lvB"><i></i><i></i><i></i><i></i></span></div><div class="stat" id="stB"></div><div class="shk"><i id="shkB"></i></div></div></div>
-    <div class="plt" id="plA"></div><div class="plt r" id="plB"></div><div id="timerWrap"></div><div id="timer">99</div><div id="wx"></div><div class="pips l" id="pipA"></div><div class="pips r" id="pipB"></div>
+    <div class="plt" id="plA"></div><div class="plt r" id="plB"></div><div id="timerWrap"></div><div id="timer">99</div><div id="wx"></div><div id="nNet"></div><div class="pips l" id="pipA"></div><div class="pips r" id="pipB"></div>
   </div>
   <div class="combo l" id="cbA"></div><div class="combo r" id="cbB"></div>
   <div id="cine"><canvas id="cineCv" width="960" height="480"></canvas><img id="cineImg" alt=""><canvas id="cinePm" width="8" height="8" style="display:none;position:absolute"></canvas><div id="cineTxt"></div></div>
@@ -828,13 +828,13 @@ body:has(#pause.on) #practiceUI{display:none}
     <div id="nStepJoin" class="nstep" style="display:none"><div class="nsub">TYPE THE 4 LETTER CODE</div><input id="nIn" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="go" id="nJoinGo">JOIN</button></div>
     <div id="nStepLobby" class="nstep" style="display:none">
       <div class="ncards"><div class="ncard" id="nMe"></div><div class="nvs">VS</div><div class="ncard" id="nFr"></div></div>
-      <div class="nopts"><button class="chip" id="nPick">CHANGE MY POK&Eacute;MON</button>
+      <div class="nopts"><button class="chip" id="nPick">CHANGE MY POK&Eacute;MON</button><button class="chip" id="nMoves">MY MOVES</button>
         <span class="nhost"><button class="chip" id="nPrev">&lsaquo;</button><b id="nArena"></b><button class="chip" id="nNext">&rsaquo;</button></span>
         <span class="nhost" id="nRounds"><button class="chip" data-r="1">1 ROUND</button><button class="chip" data-r="3">BEST OF 3</button></span></div>
       <button class="go nhost" id="nGo">FIGHT!</button>
       <div class="nguest nsub">The host picks the arena and starts the fight.</div>
     </div>
-    <div id="nVer"></div><div id="nStat"></div>
+    <div id="nVer"></div><div id="nPing"></div><div id="nStat"></div>
     <button class="chip" id="nBack">BACK</button>
   </div>
   <div id="nToast"></div>

@@ -2,8 +2,8 @@
 // Both devices run the same simulation at a fixed 60 Hz from the same seed and exchange only the controls, so effects and sound come for free.
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
-  const TICK = 1 / 60, DELAY = 3, HASH_EVERY = 20;
-  const NET_VER = '0.2.0'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const TICK = 1 / 60, INIT_D = 4, MAX_D = 10, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
+  const NET_VER = '0.3.0'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -14,7 +14,7 @@
   const mulberry = () => { rs = (rs + 0x6D2B79F5) | 0; let t = Math.imul(rs ^ (rs >>> 15), 1 | rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   Math.random = () => simR ? simR() : nativeRnd();
 
-  const N = { role: '', peer: null, conn: null, code: '', linked: false, go: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, readyL: false, readyR: false, cfg: null, rmL: false, rmR: false, rival: null, stall: 0, hl: {}, hr: {}, desync: 0, saved: null, dbg: new URLSearchParams(location.search).has('netdbg') };
+  const N = { role: '', peer: null, conn: null, code: '', linked: false, go: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, readyL: false, readyR: false, cfg: null, rmL: false, rmR: false, rival: null, stall: 0, hl: {}, hr: {}, desync: 0, saved: null, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], rtts: [], dbg: new URLSearchParams(location.search).has('netdbg') };
   window.__net = N;
   const ALPHA = 'ACDEFGHJKLMNPQRSTUVWXYZ';
   const ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }]; // Wi-Fi only: no relay server
@@ -47,14 +47,15 @@
     return pick && pick.length === Math.min(3, pool.length) && pick.every(i => pool[i]) ? pick.slice() : pool.slice(0, 3).map((_, i) => i);
   }
   const sendPick = () => send({ t: 'pick', pk: selYou, spec: specIdx(selYou) });
-  function card(id, p, who, name) {
-    $(id).innerHTML = p ? `<div class="nwho"></div><img src="${stillUrl(p)}" onerror="this.onerror=null;this.src='${spriteUrl(p)}'" alt=""><div class="nnm">${nm(p.name)}</div><div class="tags">${tags(p.types)}</div>` : `<div class="nwho"></div><div class="nwait">choosing...</div>`;
+  function card(id, p, who, name, spec) {
+    $(id).innerHTML = p ? `<div class="nwho"></div><img src="${stillUrl(p)}" onerror="this.onerror=null;this.src='${spriteUrl(p)}'" alt=""><div class="nnm">${nm(p.name)}</div><div class="tags">${tags(p.types)}</div><div class="nmv"></div>` : `<div class="nwho"></div><div class="nwait">choosing...</div>`;
     $(id).firstChild.textContent = who + (name ? ' \u00b7 ' + name : '');
+    if (p) { const pool = buildKit(p).pool; $(id).querySelector('.nmv').textContent = (spec || []).map(i => pool[i] ? pool[i].name : '').filter(Boolean).join(' \u00b7 '); }
   }
   function refresh() {
     if (!N.linked) return;
     const mine = dexById(selYou), rival = N.rival ? dexById(N.rival.pk) : null, host = N.role === 'host', ok = verOk();
-    card('nMe', mine, 'YOU', myName()); card('nFr', rival, 'FRIEND', N.info && cleanName(N.info.name));
+    card('nMe', mine, 'YOU', myName(), specIdx(selYou)); card('nFr', rival, 'FRIEND', N.info && cleanName(N.info.name), N.rival && N.rival.spec);
     sendPick();
     $('nArena').textContent = THEMES[themeIdx].name || THEMES[themeIdx].id;
     for (const b of document.querySelectorAll('#nRounds .chip')) b.classList.toggle('sel', +b.dataset.r === bestOf);
@@ -99,7 +100,7 @@
     c.on('error', () => { if (N.conn === c) onGone(); });
   }
   function closeNet() {
-    N.linked = false; N.info = null; const c = N.conn, p = N.peer; N.conn = null; N.peer = null;
+    N.linked = false; N.info = null; N.rtts = []; const c = N.conn, p = N.peer; N.conn = null; N.peer = null;
     try { if (c) c.close(); } catch (e) { } try { if (p) p.destroy(); } catch (e) { }
   }
   function onGone() {
@@ -122,6 +123,8 @@
   function onData(d) {
     if (!d || !d.t) return;
     if (d.t === 'i') N.rem[d.k] = d.m;
+    else if (d.t === 'p') send({ t: 'q', s: d.s });
+    else if (d.t === 'q') { N.rtts.push(performance.now() - d.s); if (N.rtts.length > 8) N.rtts.shift(); updateNet(); }
     else if (d.t === 'hello') { N.info = { ver: String(d.ver), hash: String(d.hash || ''), name: cleanName(d.name) || 'FRIEND' }; if (NETG.lobby) refresh(); }
     else if (d.t === 'pick') { N.rival = { pk: d.pk, spec: d.spec }; if (NETG.lobby) refresh(); }
     else if (d.t === 'start') { if (N.role === 'guest') begin(d.cfg); }
@@ -137,8 +140,8 @@
   }
   function begin(cfg) {
     if (!N.saved) N.saved = { sprite: spriteStyle, best: bestOf, low: lowQ, theme: themeIdx };
-    Object.assign(N, { cfg, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0 });
-    for (let t = 0; t < DELAY; t++) { N.loc[t] = 0; N.rem[t] = 0; }
+    Object.assign(N, { cfg, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], lastStall: 0 });
+    for (let t = 0; t < INIT_D; t++) { N.loc[t] = 0; N.rem[t] = 0; }
     NETG.on = true; NETG.role = N.role; NETG.lobby = false; NETG.inP = {}; NETG.inE = {}; NETG.names = (cfg.names || ['', '']).map(cleanName);
     $('plA').textContent = NETG.names[0]; $('plB').textContent = NETG.names[1];
     document.body.classList.add('online'); $('pause').classList.remove('on'); $('againBtn').textContent = 'REMATCH';
@@ -165,8 +168,16 @@
     delete N.hl[k]; delete N.hr[k];
   }
   function tick(stepFn) {
-    const t = N.tick, m = enc(playerInput()), host = N.role === 'host';
-    N.loc[t + DELAY] = m; send({ t: 'i', k: t + DELAY, m });
+    const t = N.tick, host = N.role === 'host';
+    if (N.D > N.wantD) N.D--; // shrinking the buffer: the input for this slot was already sent, so skip sampling once
+    else {
+      const m = enc(playerInput());
+      if (N.D < N.wantD) { // a longer delay: the ticks in between repeat the held keys so the friend never waits for them
+        for (let k = t + N.D; k < t + N.wantD; k++) { N.loc[k] = m & HELD; send({ t: 'i', k, m: m & HELD }); }
+        N.D = N.wantD;
+      }
+      N.loc[t + N.D] = m; send({ t: 'i', k: t + N.D, m });
+    }
     NETG.inP = dec(host ? N.loc[t] : N.rem[t]); NETG.inE = dec(host ? N.rem[t] : N.loc[t]);
     delete N.loc[t]; delete N.rem[t];
     now = N.simT; simR = mulberry;
@@ -180,6 +191,12 @@
       N.acc += rdt; let n = 0, stalled = false;
       while (N.acc >= TICK && n < 8) { if (N.rem[N.tick] === undefined) { stalled = true; break; } tick(stepFn); N.acc -= TICK; n++; }
       if (N.acc > TICK * 10) N.acc = TICK * 3; // came back from a hidden tab: do not race to catch up
+      if (stalled && N.stall === 0) { // a new wait: three in ten seconds means the link is jittery, so buffer more input
+        const t0 = performance.now(); N.stallEv = N.stallEv.filter(x => t0 - x < 10000); N.stallEv.push(t0);
+        if (N.stallEv.length >= 3 && N.wantD < MAX_D) { N.wantD = Math.min(MAX_D, N.wantD + 2); N.stallEv = []; }
+      }
+      if (!stalled && N.stall > .1) N.hitch++;
+      if (stalled) N.lastStall = performance.now(); else if (N.wantD > INIT_D && performance.now() - N.lastStall > 20000) { N.wantD--; N.lastStall = performance.now() - 15000; }
       N.stall = stalled ? N.stall + rdt : 0;
       if (N.stall > .7) showMsg('WAITING FOR FRIEND...', 0); else if (N.stall === 0 && $('msg').textContent.startsWith('WAITING')) $('msg').classList.remove('on');
       now = N.simT + Math.min(N.acc, TICK);
@@ -187,6 +204,15 @@
     hudDt = Math.min(rdt, .05);
     if (N.dbg) { let e = $('nDbg'); if (!e) { e = document.createElement('div'); e.id = 'nDbg'; $('stage').appendChild(e); } e.textContent = `${N.role} tick ${N.tick} desync ${N.desync} stall ${N.stall.toFixed(1)}`; }
   };
+
+  // ---- connection status: round trip to the friend, waits, and how much input is buffered
+  function updateNet() {
+    const r = N.rtts, avg = r.length ? r.reduce((a, b) => a + b, 0) / r.length : -1, mx = r.length ? Math.max(...r) : 0;
+    const lvl = avg < 0 ? 'wait' : (N.stall > .3 || avg >= 90 || mx >= 200) ? 'bad' : (avg >= 40 || mx >= 100 || N.hitch > 0 && N.go) ? 'mid' : 'ok';
+    const txt = avg < 0 ? 'checking...' : Math.round(avg) + ' ms' + (NETG.on ? (N.hitch ? ' \u00b7 ' + N.hitch + ' hitch' + (N.hitch > 1 ? 'es' : '') : '') + (N.D > INIT_D ? ' \u00b7 buffer ' + Math.round(N.D * 1000 / 60) + ' ms' : '') : (lvl === 'ok' ? ' \u00b7 good link' : lvl === 'mid' ? ' \u00b7 fair link' : ' \u00b7 weak link'));
+    for (const id of ['nNet', 'nPing']) { const e = $(id); e.textContent = '\u25cf ' + txt; e.className = 'lv-' + lvl; }
+  }
+  setInterval(() => { if (N.linked) send({ t: 'p', s: performance.now() }); updateNet(); }, 1000);
 
   // ---- wiring
   $('tOnline').onclick = () => { audio(); NETG.open(); };
@@ -200,6 +226,7 @@
   $('nIn').onkeyup = e => e.stopPropagation();
   $('nBack').onclick = () => leave();
   $('nPick').onclick = () => openPicker('you');
+  $('nMoves').onclick = () => openMoves();
   $('nGo').onclick = fight;
   $('nPrev').onclick = () => { setThemeIdx(themeIdx - 1); refresh(); }; $('nNext').onclick = () => { setThemeIdx(themeIdx + 1); refresh(); };
   for (const b of document.querySelectorAll('#nRounds .chip')) b.onclick = () => { setRounds(+b.dataset.r); refresh(); };

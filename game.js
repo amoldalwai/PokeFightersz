@@ -3040,8 +3040,8 @@ function openMoves() {
     $('mpList').querySelectorAll('.mp').forEach(el => el.onclick = e => { const i = +el.dataset.i; if (e.target.closest('.eye')) { openPreview(p, i); return; } if (sel.includes(i)) { if (sel.length > 1) sel = sel.filter(x => x !== i); } else { sel.push(i); if (sel.length > need) sel.shift(); } draw(); });
   };
   draw(); $('mpList').scrollTop = 0; pane.classList.add('on');
-  $('mpBack').onclick = () => { pane.classList.remove('on'); refreshMenu(); };
-  $('mpDone').onclick = () => { if (sel.length === need) { loadouts[p.id] = sel; try { localStorage.setItem('pf_loadouts', JSON.stringify(loadouts)); } catch (e) { } } pane.classList.remove('on'); refreshMenu(); };
+  $('mpBack').onclick = () => { pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); };
+  $('mpDone').onclick = () => { if (sel.length === need) { loadouts[p.id] = sel; try { localStorage.setItem('pf_loadouts', JSON.stringify(loadouts)); } catch (e) { } } pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); };
 }
 // ---- move preview dialog: the eye button on a move opens a small window that runs this same game in ?preview mode (see the end of this file)
 const EYE = '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zm0 12.5a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>';
