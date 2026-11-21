@@ -3,7 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, INIT_D = 4, MAX_D = 10, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.4.1'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const NET_VER = '0.4.2'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -159,7 +159,11 @@
     const sp = f => f.specs.map(s => s.name).join(',');
     return { gm: [GM.dmg, GM.sta, GM.ki].join(','), low: lowQ, life: LIFE, anim: ANIM2D, sprite: spriteStyle, size: [P.w, P.h, E.w, E.h].map(v => Math.round(v * 10)).join(','), hp: Math.round(P.maxhp) + ',' + Math.round(E.maxhp), moves: sp(P) + '|' + sp(E), abil: P.ability.name + ',' + E.ability.name, bo: bestOf };
   }
-  NETG.ready = () => { N.readyL = true; N.fpL = envFp(); send({ t: 'rdy', fp: N.fpL }); checkGo(); }; // this device has loaded the fighters
+  NETG.ready = () => { // this device has loaded the fighters; wait (briefly) for the effect sprites too so both devices start the same way
+    const t0 = performance.now(), go = () => { N.spvReady = NETG.spvNow ? !!NETG.spvNow() : false; N.readyL = true; N.fpL = envFp(); send({ t: 'rdy', fp: N.fpL }); checkGo(); };
+    const wait = () => { if (!NETG.on) return; if (NETG.spvNow && !NETG.spvNow() && performance.now() - t0 < 4000) setTimeout(wait, 100); else go(); };
+    wait();
+  };
   function checkGo() {
     if (!(NETG.on && N.readyL && N.readyR && !N.go)) return;
     const bad = N.fpR ? Object.keys(N.fpL).filter(k => String(N.fpL[k]) !== String(N.fpR[k])) : [];
@@ -250,6 +254,16 @@
     for (const id of ['nNet', 'nPing']) { const e = $(id); e.textContent = '\u25cf ' + txt; e.className = 'lv-' + lvl; }
   }
   setInterval(() => { if (N.linked) send({ t: 'p', s: performance.now() }); updateNet(); }, 1000);
+
+  // ---- keep looks out of the shared fight: effect helpers draw from the real random generator, so a spark or puff that one phone shows and the other does not can never shift the fight's random numbers
+  for (const n of ['puff', 'spark', 'typeHit', 'landFx', 'rollFx', 'statusFx', 'boom', 'juiceHit', 'hitFx', 'tauntTick', 'speak']) {
+    const f = window[n]; if (typeof f !== 'function') continue;
+    window[n] = function () { const s = simR; simR = null; try { return f.apply(this, arguments); } finally { simR = s; } };
+  }
+  if (typeof SPV !== 'undefined' && SPV && typeof SPV.ready === 'function') { // whether the effect sprites have loaded must not change mid-fight
+    const r0 = SPV.ready; SPV.ready = () => NETG.on && N.spvReady !== undefined ? N.spvReady : r0();
+    NETG.spvNow = () => r0();
+  }
 
   // ---- wiring
   $('tOnline').onclick = () => { audio(); NETG.open(); };

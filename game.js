@@ -1596,7 +1596,7 @@ function updateFighter(f, o, inp, dt) {
   if (landed && f.toss > 0 && f.hitT > .05 && !f.dead) { f.toss--; f.tossV *= .65; f.vz = f.tossV; f.sqT = .14; f.kvx *= .8; f.bounced = false; puff(f.x, GROUND, 8, 'rgba(210,190,150,.8)', 110); shake = Math.max(shake, 5 + 4 * f.toss); sfx('block'); }
   f.wasAir = false; } else f.wasAir = true;
   if (f.hitBig && f.hitT > 0) {
-    if ((f.hv === 2 || f.lk === 2) && f.z <= 0 && Math.abs(f.kvx) > 200) { f.skT = (f.skT || 0) - dt; if (f.skT <= 0) { f.skT = .04; puff(f.x - Math.sign(f.kvx) * f.w * .3, GROUND + laneY(f), 2, 'rgba(215,200,170,.6)', 45); if (!lowQ) spark(f.x - Math.sign(f.kvx) * f.w * .3, GROUND - 4, '#ffd34d', 2); } }
+    if ((f.hv === 2 || (!NETG.on && f.lk === 2)) && f.z <= 0 && Math.abs(f.kvx) > 200) { f.skT = (f.skT || 0) - dt; if (f.skT <= 0) { f.skT = .04; puff(f.x - Math.sign(f.kvx) * f.w * .3, GROUND + laneY(f), 2, 'rgba(215,200,170,.6)', 45); if (!lowQ) spark(f.x - Math.sign(f.kvx) * f.w * .3, GROUND - 4, '#ffd34d', 2); } }
     if (!lowQ && (f.hv === 1 || f.hv === 3) && f.z > 0) (f.jt = f.jt || []).push({ x: f.x, y: GROUND + laneY(f) - f.z - f.lift - f.h / 2, t: now });
   }
   while (f.jt && f.jt.length && now - f.jt[0].t > .5) f.jt.shift();
