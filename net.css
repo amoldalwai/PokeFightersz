@@ -43,3 +43,22 @@ body.online #nNet{display:block}
 .nmv{font:600 11px/1.3 var(--uif);color:#c4d2ff;margin-top:3px;max-width:210px}
 /* menus sit on a static backdrop, so the glass blur only costs GPU time (about a third of a core on the phone) */
 #title *,#menu *,#opts *,#movesPane *,#pickPane *,#labPane *,#tourPane *,#pause *,#over *,#netPane *,#arenaPane *,#htOffer *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+/* compact lobby: everything fits the 480 px stage */
+#tVer{left:auto;right:14px;text-align:right;bottom:6px;z-index:8}
+#netPane.lob{justify-content:center;gap:8px}
+#netPane.lob h2{font-size:26px;letter-spacing:4px}
+#netPane.lob .ntop{display:none}
+#netPane.lob .nstep{gap:8px}
+#netPane.lob .ncards{gap:16px}
+#netPane.lob .ncard{width:230px;height:186px;padding:6px;gap:1px}
+#netPane.lob .ncard img{height:88px}
+#netPane.lob .nnm{font-size:19px}
+#netPane.lob .nmv{font-size:10.5px;margin-top:1px}
+#netPane.lob .nvs{font-size:28px}
+#netPane.lob .nopts{gap:8px}
+#netPane.lob .nopts .chip,#netPane.lob #nBack{padding:6px 12px;font:700 13px var(--uif)}
+#netPane.lob .go{padding:8px 36px;font-size:21px}
+#netPane.lob #nBack{position:absolute;left:14px;top:12px}
+#netPane.lob #nPing{position:absolute;right:16px;top:16px}
+#netPane.lob #nVer{position:absolute;right:12px;bottom:8px;font-size:10px;opacity:.8}
+#netPane.lob #nStat{min-height:0;font-size:13px}

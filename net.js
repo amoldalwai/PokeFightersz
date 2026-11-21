@@ -3,7 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, INIT_D = 4, MAX_D = 10, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.5.1'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const NET_VER = '0.5.2'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -43,7 +43,7 @@
 
   // ---- lobby
   const steps = ['nStep0', 'nStepHost', 'nStepJoin', 'nStepLobby'];
-  function step(n) { for (const s of steps) $(s).style.display = s === n ? '' : 'none'; }
+  function step(n) { for (const s of steps) $(s).style.display = s === n ? '' : 'none'; $('netPane').classList.toggle('lob', n === 'nStepLobby'); }
   function stat(t, bad) { const e = $('nStat'); e.textContent = t || ''; e.classList.toggle('bad', !!bad); }
   function toast(t) { const e = $('nToast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 3500); }
   function specIdx(id) {
@@ -69,6 +69,7 @@
     const mv = 'v' + NET_VER + (N.hash ? ' (' + N.hash.slice(0, 6) + ')' : ''), fv = N.info ? 'v' + N.info.ver + (N.info.hash ? ' (' + N.info.hash.slice(0, 6) + ')' : '') : '...';
     $('nVer').textContent = 'Your version ' + mv + ' \u00b7 friend ' + fv; $('nVer').classList.toggle('bad', !!N.info && !ok);
     if (N.info && !ok) { stat('Different game versions. Both of you need the same version before you can fight.', true); return; }
+    if (!N.info && N.noHello) { $('nGo').disabled = true; stat('Your friend\'s game is too old to compare versions. Both of you need the latest version.', true); return; }
     stat(rival ? (host ? 'Friend connected. Press FIGHT when you are both ready.' : 'Connected. Waiting for the host to start.') : 'Friend connected. Waiting for their pick...');
   }
   NETG.refresh = refresh;
@@ -98,7 +99,8 @@
   }
   function bind(c) {
     N.conn = c;
-    c.on('open', () => { N.linked = true; N.rival = null; N.info = null; step('nStepLobby'); refresh(); hashReady.then(() => send({ t: 'hello', ver: NET_VER, hash: N.hash, name: myName() })); });
+    c.on('open', () => { N.linked = true; N.rival = null; N.info = null; N.noHello = false; step('nStepLobby'); refresh(); hashReady.then(() => send({ t: 'hello', ver: NET_VER, hash: N.hash, name: myName() }));
+      setTimeout(() => { if (N.conn === c && N.linked && !N.info) { N.noHello = true; if (NETG.lobby) refresh(); } }, 5000); }); // a game older than the version check never answers
     c.on('data', onData);
     c.on('close', () => { if (N.conn === c) onGone(); });
     c.on('error', () => { if (N.conn === c) onGone(); });
@@ -129,7 +131,7 @@
     if (d.t === 'i') N.rem[d.k] = d.m;
     else if (d.t === 'p') send({ t: 'q', s: d.s });
     else if (d.t === 'q') { N.rtts.push(performance.now() - d.s); if (N.rtts.length > 8) N.rtts.shift(); updateNet(); }
-    else if (d.t === 'hello') { N.info = { ver: String(d.ver), hash: String(d.hash || ''), name: cleanName(d.name) || 'FRIEND' }; if (NETG.lobby) refresh(); }
+    else if (d.t === 'hello') { N.noHello = false; N.info = { ver: String(d.ver), hash: String(d.hash || ''), name: cleanName(d.name) || 'FRIEND' }; if (NETG.lobby) refresh(); }
     else if (d.t === 'pick') { N.rival = { pk: d.pk, spec: d.spec }; if (NETG.lobby) refresh(); }
     else if (d.t === 'start') { if (N.role === 'guest') begin(d.cfg); }
     else if (d.t === 'rdy') { N.readyR = true; N.fpR = d.fp || null; checkGo(); }
@@ -145,7 +147,7 @@
   }
   function begin(cfg) {
     if (!N.saved) N.saved = { sprite: spriteStyle, best: bestOf, low: lowQ, theme: themeIdx, gm: [GM.dmg, GM.sta, GM.ki] };
-    Object.assign(N, { cfg, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], lastStall: 0, fpL: null, fpR: null, lastDiff: null, desyncAt: 0, ring: {}, calls: [], nCalls: 0, peerRing: null, diag: null, ringSent: false });
+    Object.assign(N, { cfg, spvReady: undefined, spvMine: undefined, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], lastStall: 0, fpL: null, fpR: null, lastDiff: null, desyncAt: 0, ring: {}, calls: [], nCalls: 0, peerRing: null, diag: null, ringSent: false });
     setGM(cfg.gm);
     for (let t = 0; t < INIT_D; t++) { N.loc[t] = 0; N.rem[t] = 0; }
     NETG.on = true; NETG.role = N.role; NETG.lobby = false; NETG.inP = {}; NETG.inE = {}; NETG.names = (cfg.names || ['', '']).map(cleanName);
@@ -160,13 +162,14 @@
     return { gm: [GM.dmg, GM.sta, GM.ki].join(','), low: lowQ, life: LIFE, anim: ANIM2D, sprite: spriteStyle, size: [P.w, P.h, E.w, E.h].map(v => Math.round(v * 10)).join(','), hp: Math.round(P.maxhp) + ',' + Math.round(E.maxhp), moves: sp(P) + '|' + sp(E), abil: P.ability.name + ',' + E.ability.name, bo: bestOf };
   }
   NETG.ready = () => { // this device has loaded the fighters; wait (briefly) for the effect sprites too so both devices start the same way
-    const t0 = performance.now(), go = () => { N.spvReady = NETG.spvNow ? !!NETG.spvNow() : false; N.readyL = true; N.fpL = envFp(); send({ t: 'rdy', fp: N.fpL }); checkGo(); };
+    const t0 = performance.now(), go = () => { N.spvMine = NETG.spvNow ? !!NETG.spvNow() : false; N.readyL = true; N.fpL = { ...envFp(), spv: N.spvMine }; send({ t: 'rdy', fp: N.fpL }); checkGo(); };
     const wait = () => { if (!NETG.on) return; if (NETG.spvNow && !NETG.spvNow() && performance.now() - t0 < 4000) setTimeout(wait, 100); else go(); };
     wait();
   };
   function checkGo() {
     if (!(NETG.on && N.readyL && N.readyR && !N.go)) return;
-    const bad = N.fpR ? Object.keys(N.fpL).filter(k => String(N.fpL[k]) !== String(N.fpR[k])) : [];
+    const bad = N.fpR ? Object.keys(N.fpL).filter(k => k !== 'spv' && String(N.fpL[k]) !== String(N.fpR[k])) : [];
+    N.spvReady = !!(N.fpL.spv && N.fpR && N.fpR.spv); // the shot-effect sprites count as loaded only if they are on both devices, so both pick shot variants from the same list
     if (bad.length) { N.envBad = bad; toast('Your games are set up differently (' + bad.join(', ') + '). The fight may drift apart.'); if (N.dbg) console.log('ENV DIFF', bad, N.fpL, N.fpR); }
     N.go = true; N.acc = 0;
   }
