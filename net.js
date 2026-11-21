@@ -3,7 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, INIT_D = 4, MAX_D = 10, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.3.0'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const NET_VER = '0.3.1'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -112,7 +112,7 @@
     send({ t: 'bye' }); closeNet();
     if (NETG.on) { // put back the settings the match borrowed from the host
       NETG.on = false; NETG.role = ''; document.body.classList.remove('online');
-      if (N.saved) { spriteStyle = N.saved.sprite; bestOf = N.saved.best; lowQ = N.saved.low; bgDirty = true; themeIdx = N.saved.theme; setTheme(THEMES[themeIdx]); N.saved = null; }
+      if (N.saved) { spriteStyle = N.saved.sprite; bestOf = N.saved.best; lowQ = N.saved.low; setGM(N.saved.gm); bgDirty = true; themeIdx = N.saved.theme; setTheme(THEMES[themeIdx]); N.saved = null; }
     }
     NETG.lobby = false; N.go = false; N.role = ''; N.rival = null; $('pause').classList.remove('on'); $('msg').classList.remove('on');
     showScreen('title'); if (note) toast(note);
@@ -128,27 +128,39 @@
     else if (d.t === 'hello') { N.info = { ver: String(d.ver), hash: String(d.hash || ''), name: cleanName(d.name) || 'FRIEND' }; if (NETG.lobby) refresh(); }
     else if (d.t === 'pick') { N.rival = { pk: d.pk, spec: d.spec }; if (NETG.lobby) refresh(); }
     else if (d.t === 'start') { if (N.role === 'guest') begin(d.cfg); }
-    else if (d.t === 'rdy') { N.readyR = true; checkGo(); }
+    else if (d.t === 'rdy') { N.readyR = true; N.fpR = d.fp || null; checkGo(); }
     else if (d.t === 'h') { N.hr[d.k] = d.h; cmp(d.k); }
     else if (d.t === 'rm') { N.rmR = true; checkRematch(); }
     else if (d.t === 'bye') onGone();
   }
   function fight() {
     if (N.role !== 'host' || !N.rival || !verOk()) return;
-    const cfg = { seed: (nativeRnd() * 4294967296) >>> 0, pa: selYou, pb: N.rival.pk, spP: specIdx(selYou), spE: N.rival.spec, bestOf, theme: themeIdx, sprite: spriteStyle, names: [myName(), N.info.name] };
+    const cfg = { seed: (nativeRnd() * 4294967296) >>> 0, pa: selYou, pb: N.rival.pk, spP: specIdx(selYou), spE: N.rival.spec, bestOf, theme: themeIdx, sprite: spriteStyle, gm: [GM.dmg, GM.sta, GM.ki], names: [myName(), N.info.name] };
     send({ t: 'start', cfg }); begin(cfg);
   }
   function begin(cfg) {
-    if (!N.saved) N.saved = { sprite: spriteStyle, best: bestOf, low: lowQ, theme: themeIdx };
-    Object.assign(N, { cfg, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], lastStall: 0 });
+    if (!N.saved) N.saved = { sprite: spriteStyle, best: bestOf, low: lowQ, theme: themeIdx, gm: [GM.dmg, GM.sta, GM.ki] };
+    Object.assign(N, { cfg, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], lastStall: 0, fpL: null, fpR: null, lastDiff: null, desyncAt: 0 });
+    setGM(cfg.gm);
     for (let t = 0; t < INIT_D; t++) { N.loc[t] = 0; N.rem[t] = 0; }
     NETG.on = true; NETG.role = N.role; NETG.lobby = false; NETG.inP = {}; NETG.inE = {}; NETG.names = (cfg.names || ['', '']).map(cleanName);
     $('plA').textContent = NETG.names[0]; $('plB').textContent = NETG.names[1];
     document.body.classList.add('online'); $('pause').classList.remove('on'); $('againBtn').textContent = 'REMATCH';
     startMatch({ online: cfg });
   }
-  NETG.ready = () => { N.readyL = true; send({ t: 'rdy' }); checkGo(); }; // this device has loaded the fighters
-  function checkGo() { if (NETG.on && N.readyL && N.readyR && !N.go) { N.go = true; N.acc = 0; } }
+  // everything that changes how a fight plays out must be identical on both devices, so the host's gameplay multipliers win
+  function setGM(g) { if (g && g.length === 3) { GM.dmg = +g[0]; GM.sta = +g[1]; GM.ki = +g[2]; } }
+  function envFp() { // a short description of this device's setup; if two devices disagree the fight cannot stay in sync
+    const sp = f => f.specs.map(s => s.name).join(',');
+    return { gm: [GM.dmg, GM.sta, GM.ki].join(','), low: lowQ, life: LIFE, anim: ANIM2D, sprite: spriteStyle, size: [P.w, P.h, E.w, E.h].map(v => Math.round(v * 10)).join(','), hp: Math.round(P.maxhp) + ',' + Math.round(E.maxhp), moves: sp(P) + '|' + sp(E), abil: P.ability.name + ',' + E.ability.name, bo: bestOf };
+  }
+  NETG.ready = () => { N.readyL = true; N.fpL = envFp(); send({ t: 'rdy', fp: N.fpL }); checkGo(); }; // this device has loaded the fighters
+  function checkGo() {
+    if (!(NETG.on && N.readyL && N.readyR && !N.go)) return;
+    const bad = N.fpR ? Object.keys(N.fpL).filter(k => String(N.fpL[k]) !== String(N.fpR[k])) : [];
+    if (bad.length) { N.envBad = bad; toast('Your games are set up differently (' + bad.join(', ') + '). The fight may drift apart.'); if (N.dbg) console.log('ENV DIFF', bad, N.fpL, N.fpR); }
+    N.go = true; N.acc = 0;
+  }
   NETG.rematch = () => { N.rmL = true; send({ t: 'rm' }); $('againBtn').textContent = 'WAITING FOR FRIEND...'; checkRematch(); };
   function checkRematch() {
     if (N.role !== 'host' || !N.rmL || !N.rmR) return;
@@ -156,19 +168,26 @@
   }
 
   // ---- lockstep
-  function hashState() {
-    let h = 2166136261; const add = v => { h = Math.imul(h ^ (Math.round(v * 100) | 0), 16777619); };
-    for (const f of [P, E]) { add(f.x); add(f.z); add(f.hp); add(f.sta); add(f.ki); add(f.lp); add(f.lift); add(f.vx); add(f.face); add(f.hitT * 1000); }
-    add(matchTime); add(projectiles.length); add(beams.length);
-    return (h >>> 0) + '/' + (rs >>> 0);
+  const PARTS = ['position', 'health', 'stamina', 'attacks', 'random numbers'];
+  function hashState() { // one short hash per area, so a drift can be traced to where it began
+    const hs = [2166136261, 2166136261, 2166136261, 2166136261], add = (i, v) => { hs[i] = Math.imul(hs[i] ^ (Math.round(v * 100) | 0), 16777619); };
+    for (const f of [P, E]) { add(0, f.x); add(0, f.z); add(0, f.lp); add(0, f.lift); add(0, f.vx); add(0, f.face); add(1, f.hp); add(1, f.hitT * 1000); add(2, f.sta); add(2, f.ki); add(3, f.cool.ranged + f.cool.s0 + f.cool.s1 + f.cool.s2 + f.cool.beam + f.dashCool); add(3, f.act ? 1 : 0); }
+    add(1, matchTime); add(3, projectiles.length + beams.length * 7);
+    return [...hs, rs].map(x => (x >>> 0).toString(36)).join('/');
   }
   function cmp(k) {
     if (N.hl[k] === undefined || N.hr[k] === undefined) return;
-    if (N.hl[k] !== N.hr[k]) { N.desync++; if (N.desync === 1) toast('Connection out of sync. Finish the round or leave and rejoin.'); if (N.dbg) console.log('DESYNC at tick', k, 'mine', N.hl[k], 'theirs', N.hr[k]); }
+    if (N.hl[k] !== N.hr[k]) {
+      const a = N.hl[k].split('/'), b = N.hr[k].split('/'), diff = PARTS.filter((_, i) => a[i] !== b[i]);
+      N.desync++; N.desyncAt = performance.now(); N.lastDiff = { tick: k, parts: diff };
+      if (N.desync === 1) toast('Out of sync (' + diff.join(', ') + '). The two screens may disagree from here.');
+      if (N.dbg) console.log('DESYNC at tick', k, diff, 'mine', N.hl[k], 'theirs', N.hr[k]);
+    }
     delete N.hl[k]; delete N.hr[k];
   }
   function tick(stepFn) {
     const t = N.tick, host = N.role === 'host';
+    setGM(N.cfg.gm); // the settings screen must not change the rules mid-fight
     if (N.D > N.wantD) N.D--; // shrinking the buffer: the input for this slot was already sent, so skip sampling once
     else {
       const m = enc(playerInput());
@@ -208,8 +227,8 @@
   // ---- connection status: round trip to the friend, waits, and how much input is buffered
   function updateNet() {
     const r = N.rtts, avg = r.length ? r.reduce((a, b) => a + b, 0) / r.length : -1, mx = r.length ? Math.max(...r) : 0;
-    const lvl = avg < 0 ? 'wait' : (N.stall > .3 || avg >= 90 || mx >= 200) ? 'bad' : (avg >= 40 || mx >= 100 || N.hitch > 0 && N.go) ? 'mid' : 'ok';
-    const txt = avg < 0 ? 'checking...' : Math.round(avg) + ' ms' + (NETG.on ? (N.hitch ? ' \u00b7 ' + N.hitch + ' hitch' + (N.hitch > 1 ? 'es' : '') : '') + (N.D > INIT_D ? ' \u00b7 buffer ' + Math.round(N.D * 1000 / 60) + ' ms' : '') : (lvl === 'ok' ? ' \u00b7 good link' : lvl === 'mid' ? ' \u00b7 fair link' : ' \u00b7 weak link'));
+    const lvl = avg < 0 ? 'wait' : (N.stall > .3 || avg >= 90 || mx >= 200 || N.desyncAt && performance.now() - N.desyncAt < 8000) ? 'bad' : (avg >= 40 || mx >= 100 || N.hitch > 0 && N.go) ? 'mid' : 'ok';
+    const txt = avg < 0 ? 'checking...' : Math.round(avg) + ' ms' + (NETG.on ? (N.hitch ? ' \u00b7 ' + N.hitch + ' hitch' + (N.hitch > 1 ? 'es' : '') : '') + (N.D > INIT_D ? ' \u00b7 buffer ' + Math.round(N.D * 1000 / 60) + ' ms' : '') + (N.desync ? ' \u00b7 OUT OF SYNC' + (N.lastDiff ? ' (' + N.lastDiff.parts.join('/') + ')' : '') : '') : (lvl === 'ok' ? ' \u00b7 good link' : lvl === 'mid' ? ' \u00b7 fair link' : ' \u00b7 weak link'));
     for (const id of ['nNet', 'nPing']) { const e = $(id); e.textContent = '\u25cf ' + txt; e.className = 'lv-' + lvl; }
   }
   setInterval(() => { if (N.linked) send({ t: 'p', s: performance.now() }); updateNet(); }, 1000);
