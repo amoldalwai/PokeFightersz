@@ -2672,7 +2672,7 @@ function drawCine() {
 
 // ---------------------------------------------------------------- loop
 function frame(ts) {
-  const idle = state === 'menu' || state === 'over' || (state === 'pause' && !NETG.on), capMs = idle ? 100 : fpsCap === 30 ? 1000 / 30 : fpsCap === 60 ? 1000 / 60 : 0; // menus and the pause screen show a frozen picture: no need to redraw it
+  const idle = !NETG.on && (state === 'menu' || state === 'over' || state === 'pause'), capMs = idle ? 100 : fpsCap === 30 ? 1000 / 30 : fpsCap === 60 ? 1000 / 60 : 0; // menus and the pause screen show a frozen picture: no need to redraw it
   if (capMs && ts - lastRun < capMs - 2) { requestAnimationFrame(frame); return; }
   lastRun = ts; const raw = ts - last; last = ts;
   if (idle) { if (SPV) SPV.stopAll(); if (NETG.on) NETG.frame(raw, step); requestAnimationFrame(frame); return; }
