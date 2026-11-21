@@ -140,7 +140,7 @@
   }
   function cmp(k) {
     if (N.hl[k] === undefined || N.hr[k] === undefined) return;
-    if (N.hl[k] !== N.hr[k]) { N.desync++; if (N.dbg) console.log('DESYNC at tick', k, 'mine', N.hl[k], 'theirs', N.hr[k]); }
+    if (N.hl[k] !== N.hr[k]) { N.desync++; if (N.desync === 1) toast('Connection out of sync. Finish the round or leave and rejoin.'); if (N.dbg) console.log('DESYNC at tick', k, 'mine', N.hl[k], 'theirs', N.hr[k]); }
     delete N.hl[k]; delete N.hr[k];
   }
   function tick(stepFn) {

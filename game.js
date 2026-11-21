@@ -3214,7 +3214,7 @@ function optSpy() {
   $('optCur').textContent = $(id).querySelector('h2').textContent; $('optFade').style.opacity = end ? 0 : 1;
 }
 function togglePause() {
-  if (NETG.on) { $('pause').classList.toggle('on'); return; } // online the match never stops: the menu just sits on top of it
+  if (NETG.on) { refreshPause(); $('pause').classList.toggle('on'); return; } // online the match never stops: the menu just sits on top of it
   if (state === 'pause') { state = resumeState; $('pause').classList.remove('on'); return; }
   if (state === 'fight' || state === 'intro' || state === 'ko') { resumeState = state; state = 'pause'; refreshPause(); $('pause').classList.add('on'); }
 }
@@ -3321,7 +3321,7 @@ window.__back = () => {
   if ($('htBox').classList.contains('on')) { $('htFrame').contentWindow.postMessage({ htcmd: 'back' }, '*'); return; }
   if ($('htOffer').classList.contains('on')) { $('htOffer').classList.remove('on'); return; }
   if ($('pvModal').classList.contains('on')) closePreview(); else if ($('opts').classList.contains('on')) $('opts').classList.remove('on'); else if ($('pickPane').classList.contains('on')) closePicker(); else if ($('movesPane').classList.contains('on')) $('mpDone').onclick();
-  else if (state === 'menu') { if (screenName === 'title') exitGame(); else showScreen('title'); } else if (state === 'over') toMenu(); else togglePause();
+  else if (state === 'menu') { if (screenName === 'title') exitGame(); else if (screenName === 'netPane') NETG.leave(); else showScreen('title'); } else if (state === 'over') toMenu(); else togglePause();
 };
 const byName = s => { const n = +s; if (n) return n; const p = POKEDEX.find(p => p.name === String(s).toLowerCase()); return p ? p.id : 0; };
 buildMenu(); buildLab(); setTheme(THEMES[0]);
