@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=960,initial-scale=1">
+<title>How to play</title>
+<style>
+  :root{--uif:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--ch:#5b7cff}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;width:960px;height:480px;overflow:hidden;background:radial-gradient(110% 90% at 50% -10%,#22337a 0,#0d1330 55%,#070a18 100%);color:#e8edff;font:13px var(--uif);user-select:none;-webkit-user-select:none;touch-action:manipulation}
+  body:before{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(60deg,rgba(255,255,255,.035) 0 1px,transparent 1px 34px),repeating-linear-gradient(-60deg,rgba(255,255,255,.035) 0 1px,transparent 1px 34px)}
+  button{font-family:var(--uif)}
+  #top{position:absolute;left:10px;right:10px;top:6px;height:34px;display:flex;align-items:center;gap:6px}
+  .gt{flex:1;text-align:center;font:900 19px var(--uif);letter-spacing:5px;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+  .chip{border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font:700 12px var(--uif);padding:7px 13px;border-radius:99px;cursor:pointer;letter-spacing:.3px}
+  .chip:active{transform:scale(.97)}.chip.sel{background:linear-gradient(135deg,#ffe27a,#ffb73a);color:#2b1c00;border-color:transparent}
+  #wrap{position:absolute;left:10px;top:46px;box-sizing:content-box;width:620px;height:318px;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.18);background:#000}
+  #phone{position:absolute;left:0;top:0;width:780px;height:400px;transform-origin:0 0}
+  #cv{position:absolute;left:0;top:0;width:780px;height:400px}
+  .btn{position:absolute;border-radius:50%;background:rgba(224,120,64,.38);border:2px solid rgba(255,200,160,.5);color:rgba(255,235,220,.95);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .07s,opacity .2s}
+  .btn.red{background:rgba(220,40,70,.5)}.btn.blue{background:rgba(60,140,230,.45)}
+  .btn svg{width:56%;height:56%}
+  .btn.on{background:rgba(255,170,90,.85);transform:scale(.88);box-shadow:0 0 0 6px rgba(255,255,255,.3)}
+  #joy{position:absolute;left:26px;bottom:26px;width:160px;height:160px;border-radius:50%;background:rgba(224,120,64,.25);border:3px solid rgba(255,190,150,.45)}
+  #stick{position:absolute;left:48px;top:48px;width:64px;height:64px;border-radius:50%;background:rgba(240,150,90,.8);transition:transform .08s}
+  #joy.on #stick{transform:translateX(34px)}
+  .dim{opacity:.22}
+  .hi{opacity:1;z-index:6;animation:pl 1s ease-in-out infinite}
+  @keyframes pl{0%,100%{box-shadow:0 0 0 3px #ffd34d,0 0 10px 2px rgba(255,211,77,.6)}50%{box-shadow:0 0 0 6px #ffd34d,0 0 22px 8px rgba(255,211,77,.9)}}
+  .tg{position:absolute;left:50%;bottom:100%;transform:translate(-50%,-6px);background:#ffd34d;color:#241800;font:900 11px var(--uif);letter-spacing:.6px;padding:2px 8px;border-radius:99px;white-space:nowrap;pointer-events:none}
+  #joy .tg{bottom:auto;top:-14px}
+  .tg.tl{bottom:auto;top:50%;left:auto;right:100%;transform:translate(-6px,-50%)}
+  .cd{position:absolute;inset:0;border-radius:50%;background:conic-gradient(rgba(0,0,0,.65) var(--a,0deg),transparent 0);pointer-events:none}
+  #row2{position:absolute;left:10px;top:370px;width:624px;height:50px}
+  #hint{display:flex;height:100%;align-items:center;justify-content:center;color:#aab7d8;font:600 13px var(--uif)}
+  #kbd{display:none;flex-wrap:wrap;gap:4px 8px;justify-content:center;align-content:center;height:100%;padding:2px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:10px}
+  .kg{display:flex;gap:3px;align-items:center;background:rgba(8,12,30,.7);border-radius:8px;padding:2px 6px}
+  .kc{min-width:24px;height:22px;padding:0 6px;border-radius:6px;border:1px solid rgba(255,255,255,.4);border-bottom-width:3px;background:#1b2550;color:#fff;font:800 11px var(--uif);display:flex;align-items:center;justify-content:center}
+  .kc.on{background:#ffd34d;color:#241800;transform:translateY(1px);border-bottom-width:2px}
+  .kg small{font:700 9px var(--uif);color:#c9d4f5;letter-spacing:.4px}
+  body.mk #touch,body.mk #hint{display:none}body.mk #kbd{display:flex}
+  #ovl{position:absolute;inset:0;background:linear-gradient(135deg,#0d1330,#1b2a6e);display:none;padding:18px 22px;overflow:hidden}
+  body.ov #ovl{display:block}body.ov #cv,body.ov #touch{display:none!important}body.ov #kbd{display:none!important}body.ov.mk #hint{display:flex}
+  .tb{display:flex;align-items:center;gap:8px;font:900 19px var(--uif);letter-spacing:3px;border-radius:18px;border:1px solid rgba(255,255,255,.25);background:linear-gradient(135deg,#5b7cff,#3450e0);padding:9px 16px;color:#fff;margin-bottom:8px;filter:saturate(.6) brightness(.8);transition:transform .15s,filter .15s}
+  .tb svg{width:24px;height:24px}.tb.sel{transform:scale(1.04);filter:none;box-shadow:0 0 0 3px #ffd34d,0 10px 26px rgba(255,211,77,.45)}
+  .tb.g{background:linear-gradient(135deg,#ffe27a,#ffb73a);color:#2b1c00}.tb.d{background:linear-gradient(135deg,#2a3358,#1a2142)}
+  .md{margin-left:20px;flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px 18px;font:600 16px/1.5 var(--uif);color:#e8edff}
+  .md b{display:block;font:900 22px var(--uif);color:#ffe27a;letter-spacing:2px;margin-bottom:8px}
+  .csg{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;grid-template-rows:repeat(7,1fr);gap:4px 18px;height:100%}
+  .cr{display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.1);font:700 13px/1.2 var(--uif)}.cr small{font:600 11px var(--uif);color:#aab7d8}.cr>div:nth-child(2){flex:1}
+  .cr .ic{width:30px;height:30px;border-radius:50%;background:rgba(224,120,64,.45);border:1px solid rgba(255,200,160,.6);display:flex;align-items:center;justify-content:center}.cr .ic svg{width:60%;height:60%}
+  .cr .kk{font:800 12px var(--uif);background:#1b2550;border:1px solid rgba(255,255,255,.35);border-bottom-width:3px;border-radius:6px;padding:1px 7px;color:#fff}
+  #nav{position:absolute;left:10px;top:424px;width:624px;height:46px;display:flex;align-items:center;gap:10px}
+  .big{font:900 15px var(--uif);letter-spacing:2px;height:44px;padding:0 20px;border-radius:16px;border:1px solid rgba(255,255,255,.25);background:linear-gradient(135deg,#5b7cff,#3450e0);color:#fff;cursor:pointer;box-shadow:0 6px 16px rgba(60,90,255,.35),inset 0 -3px 0 rgba(0,0,0,.18)}
+  .big.gold{background:linear-gradient(135deg,#ffe27a,#ffb73a);color:#2b1c00;border-color:transparent;box-shadow:0 6px 16px rgba(255,183,58,.35),inset 0 -3px 0 rgba(0,0,0,.12)}
+  .big:active{transform:scale(.97)}.big[disabled]{opacity:.35;pointer-events:none}
+  .dots{flex:1;display:flex;gap:5px;justify-content:center;flex-wrap:wrap}.dots i{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer}.dots i.on{background:#ffd34d;transform:scale(1.3)}.dots i.past{background:rgba(255,211,77,.5)}
+  .card{position:absolute;left:646px;top:46px;width:304px;height:424px;background:linear-gradient(160deg,rgba(255,255,255,.1),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:12px 14px 12px 18px;overflow-y:auto;touch-action:pan-y}
+  .card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--ch)}
+  .cc{display:inline-block;font:900 10px var(--uif);letter-spacing:1.5px;color:#10142a;background:var(--ch);border-radius:99px;padding:2px 10px}
+  .cn{float:right;font:800 11px var(--uif);color:#aab7d8}
+  .card h3{font:900 20px var(--uif);margin:8px 0 3px;display:flex;gap:8px;align-items:center}.card h3 svg{width:22px;height:22px;color:var(--ch);flex:none}
+  .lead{color:#c9d4f5;font-size:13px;line-height:1.35;margin-bottom:5px}
+  .card ul{margin:0 0 8px;padding:0;list-style:none}.card li{font-size:12px;padding:4px 0 4px 16px;position:relative;line-height:1.35;border-top:1px solid rgba(255,255,255,.08)}
+  .card li:before{content:"";position:absolute;left:2px;top:10px;width:7px;height:7px;border-radius:50%;background:var(--ch)}
+  .card li b{color:#ffe27a}
+  .lab{font:700 10px var(--uif);letter-spacing:1px;color:#7f8aa3}
+  .keys{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0 7px}
+  .kchip{display:flex;align-items:center;gap:6px;background:rgba(8,12,30,.55);border:1px solid rgba(255,255,255,.18);border-radius:99px;padding:3px 9px 3px 4px;font:700 11px var(--uif)}
+  .kchip i{width:22px;height:22px;border-radius:50%;background:rgba(224,120,64,.5);border:1px solid rgba(255,200,160,.6);display:flex;align-items:center;justify-content:center;font-style:normal}.kchip i svg{width:60%;height:60%}
+  .kchip .kk{font:800 10px var(--uif);background:#1b2550;border:1px solid rgba(255,255,255,.35);border-bottom-width:3px;border-radius:5px;padding:0 5px}
+  .pro{background:rgba(255,226,122,.12);border:1px solid rgba(255,226,122,.45);border-radius:10px;padding:6px 10px;color:#ffe9a8;font-size:11.5px;line-height:1.35}.pro b{color:#ffd34d;letter-spacing:1px;font-size:10px}
+</style></head><body>
+<div id="top"><button class="chip" id="x">&#10005; CLOSE</button><div class="gt">HOW TO PLAY</div><button class="chip" id="rep">&#8635; REPLAY</button><button class="chip" id="slow">SLOW-MO</button><button class="chip sel" id="mt">TOUCH</button><button class="chip" id="mk">KEYS</button></div>
+<div id="wrap"><div id="phone"><canvas id="cv"></canvas><div id="touch"></div><div id="ovl"></div></div></div>
+<div id="row2"><div id="hint">Tap a glowing button to try the move</div><div id="kbd"></div></div>
+<div id="nav"><button class="big" id="bk">&#9664; BACK</button><div class="dots" id="dots"></div><button class="big gold" id="nx">NEXT &#9654;</button></div>
+<div class="card" id="card"></div>
+<script src="data/icons.js"></script>
+<script src="data/bwa.js"></script>
+<script>
+const A='assets/',$=id=>document.getElementById(id),clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const sm=u=>{u=clamp(u);return u*u*(3-2*u);};
+const ico=n=>`<svg viewBox="0 0 24 24" fill="currentColor"><path d="${ICON_PATH[n]||''}"/></svg>`;
+function L(t,p){if(t<=p[0][0])return p[0][1];for(let i=1;i<p.length;i++)if(t<=p[i][0])return p[i-1][1]+(p[i][1]-p[i-1][1])*(t-p[i-1][0])/(p[i][0]-p[i-1][0]);return p[p.length-1][1];}
+function E(t,p){if(t<=p[0][0])return p[0][1];for(let i=1;i<p.length;i++)if(t<=p[i][0])return p[i-1][1]+(p[i][1]-p[i-1][1])*sm((t-p[i-1][0])/(p[i][0]-p[i-1][0]));return p[p.length-1][1];}
+function ST(t,p){let v=p[0][1];for(const q of p)if(t>=q[0])v=q[1];return v;}
+const VW=780,VH=400,GY=332,KS=.72,AX=395,BX=540;
+
+const cache={};const img=s=>cache[s]||(cache[s]=Object.assign(new Image(),{src:s}));
+const TC={fire:'#ff7a3a',water:'#4aa8ff',grass:'#5fd35f',electric:'#ffd93a',fighting:'#d8574a',psychic:'#ff6ab0',ice:'#8fe3ff',ghost:'#9a7ad8',poison:'#b05ad8',ground:'#d8b05a',rock:'#b8a060',flying:'#9ab8ff',bug:'#a8d03a',dragon:'#6a5aff',normal:'#d8d0c0',steel:'#b8c4d8',dark:'#8a7a70'};
+const S={a:{id:68,name:'machamp',types:['fighting']},b:{id:34,name:'nidoking',types:['poison','ground']}};const acol=()=>TC[S.a.types[0]]||'#ffb347';
+// ---------- controls (positions copied from the game's touch layout)
+const BTN=[
+ {k:'tackle',n:'JAB',ic:'boxing-glove',key:['J'],st:'right:26px;bottom:26px;width:92px;height:92px'},
+ {k:'leaf',n:'RANGED',ic:'leaf',key:['K'],st:'right:132px;bottom:20px;width:68px;height:68px'},
+ {k:'vine',n:'SPECIAL 1',ic:'flash',key:['L'],st:'right:18px;bottom:132px;width:68px;height:68px'},
+ {k:'special2',n:'SPECIAL 2',ic:'fire-circle',key:['O'],st:'right:104px;bottom:112px;width:62px;height:62px'},
+ {k:'special3',n:'SPECIAL 3',ic:'rotate-orbit',key:['N'],st:'right:92px;bottom:184px;width:58px;height:58px'},
+ {k:'beam',n:'BEAM',ic:'laser-pointer',cls:'red',key:['I'],st:'right:178px;bottom:92px;width:58px;height:58px'},
+ {k:'dash',n:'DASH',ic:'run-fast',cls:'blue',key:['Shift'],st:'right:214px;bottom:20px;width:56px;height:56px'},
+ {k:'grab',n:'GRAB',ic:'hand-back-right',key:['G'],st:'right:246px;bottom:92px;width:52px;height:52px'},
+ {k:'up',n:'JUMP',ic:'arrow-up-bold',key:['W'],st:'right:22px;bottom:212px;width:54px;height:54px'},
+ {k:'guard',n:'GUARD',ic:'shield',cls:'blue',key:['S'],st:'left:30px;bottom:196px;width:52px;height:52px'},
+ {k:'charge',n:'CHARGE',ic:'battery-charging',key:['U'],st:'left:96px;bottom:204px;width:52px;height:52px'},
+ {k:'laneBack',n:'LANE BACK',ic:'chevron-up',cls:'blue',key:['Q'],st:'left:196px;bottom:92px;width:50px;height:50px'},
+ {k:'laneFront',n:'LANE FRONT',ic:'chevron-down',cls:'blue',key:['E'],st:'left:196px;bottom:34px;width:50px;height:50px'},
+ {k:'joy',n:'MOVE',ic:'swap-horizontal',key:['A','D'],txt:'walk left / right'}];
+const BI=Object.fromEntries(BTN.map(b=>[b.k,b]));
+const DESC={joy:'Walk left and right',up:'Jump',guard:'Block / parry',tackle:'Melee jab chain',leaf:'Ranged shot',vine:'Special move 1',special2:'Special move 2',special3:'Special move 3',beam:'Ultimate beam (50 KI)',charge:'Charge KI',dash:'Dash (14 stamina)',grab:'Grab and throw',laneBack:'Step to the background lane',laneFront:'Step to the foreground lane'};
+$('touch').innerHTML=`<div id="joy" data-b="joy"><div id="stick"></div></div>`+BTN.filter(b=>b.st).map(b=>`<div class="btn ${b.cls||''}" data-b="${b.k}" style="${b.st}">${ico(b.ic)}<div class="cd"></div></div>`).join('');
+$('kbd').innerHTML=[['MOVE',['joy']],['JUMP',['up']],['GUARD',['guard']],['JAB',['tackle']],['RANGED',['leaf']],['SPECIALS',['vine','special2','special3']],['BEAM',['beam']],['CHARGE',['charge']],['DASH',['dash']],['GRAB',['grab']],['LANES',['laneBack','laneFront']]]
+ .map(([t,ks])=>`<div class="kg">${ks.map(k=>BI[k].key.map(x=>`<span class="kc" data-b="${k}">${x}</span>`).join('')).join('')}<small>${t}</small></div>`).join('');
+// ---------- drawing
+const cv=$('cv'),g=cv.getContext('2d');cv.width=VW*2;cv.height=VH*2;
+const unitOf=m=>{const b=BWA[m.id];return clamp(130/Math.max(b.front.h,b.back.h),1.4,3.0);};
+const frameAt=(m,side,t)=>{const d=BWA[m.id][side].d,tot=d.reduce((a,b)=>a+b,0);let tt=(t*60)%tot,i=0;while(i<d.length-1&&tt>=d[i]){tt-=d[i];i++;}return i;};
+function sprOf(pose,side,t){const a=side==='A';
+ switch(pose){case'back':return{k:'sheet',side:'back',fl:a?1:-1,t:t*1.4};case'atk':return{k:'still',dir:'p4',fl:a?-1:1};case'hg':return{k:'still',dir:'hg',fl:a?-1:1};
+  case'hurt':case'down':return{k:'still',dir:'p3',fl:a?-1:1};default:return{k:'sheet',side:'front',fl:a?-1:1,t:t+(a?0:1.3)};}}
+const D=o=>Object.assign({x:0,lane:0,lift:0,pose:'idle',rot:0,sx:1,sy:1,al:1,ghost:null},o);
+function drawF(m,side,f,t){
+ const sp=sprOf(f.pose||'idle',side,t),ls=1+.1*f.lane,ys=GY+f.lane*(f.lane<0?26:20),feet=ys-f.lift,sc=unitOf(m)*KS;let im,w,h,fr=0;
+ if(sp.k==='sheet'){const I=BWA[m.id][sp.side];im=img(`${A}bwa/${m.name}_${sp.side}.png`);if(!im.complete||!im.naturalWidth)return;w=I.w*sc;h=I.h*sc;fr=frameAt(m,sp.side,sp.t);fr=[fr,I.w];}
+ else{im=img(`${A}pose/${sp.dir}/${m.name}.png`);if(!im.complete||!im.naturalWidth)return;const k=clamp(BWA[m.id].front.w/im.naturalWidth,.6,1.5);w=im.naturalWidth*sc*k;h=im.naturalHeight*sc*k;}
+ g.fillStyle=`rgba(0,0,0,${.32*(1-f.lift/260)*f.al})`;g.beginPath();g.ellipse(f.x,ys+3,46*ls*(1-f.lift/260),7*ls,0,0,6.283);g.fill();
+ const one=(x,al)=>{g.save();g.imageSmoothingEnabled=false;g.globalAlpha=al;g.translate(Math.round(x),Math.round(feet));g.scale(ls*f.sx,ls*f.sy);const k=Math.min(1,Math.abs(f.rot)/1.5708);g.translate(0,-(1-k)*h/2-k*w/2);g.rotate(f.rot);g.scale(sp.fl,1);
+  if(fr)g.drawImage(im,fr[0]*fr[1],0,fr[1],im.naturalHeight,-w/2,-h/2,w,h);else g.drawImage(im,-w/2,-h/2,w,h);g.restore();};
+ if(f.ghost)for(const [dx,al] of f.ghost)one(f.x+dx,al*f.al);
+ one(f.x,f.al);}
+function bg(){const s=g.createLinearGradient(0,0,0,GY-20);s.addColorStop(0,'#1d2c58');s.addColorStop(1,'#6d86b8');g.fillStyle=s;g.fillRect(0,0,VW,GY-20);
+ g.fillStyle='#ffffff14';g.beginPath();g.arc(620,70,44,0,6.283);g.fill();
+ const f=g.createLinearGradient(0,GY-30,0,VH);f.addColorStop(0,'#bf9a62');f.addColorStop(1,'#8e6d3e');g.fillStyle=f;g.fillRect(0,GY-30,VW,VH);
+ g.strokeStyle='#ffffff22';g.lineWidth=1;for(const y of[GY-26,GY,GY+20]){g.beginPath();g.moveTo(0,y+3);g.lineTo(VW,y+3);g.stroke();}}
+function rr(x,y,w,h,r){g.beginPath();g.roundRect(x,y,w,h,r);}
+function bar(x,y,w,h,v,col,rev,hl,t,lab){g.fillStyle='rgba(8,12,30,.82)';rr(x-2,y-2,w+4,h+4,h/2+2);g.fill();g.fillStyle=col;const ww=Math.max(0,w*clamp(v));rr(rev?x+w-ww:x,y,ww,h,h/2);g.fill();
+ if(hl){g.strokeStyle=`rgba(255,211,77,${.6+.4*Math.sin(t*9)})`;g.lineWidth=2.5;rr(x-3,y-3,w+6,h+6,h/2+3);g.stroke();}
+ if(lab){g.font='800 9px system-ui';g.fillStyle='#fff';g.textAlign=rev?'right':'left';g.fillText(lab,rev?x+w:x+w+6,y+h-(h>9?4:0));}}
+function hud(h,t){const n=Object.assign({a:1,b:1,st:1,ki:.1,tm:'1:42',hl:''},h);
+ bar(14,12,316,14,n.a,'#43d86a',false,n.hl==='hp',t);bar(450,12,316,14,n.b,'#43d86a',true,n.hl==='hp',t);
+ bar(14,33,190,8,n.st,'#ffd34d',false,n.hl==='st',t,'STAMINA');bar(14,46,150,8,n.ki,'#5bc8ff',false,n.hl==='ki',t,'KI');
+ g.font='900 12px system-ui';g.fillStyle='#fff';g.textAlign='left';g.fillText(S.a.name.toUpperCase(),16,9);g.textAlign='right';g.fillText(S.b.name.toUpperCase(),764,9);
+ g.fillStyle='rgba(8,12,30,.85)';g.beginPath();g.arc(390,22,19,0,6.283);g.fill();g.strokeStyle='#fff';g.lineWidth=2;g.stroke();g.fillStyle='#fff';g.textAlign='center';g.font='900 12px system-ui';g.fillText(n.tm,390,26);}
+function cap(txt){g.save();g.font='700 14px system-ui';const w=g.measureText(txt).width+28,x=VW/2-w/2,y=66;g.fillStyle='rgba(8,12,30,.85)';rr(x,y,w,28,14);g.fill();g.strokeStyle='#ffd34d';g.lineWidth=1.5;g.stroke();g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(txt,VW/2,y+14.5);g.restore();}
+function glow(x,y,r,col){const gr=g.createRadialGradient(x,y,0,x,y,r*2);gr.addColorStop(0,'#fff');gr.addColorStop(.35,col);gr.addColorStop(1,col+'00');g.fillStyle=gr;g.beginPath();g.arc(x,y,r*2,0,6.283);g.fill();}
+function fx(e,t){const age=t-e.t0;
+ if(e.k==='spark'){if(age<0||age>.3)return;const u=age/.3,s=e.s||1;g.save();g.translate(e.x,e.y);g.globalAlpha=1-u;g.strokeStyle=e.col||'#ffe27a';g.lineWidth=3*s*(1-u)+1;for(let i=0;i<8;i++){const a=i*.785+.2,r0=8*s+u*14*s,r1=r0+16*s*(1-u*.5);g.beginPath();g.moveTo(Math.cos(a)*r0,Math.sin(a)*r0);g.lineTo(Math.cos(a)*r1,Math.sin(a)*r1);g.stroke();}g.fillStyle='#fff';g.beginPath();g.arc(0,0,10*s*(1-u),0,6.283);g.fill();g.restore();}
+ else if(e.k==='ring'){const d=e.d||.5;if(age<0||age>d)return;const u=age/d,r=(e.r||90)*u+10;g.save();g.globalAlpha=1-u;g.strokeStyle=e.col||'#fff';g.lineWidth=5*(1-u)+1;g.beginPath();g.ellipse(e.x,e.y,r,r*.35,0,0,6.283);g.stroke();g.restore();}
+ else if(e.k==='orb'){if(t<e.t0||t>e.t1+.08)return;const u=clamp((t-e.t0)/(e.t1-e.t0));g.save();for(let i=4;i>=1;i--){const uu=clamp(u-i*.035);g.globalAlpha=.16*(5-i)*(t>e.t1?0:1);glow(e.x0+(e.x1-e.x0)*uu,e.y,e.r*(1-i*.1),e.col);}g.globalAlpha=t>e.t1?0:1;glow(e.x0+(e.x1-e.x0)*u,e.y,e.r,e.col);g.restore();}
+ else if(e.k==='beam'){if(t<e.t0||t>e.t1)return;const x1=typeof e.x1==='function'?e.x1(t):e.x1,u=(t-e.t0)/(e.t1-e.t0),gr=clamp(age/.15),al=u>.8?(1-u)/.2:1,w=e.w*(.85+.15*Math.sin(t*50))*gr,xe=e.x0+(x1-e.x0)*gr;g.save();g.globalAlpha=al*.55;g.fillStyle=e.col;rr(Math.min(e.x0,xe),e.y-w/2,Math.abs(xe-e.x0),w,w/2);g.fill();g.globalAlpha=al;g.fillStyle='#fff';const w2=w*.4;rr(Math.min(e.x0,xe),e.y-w2/2,Math.abs(xe-e.x0),w2,w2/2);g.fill();glow(e.x0,e.y,w*.5,e.col);g.restore();}
+ else if(e.k==='shield'){if(t<e.t0||t>e.t1)return;const u=(t-e.t0)/(e.t1-e.t0),fl=Math.max(0,1-age/.14);g.save();g.fillStyle=e.col+'33';g.strokeStyle=fl>0?'#fff':e.col;g.lineWidth=3+fl*4;g.beginPath();g.ellipse(e.x,e.y,44+fl*10,66+fl*10,0,0,6.283);g.fill();g.stroke();if(e.fade)g.globalAlpha=1-u;g.restore();}
+ else if(e.k==='aura'){if(t<e.t0||t>e.t1)return;g.save();for(let i=0;i<3;i++){g.globalAlpha=.28;g.fillStyle=e.col;g.beginPath();g.ellipse(e.x,e.y-8,34+i*8+3*Math.sin(t*14+i),64+i*10+5*Math.sin(t*11+i),0,0,6.283);g.fill();}g.restore();}
+ else if(e.k==='item'){if(t<e.t0||t>e.t1)return;const y=e.y+3*Math.sin(t*5);g.save();if(e.type==='berry'){g.fillStyle='#e8404a';g.beginPath();g.arc(e.x,y,12,0,6.283);g.fill();g.fillStyle='#43d86a';g.beginPath();g.ellipse(e.x+3,y-13,7,4,-.6,0,6.283);g.fill();g.fillStyle='#fff8';g.beginPath();g.arc(e.x-4,y-4,3,0,6.283);g.fill();}else{glow(e.x,y,10,'#5bc8ff');}g.restore();}
+ else if(e.k==='fn'){e.f(t);}}
+function pop(p,t){const age=t-p.t0,d=p.d||.9;if(age<0||age>d)return;const u=age/d,sc=1+.5*Math.max(0,1-age*7);g.save();g.translate(p.x,p.y-26*u);g.scale(sc,sc);g.font=`900 ${p.size||24}px system-ui`;g.textAlign='center';g.textBaseline='middle';g.globalAlpha=u>.75?(1-u)/.25:1;g.lineWidth=5;g.lineJoin='round';g.strokeStyle='#000';g.strokeText(p.s,0,0);g.fillStyle=p.col||'#fff';g.fillText(p.s,0,0);g.restore();}
+// ---------- scene helpers
+const lunge=(t,hs,amt=34,dir=1)=>{let dx=0,pose=null;for(const h of hs){if(t>=h-.08&&t<h+.26){pose='back';dx=Math.max(dx,amt*sm((t-h+.08)/.1));}else if(t>=h+.26&&t<h+.5)dx=Math.max(dx,amt*(1-(t-h-.26)/.24));}return{dx:dx*dir,pose};};
+const pulse=(t,hs,kb,dir=1,d=.45)=>{let dx=0,pose=null;for(const h of hs){const u=(t-h-.05)/d;if(u>=0&&u<1){dx+=kb*Math.sin(Math.PI*u);if(u<.75)pose='hurt';}}return{dx:dx*dir,pose};};
+const sp=(t,x,y,col,s)=>({k:'spark',t0:t,x,y,col,s}),pp=(t,s,x,y,col,size,d)=>({t0:t,s,x,y:y+40,col,size,d});
+const HY=GY-55;
+// ---------- lessons
+const MODES=[['sword-cross','BATTLE','g','Pick you and the rival, choose the arena and the difficulty (Easy, Normal, Hard), then fight.'],['dice-5','QUICK FIGHT','','A random match-up, straight into the fight.'],['trophy','TOURNAMENT','g','An 8-fighter bracket: quarter-final, semi-final, final. Progress is saved.'],['target','PRACTICE','','Train on a dummy. Set it to idle, guard, or fight back.'],['atom','MOVE LAB','','Infinite stamina and KI. Test your three specials freely.'],['eye-outline','WATCH AI FIGHT','','Sit back and watch two computer fighters battle.'],['cog','SETTINGS','d','Touch or keyboard controls, sprite style, match length and sound.']];
+const CH=[['BASICS','#5b7cff'],['ATTACKS','#ff7a3a'],['DEFENCE','#3fd0ff'],['SYSTEMS','#43f08a'],['MASTERY','#ffd34d']];
+const STEPS=[
+{id:'goal',ch:0,ic:'trophy',name:'Win the round',lead:"Empty the rival's HP bar before the timer runs out.",
+ tips:['<b>K.O.</b> ends the round the moment a bar hits zero.','If the <b>timer</b> runs out, the fighter with more HP % left wins.','<b>Single</b> match: first K.O. wins (180 s). <b>Best of 3</b>: first to 2 rounds (120 s each).'],
+ pro:'Match length and the Classic / Quick / Blitz presets are in Settings.',hi:[],len:3.4,
+ a:t=>{const l=lunge(t,[.7,1.1,1.5]);return{x:AX+l.dx,pose:l.pose};},
+ b:t=>{const r=pulse(t,[.7,1.1],12);if(t>=1.5){const u=clamp((t-1.55)/.5);return{x:BX+60*sm(u),rot:1.57*sm(u),pose:u<.4?'hurt':'down'};}return{x:BX+r.dx,pose:r.pose};},
+ hud:t=>({b:L(t,[[0,1],[.75,1],[.85,.7],[1.15,.7],[1.25,.4],[1.55,.4],[1.65,0]]),hl:'hp'}),
+ fx:[sp(.7,480,HY,0,1),sp(1.1,480,HY,0,1),sp(1.5,480,HY,0,1.4)],pops:[pp(1.75,'K.O.!',390,170,'#ffd34d',56,1.5)],
+ press:[[.7,'tackle'],[1.1,'tackle'],[1.5,'tackle']],caps:[[0,1.7,'Hit the rival until their HP bar is empty'],[1.7,3.4,'K.O.! The round is yours']]},
+{id:'meters',ch:0,ic:'battery-charging',name:'HP, Stamina and KI',lead:'Three bars at the top of the screen decide what you can do.',
+ tips:['<b>HP</b>: your life. Zero means K.O.','<b>Stamina</b>: dashing, guarding and attacking spend it. It refills while you rest.','<b>KI</b>: builds as you fight and fills fast while you hold CHARGE. The beam needs <b>50 KI</b>.'],
+ pro:'Run low on stamina and your guard can be broken. Rest between exchanges.',hi:['dash','tackle','charge'],len:6.4,
+ a:t=>{const l=lunge(t,[1.3]);return{x:L(t,[[0,300],[.5,300],[.8,400]])+l.dx,pose:l.pose||ST(t,[[0,'idle'],[.5,'back'],[.8,'idle'],[3.9,'back'],[5.5,'idle']]),ghost:t>=.5&&t<.85?[[-24,.35],[-48,.2]]:null};},
+ b:t=>{const r=pulse(t,[1.3],12);return{x:BX+r.dx,pose:r.pose};},
+ hud:t=>({b:L(t,[[0,1],[1.35,1],[1.45,.9]]),st:L(t,[[0,1],[.5,1],[.65,.84],[1.3,.84],[1.4,.72],[2.7,.72],[4,.98]]),ki:L(t,[[0,.1],[1.3,.1],[1.45,.2],[3.9,.2],[5.4,.62]]),hl:ST(t,[[0,'hp'],[.45,'st'],[2.7,'ki']])}),
+ fx:[sp(1.3,480,HY,0,1),{k:'aura',t0:3.9,t1:5.5,x:400,y:GY-50,col:'#5bc8ff'}],pops:[pp(.65,'-14',300,230,'#ffd34d',20,.8)],
+ press:[[.5,'dash'],[1.3,'tackle'],[3.9,'charge',1.6]],caps:[[0,.45,'HP: how much life is left'],[.45,2.7,'STAMINA: dash, guard and attack spend it. It refills at rest'],[2.7,6.3,'KI: builds as you fight, fills fast while CHARGING']]},
+{id:'move',ch:0,ic:'swap-horizontal',name:'Move and jump',lead:'Walk with the joystick, hop with JUMP.',
+ tips:['Push the <b>joystick</b> left or right to walk toward or away from the rival.','Tap <b>JUMP</b> to leave the ground. Attacks can still be used in the air.','Double-tap <b>A / D</b> on a keyboard to dash.'],
+ pro:'Keep moving. A fighter standing still is the easiest target.',hi:['joy','up'],len:4.0,
+ a:t=>{const lift=t>2.2&&t<3.0?95*Math.sin(Math.PI*(t-2.2)/.8):0;return{x:L(t,[[0,200],[1.0,340],[1.7,260],[4,260]]),lift,pose:lift>30?'atk':'idle'};},
+ b:()=>({x:580}),hud:()=>({}),fx:[],pops:[],press:[[0,'joy',1.7],[2.2,'up']],caps:[[0,1.8,'Joystick: push left or right to walk'],[2.1,3.4,'JUMP: hop into the air']]},
+{id:'lanes',ch:0,ic:'chevron-up',name:'Lanes',lead:'The arena has depth. Step into the background or foreground lane.',
+ tips:['Tap <b>LANE BACK</b> or <b>LANE FRONT</b> to slide to another lane.','You are briefly <b>untouchable</b> while you slide, so slip out of a shot at the last moment.','Keyboard: <b>Q</b> back, <b>E</b> front.'],
+ pro:'Time it as the shot reaches you, not before.',hi:['laneBack','laneFront'],len:5.2,
+ a:t=>({x:330,lane:E(t,[[0,0],[.85,0],[1.1,-1],[1.9,-1],[2.2,0],[3.15,0],[3.4,1],[4.1,1],[4.4,0]])}),
+ b:t=>({x:580,pose:ST(t,[[0,'idle'],[.45,'atk'],[.9,'idle'],[2.75,'atk'],[3.2,'idle']])}),hud:()=>({}),
+ fx:[{k:'orb',t0:.6,t1:2.0,x0:560,x1:-40,y:HY,r:14,col:'#ff7a3a'},{k:'orb',t0:2.9,t1:4.3,x0:560,x1:-40,y:HY,r:14,col:'#ff7a3a'}],pops:[pp(1.1,'DODGED!',330,200,'#5bc8ff',28),pp(3.4,'DODGED!',330,220,'#5bc8ff',28)],
+ press:[[.85,'laneBack'],[3.15,'laneFront']],caps:[[0,2.5,'The foe fires. Tap LANE BACK to step into the background'],[2.6,5.0,'Or LANE FRONT to step toward the camera']]},
+{id:'jab',ch:1,ic:'boxing-glove',name:'Jab chain',lead:'Your melee attack. Tap it up to three times.',
+ tips:['Hit 1, hit 2, then hit 3, which <b>launches</b> the foe into the air.','Land the first hit and you can chain or cancel into your next move.','Some fighters have a special 4-hit combo.'],
+ pro:'Jabs are quick and cheap. Use them to start every combo.',hi:['tackle'],len:4.4,
+ a:t=>{const l=lunge(t,[.6,1.05,1.5]);return{x:AX+l.dx,pose:l.pose};},
+ b:t=>{const r=pulse(t,[.6,1.05],12);if(t>=1.55){const u=clamp((t-1.55)/1.1);if(t>=3.4)return{x:650};return{x:BX+110*sm(u),lift:120*Math.sin(Math.PI*u),rot:1.57*sm(u)+.9*Math.sin(Math.PI*u),pose:u<1?'hurt':'down'};}return{x:BX+r.dx,pose:r.pose};},
+ hud:t=>({b:L(t,[[0,1],[.65,1],[.75,.92],[1.1,.92],[1.2,.84],[1.55,.84],[1.65,.7]]),hl:'hp'}),
+ fx:[sp(.6,480,HY,0,1),sp(1.05,480,HY,0,1.1),sp(1.5,480,HY,0,1.5)],pops:[pp(.65,'HIT 1',500,170,'#fff',22,.45),pp(1.1,'HIT 2',500,170,'#fff',24,.45),pp(1.55,'HIT 3: LAUNCH!',500,160,'#ffd34d',30,1.2)],
+ press:[[.6,'tackle'],[1.05,'tackle'],[1.5,'tackle']],caps:[[0,1.4,'Tap JAB: hit 1, hit 2 ...'],[1.45,3.4,'The 3rd hit launches the foe']]},
+{id:'juggle',ch:1,ic:'arrow-up-bold-circle',name:'Launch and juggle',lead:'A launched foe is helpless. Keep hitting while they are in the air.',
+ tips:['A launcher pops the foe up. Jump after them and keep attacking.','Every extra hit in a juggle deals <b>less damage</b>, so finish with something big.','Specials, ranged shots and jabs all work on an airborne foe.'],
+ pro:'Do not jab forever. Save a special for the last hit.',hi:['tackle','up'],len:4.6,
+ a:t=>{const l=lunge(t,[.5,.95,1.3,1.65]);return{x:AX+l.dx,lift:L(t,[[.7,0],[.95,34],[1.9,34],[2.3,0]]),pose:l.pose};},
+ b:t=>{if(t<.5)return{x:BX};if(t>3.7)return{x:600};const down=t>2.5;return{x:BX+L(t,[[.55,0],[2.5,60]]),lift:E(t,[[.55,0],[.9,110],[1.05,102],[1.25,122],[1.4,112],[1.6,132],[1.8,118],[2.5,0]]),rot:E(t,[[.55,0],[.9,.9],[1.7,1.3],[2.5,1.57]]),pose:down?'down':'hurt'};},
+ hud:t=>({b:L(t,[[.5,1],[.6,.86],[.95,.77],[1.3,.71],[1.65,.67]]),hl:'hp'}),
+ fx:[sp(.5,480,HY,0,1.4),sp(.95,500,HY-40,0,1),sp(1.3,520,HY-60,0,.9),sp(1.65,540,HY-70,0,.8)],
+ pops:[pp(.55,'-14',500,200,'#fff',30),pp(1.0,'-9',520,170,'#fff',26),pp(1.35,'-6',540,150,'#fff',22),pp(1.7,'-4',560,140,'#fff',18),pp(1.9,'JUGGLE x3',430,120,'#ffd34d',30,1.2)],
+ press:[[.5,'tackle'],[.78,'up'],[.95,'tackle'],[1.3,'tackle'],[1.65,'tackle']],caps:[[0,.9,'Launch them ...'],[.9,2.4,'... then keep hitting. Each hit does a little less damage']]},
+{id:'ranged',ch:1,ic:'leaf',name:'Ranged shot',lead:'Attack from a distance.',
+ tips:['Tap <b>RANGED</b> to fire a projectile across the arena.','Each shot costs <b>stamina</b> and has a short <b>cooldown</b> (the ring on the button).','A rival can dodge a shot by changing lanes, so mix it up.'],
+ pro:'Good for forcing the rival to come to you.',hi:['leaf'],len:4.8,
+ a:t=>({x:170,pose:ST(t,[[0,'idle'],[.45,'atk'],[.85,'idle'],[2.2,'atk'],[2.6,'idle']])}),
+ b:t=>{const r=pulse(t,[1.1,2.75],18);return{x:600+r.dx,pose:r.pose};},
+ hud:t=>({b:L(t,[[0,1],[1.15,1],[1.25,.9],[2.8,.9],[2.9,.8]]),st:L(t,[[0,1],[.5,1],[.6,.9],[2.2,.9],[2.3,.8],[4.6,.95]])}),
+ fx:[{k:'orb',t0:.6,t1:1.15,x0:225,x1:545,y:HY,r:13,col:'#ffb347'},sp(1.15,545,HY,0,1),{k:'orb',t0:2.3,t1:2.85,x0:225,x1:545,y:HY,r:13,col:'#ffb347'},sp(2.85,545,HY,0,1)],
+ pops:[pp(1.3,'COOLDOWN',190,200,'#ff6a6a',18)],cd:{leaf:[[.5,1.9],[2.2,3.6]]},press:[[.5,'leaf'],[1.25,'leaf'],[2.2,'leaf']],
+ caps:[[0,1.2,'RANGED: fire from a distance'],[1.2,2.1,'Tap again too soon: still cooling down'],[2.2,4.7,'Each shot costs a little stamina']]},
+{id:'specials',ch:1,ic:'flash',name:'Special moves',lead:'Every fighter carries three specials you choose yourself.',
+ tips:['Pick your <b>3 specials</b> on the Moves screen. Tap a move to select it; a 4th pick drops the oldest.','Each special has its own <b>cooldown ring</b> and stamina cost.','Try them for free in the <b>Move Lab</b>: infinite stamina and KI.'],
+ pro:'What each special does depends on the Pokemon. Shots, rushes and shockwaves are common.',hi:['vine','special2','special3'],len:7.0,
+ a:t=>({x:L(t,[[0,200],[2.3,200],[2.65,440],[3.2,440],[3.9,260],[4.6,260],[4.9,425],[7,425]]),pose:ST(t,[[0,'idle'],[.45,'atk'],[.9,'idle'],[2.3,'back'],[2.95,'idle'],[4.6,'atk'],[5.3,'idle']]),ghost:t>=2.3&&t<2.7?[[-30,.35],[-60,.2]]:null}),
+ b:t=>{const r=pulse(t,[1.15,2.65,4.95],20);return{x:560+r.dx,pose:r.pose};},
+ hud:t=>({b:L(t,[[0,1],[1.2,1],[1.3,.88],[2.7,.88],[2.8,.74],[5,.74],[5.1,.6]]),st:L(t,[[0,1],[.5,1],[.6,.82],[2.3,.82],[2.4,.62],[4.6,.62],[4.7,.42],[7,.6]])}),
+ fx:[{k:'orb',t0:.6,t1:1.2,x0:250,x1:525,y:HY,r:22,col:'#5bc8ff'},sp(1.2,520,HY,'#5bc8ff',1.5),sp(2.7,520,HY,'#ffb347',1.5),{k:'ring',t0:4.9,x:425,y:GY,r:170,col:'#ffe27a',d:.6},{k:'ring',t0:5.05,x:425,y:GY,r:120,col:'#fff',d:.5},sp(5.0,520,HY,'#ffe27a',1.7)],pops:[],
+ cd:{vine:[[.5,2.5]],special2:[[2.3,4.4]],special3:[[4.6,6.8]]},press:[[.45,'vine'],[2.25,'special2'],[4.55,'special3']],
+ caps:[[0,2.2,'SPECIAL 1 (L): here a big shot'],[2.2,4.4,'SPECIAL 2 (O): here a rush attack'],[4.4,7,'SPECIAL 3 (N): here a shockwave']]},
+{id:'grab',ch:1,ic:'hand-back-right',name:'Grab and throw',lead:'Get close and seize the rival.',
+ tips:['Tap <b>GRAB</b> next to the rival to throw them to the ground.','A throw <b>knocks the foe down</b>.','Grab range is short. Dash in first (see Pro combos).'],
+ pro:'Keyboard: G.',hi:['grab'],len:4.2,
+ a:t=>({x:L(t,[[0,330],[.5,440]]),pose:t>=.6&&t<1.1?'atk':'idle'}),
+ b:t=>{if(t<.9)return{x:BX};if(t>3.4)return{x:600};const u=clamp((t-.9)/.8);return{x:BX+60*sm(clamp((t-1.1)/.6)),lift:t<1.7?95*Math.sin(Math.PI*u):0,rot:1.57*sm(u),pose:t<1.7?'hurt':'down'};},
+ hud:t=>({b:L(t,[[0,1],[1.7,1],[1.78,.82]])}),fx:[{k:'ring',t0:1.7,x:600,y:GY,r:100,col:'#fff'},sp(1.7,600,GY-20,'#fff',1.3)],
+ pops:[pp(.65,'GRAB!',440,200,'#fff',24),pp(1.75,'THROW -18',590,200,'#ffd34d',28)],press:[[.6,'grab']],caps:[[0,1.5,'Tap GRAB when you are right next to the rival'],[1.5,3.6,'Thrown to the ground: knocked down']]},
+{id:'beam',ch:1,ic:'laser-pointer',name:'Charge and beam',lead:'Build KI, then unleash your ultimate.',
+ tips:['Hold <b>CHARGE</b> to fill your KI bar.','The <b>BEAM</b> needs 50 KI plus stamina, and hits hard.','Two beams can <b>clash</b>. Tap the screen as fast as you can to win the push.'],
+ pro:'Charging leaves you open. Do it when the rival is far away.',hi:['charge','beam'],len:8.0,
+ a:t=>({x:200,pose:ST(t,[[0,'idle'],[.5,'back'],[2.9,'idle'],[3.1,'atk'],[4.3,'idle'],[5,'atk'],[7.5,'idle']])}),
+ b:t=>{const r=pulse(t,[3.3,3.65,7.05],18);return{x:600+r.dx,pose:t>=5&&t<6.95?'atk':r.pose};},
+ hud:t=>({b:L(t,[[0,1],[3.3,1],[3.4,.78],[7,.78],[7.1,.52]]),ki:L(t,[[0,.1],[.5,.1],[2.9,.72],[3.2,.72],[3.4,.15],[5,.8],[5.1,.8],[7.4,.3]]),hl:t<3?'ki':''}),
+ fx:[{k:'aura',t0:.5,t1:2.9,x:200,y:GY-50,col:'#5bc8ff'},{k:'beam',t0:3.3,t1:4.1,x0:250,x1:560,y:HY,w:42,col:'#5bc8ff'},
+  {k:'beam',t0:5.2,t1:7.6,x0:250,x1:t=>t<6.9?L(t,[[5.3,400],[5.7,370],[6.1,410],[6.5,390],[6.9,400]]):560,y:HY,w:36,col:'#5bc8ff'},
+  {k:'beam',t0:5.2,t1:6.9,x0:550,x1:t=>L(t,[[5.3,400],[5.7,370],[6.1,410],[6.5,390],[6.9,400]]),y:HY,w:36,col:'#ff5a7a'},
+  {k:'fn',t0:5.3,f:t=>{if(t>5.3&&t<6.9)glow(L(t,[[5.3,400],[5.7,370],[6.1,410],[6.5,390],[6.9,400]]),HY,16+5*Math.sin(t*30),'#ffffff');}}],
+ pops:[5.4,5.7,6.0,6.3,6.6].map(t0=>pp(t0,'TAP!',390,150,'#ffd34d',36,.34)).concat([pp(3.4,'-22',560,190,'#ffd34d',30),pp(7.1,'-26',570,190,'#ffd34d',30)]),
+ press:[[.5,'charge',2.4],[3.1,'beam']],caps:[[0,3,'CHARGE: hold to fill your KI'],[3,4.6,'BEAM: needs 50 KI, big damage'],[5,7.6,'Beam clash! Tap as fast as you can to push through']]},
+{id:'guard',ch:2,ic:'shield',name:'Guard and parry',lead:'Hold GUARD to block. Time it perfectly to parry.',
+ tips:['Holding <b>GUARD</b> blocks hits but spends stamina.','Raise it <b>just before</b> the hit lands for a <b>PARRY</b>: no damage, the attacker is staggered, and you regain stamina and KI.','A heavy hit while your stamina is low <b>breaks your guard</b>.'],
+ pro:'After a parry, answer with a jab chain while the rival is staggered.',hi:['guard'],len:7.4,
+ a:t=>{const r=pulse(t,[5.8],30,-1,.5);return{x:AX+r.dx-L(t,[[1.0,0],[1.08,12],[1.4,0]]),pose:r.pose};},
+ b:t=>{const l=lunge(t,[1.0,3.6,5.6],65,-1),r=pulse(t,[3.7],26,1,.6);return{x:BX+l.dx+r.dx,pose:r.pose||l.pose};},
+ hud:t=>({st:L(t,[[0,.8],[1.0,.8],[1.1,.62],[3.7,.62],[3.8,.82],[4.2,.82],[4.3,.15],[5.8,.15],[5.9,.05]]),ki:L(t,[[0,.1],[3.7,.1],[3.9,.3]]),hl:'st'}),
+ fx:[{k:'shield',t0:.7,t1:1.6,x:425,y:GY-45,col:'#3fd0ff'},sp(1.0,455,HY,'#3fd0ff',1),{k:'shield',t0:3.45,t1:3.95,x:425,y:GY-45,col:'#ffd34d'},sp(3.65,455,HY,'#ffd34d',1.6),{k:'shield',t0:5.3,t1:5.85,x:425,y:GY-45,col:'#3fd0ff'},sp(5.8,430,HY,'#ff5a5a',1.5)],
+ pops:[pp(1.05,'BLOCKED',420,170,'#3fd0ff',24),pp(3.7,'PARRY!',430,150,'#ffd34d',36),pp(5.85,'GUARD BREAK!',420,150,'#ff6a6a',30)],
+ press:[[.7,'guard',.9],[3.45,'guard',.25],[5.3,'guard',.55]],caps:[[0,2.4,'Hold GUARD to block. Blocking costs stamina'],[3,4.6,'Tap just before the hit: PARRY! The foe is staggered'],[4.7,7.3,'With very low stamina, a heavy hit breaks the guard']]},
+{id:'dash',ch:2,ic:'run-fast',name:'Dash',lead:'A burst of speed to close the gap or escape.',
+ tips:['A ground dash makes you briefly <b>untouchable</b>.','Costs <b>14 stamina</b> and has a short cooldown (about half a second).','Keyboard: <b>Shift</b>, or double-tap <b>A / D</b>.'],
+ pro:'Dash away from a big swing, then punish the miss.',hi:['dash','tackle'],len:5.0,
+ a:t=>{const l=lunge(t,[1.3]);const d1=t>=.6&&t<.95,d2=t>=2.95&&t<3.3;return{x:L(t,[[0,130],[.6,130],[.9,400],[2.9,400],[3.25,240]])+l.dx,pose:d1||d2?'back':l.pose,ghost:d1?[[-24,.35],[-48,.2]]:d2?[[24,.35],[48,.2]]:null};},
+ b:t=>{const r=pulse(t,[1.3],12),l=lunge(t,[3.0],75,-1);return{x:BX+r.dx+l.dx,pose:r.pose||l.pose};},
+ hud:t=>({st:L(t,[[0,1],[.6,1],[.7,.86],[1.3,.86],[1.4,.8],[2.9,.8],[3.0,.66],[4.6,.9]]),hl:'st'}),
+ fx:[sp(1.3,480,HY,0,1)],pops:[pp(.7,'-14',300,220,'#ffd34d',20),pp(3.3,'WHIFF!',470,200,'#5bc8ff',28)],
+ press:[[.6,'dash'],[1.3,'tackle'],[2.95,'dash']],caps:[[0,1.2,'DASH closes the gap fast'],[2.4,4.8,'Dash away from a swing and it whiffs']]},
+{id:'down',ch:2,ic:'arrow-collapse-down',name:'Knockdowns',lead:'Strong hits send the rival to the ground.',
+ tips:['Strong hits, launches, throws and slams <b>knock the foe down</b>.','Knocked into the arena edge they bounce back.','While getting up they flicker: a short <b>protected</b> moment. Wait it out.'],
+ pro:'Use the downtime to recharge stamina or set up a beam.',hi:[],len:5.0,
+ a:t=>{const l=lunge(t,[.6],44);return{x:AX+l.dx,pose:l.pose};},
+ b:t=>{if(t<.6)return{x:BX};const u=clamp((t-.65)/.65);if(t<1.3)return{x:BX+130*sm(u),lift:40*Math.sin(Math.PI*u),rot:1.57*sm(u),pose:'hurt'};if(t<2.3)return{x:BX+130,rot:1.57,pose:'down'};if(t<2.7)return{x:BX+130,rot:1.57*(1-sm((t-2.3)/.4)),pose:'down'};if(t<3.7)return{x:BX+130,al:.55+.4*Math.sin(t*30)};return{x:BX+130};},
+ hud:t=>({b:L(t,[[.6,1],[.7,.64]]),hl:'hp'}),fx:[sp(.6,480,HY,'#ffe27a',1.8),{k:'ring',t0:1.3,x:670,y:GY,r:80,col:'#fff'}],
+ pops:[pp(.8,'KNOCKDOWN!',470,160,'#ffd34d',34,1.2),pp(2.8,'PROTECTED',670,190,'#5bc8ff',22,1)],press:[[.6,'tackle']],caps:[[0,2.2,'A strong hit: the rival is knocked down'],[2.3,4.8,'Getting up, they flicker. Wait for it to end']]},
+{id:'types',ch:3,ic:'creation',name:'Types and weather',lead:'The same move does very different damage depending on type.',
+ tips:['Hit a weakness for <b>2x damage</b>. Hit a resistance for less, or nothing if the type is immune.','<b>Same-type bonus</b>: +15% when the move matches your Pokemon.','<b>Weather</b> boosts matching types by 20% and weakens opposing weather types by 20%.'],
+ pro:'The Moves screen shows each move\'s type, so build a loadout that covers weaknesses.',hi:[],len:6.0,
+ a:t=>{const l=lunge(t,[.8,2.6,4.4]);return{x:AX+l.dx,pose:l.pose};},
+ b:t=>{const r=pulse(t,[.8,2.6,4.4],t<1.8?10:t<3.6?26:6);return{x:BX+r.dx,pose:r.pose};},
+ hud:t=>({b:L(t,[[0,1],[.85,1],[.95,.9],[2.65,.9],[2.75,.68],[4.45,.68],[4.55,.66]]),hl:'hp'}),
+ fx:[sp(.8,480,HY,'#fff',1),sp(2.6,480,HY,'#ffd34d',1.9),{k:'ring',t0:2.6,x:520,y:GY,r:90,col:'#ffd34d'},sp(4.4,480,HY,'#9aa6bd',.6)],
+ pops:[pp(.9,'-10',500,180,'#fff',24),pp(2.7,'-22',500,170,'#ffd34d',40,1.2),pp(2.7,'SUPER EFFECTIVE!',500,125,'#ffd34d',20,1.2),pp(4.5,'-2',500,180,'#aab7d8',16),pp(4.5,'NOT VERY EFFECTIVE',500,145,'#aab7d8',16,1.2)],
+ press:[[.8,'tackle'],[2.6,'tackle'],[4.4,'tackle']],caps:[[0,1.9,'A normal hit'],[1.9,3.7,'Super effective: double damage'],[3.7,6,'Resisted: much less damage']]},
+{id:'pickups',ch:3,ic:'heart-plus',name:'Pickups',lead:'Items appear in the arena. Walk over them.',
+ tips:['<b>Berry</b>: restores 15% HP.','<b>Orb</b>: restores 45 stamina and 25 KI.','Grabbing one mid-fight can swing the round, but do not leave your guard down.'],
+ pro:'Watch for them while the rival is stunned or knocked down.',hi:['joy'],len:4.6,
+ a:t=>({x:L(t,[[0,150],[1.2,300],[1.5,300],[2.6,460],[4.6,460]])}),b:()=>({x:620}),
+ hud:t=>({a:L(t,[[0,.55],[1.25,.55],[1.35,.7]]),st:L(t,[[0,.2],[2.6,.2],[2.7,.65]]),ki:L(t,[[0,.1],[2.6,.1],[2.7,.35]]),hl:t<1.9?'hp':'st'}),
+ fx:[{k:'item',type:'berry',t0:0,t1:1.25,x:300,y:GY-14},{k:'item',type:'orb',t0:0,t1:2.6,x:460,y:GY-14}],
+ pops:[pp(1.3,'+15% HP',300,200,'#43d86a',26),pp(2.65,'+45 STAMINA',460,210,'#ffd34d',22),pp(2.75,'+25 KI',460,180,'#5bc8ff',22)],press:[[0,'joy',2.6]],caps:[[0,1.9,'Berry: restores 15% HP'],[1.9,4.5,'Orb: restores stamina and KI']]},
+{id:'combo',ch:4,ic:'sword-cross',name:'Pro combos',lead:'Chain everything you learned.',
+ tips:['<b>Rush-down</b>: DASH, JAB x3 (launch), then a special in the air.','<b>Counter</b>: PARRY, then JAB x3 while the rival is staggered.','<b>Zoning</b>: RANGED from far, lane-dodge the reply, then CHARGE and BEAM.','<b>Close-in</b>: DASH in, then GRAB for a throw.'],
+ pro:'Practice mode lets you try these on a dummy that does not fight back.',hi:['dash','tackle','special2'],len:5.6,
+ a:t=>{const l=lunge(t,[1.0,1.4,1.8,2.55]);return{x:L(t,[[0,150],[.4,150],[.7,AX],[2.3,AX],[2.55,AX+50],[3.2,AX+50],[3.5,AX]])+l.dx,lift:L(t,[[2.4,0],[2.55,40],[3.0,40],[3.3,0]]),pose:t>=.4&&t<.75?'back':l.pose,ghost:t>=.4&&t<.75?[[-24,.35],[-48,.2]]:null};},
+ b:t=>{const r=pulse(t,[1.0,1.4],10);if(t>=1.85){if(t>4.3)return{x:620};const u=clamp((t-1.85)/1.3);return{x:BX+80*sm(u),lift:120*Math.sin(Math.PI*u),rot:1.57*sm(u)+.9*Math.sin(Math.PI*u),pose:u<1?'hurt':'down'};}return{x:BX+r.dx,pose:r.pose};},
+ hud:t=>({b:L(t,[[0,1],[1.05,1],[1.15,.9],[1.45,.9],[1.55,.8],[1.85,.8],[1.95,.68],[2.6,.68],[2.7,.5]]),st:L(t,[[0,1],[.4,1],[.55,.86],[2.5,.86],[2.6,.7]])}),
+ fx:[sp(1.0,480,HY,0,1),sp(1.4,480,HY,0,1),sp(1.8,480,HY,0,1.3),sp(2.6,540,HY-50,'#ffb347',1.7)],
+ pops:[pp(1.05,'x1',640,120,'#fff',22),pp(1.45,'x2',640,120,'#fff',26),pp(1.85,'x3',640,120,'#fff',30),pp(2.65,'x4 COMBO!',620,120,'#ffd34d',40,1.6)],
+ press:[[.4,'dash'],[1.0,'tackle'],[1.4,'tackle'],[1.8,'tackle'],[2.5,'special2']],caps:[[0,.95,'1. DASH in'],[.95,2.3,'2. JAB x3 (the 3rd launches)'],[2.3,5.5,'3. Special while they are airborne']]},
+{id:'modes',ch:4,ic:'dice-5',name:'Game modes',lead:'Every way to play, and where to practise.',
+ tips:['New? Start in <b>Practice</b>: the dummy stays idle until you switch it to guard or fight back.','<b>Move Lab</b> gives infinite stamina and KI so you can test every move.','<b>Watch AI Fight</b> shows how the computer plays.','Pick <b>Easy / Normal / Hard</b> on the Battle screen.'],
+ pro:'Tournament saves your bracket, so you can come back later.',hi:[],len:9.8,overlay:true,
+ html:()=>`<div style="display:flex;height:100%;align-items:center"><div style="width:300px">${MODES.map(m=>`<div class="tb ${m[2]}">${ico(m[0])}${m[1]}</div>`).join('')}</div><div class="md" id="md"></div></div>`,
+ upd:t=>{const M=document.querySelectorAll('#ovl .tb'),i=Math.floor(t/1.4)%MODES.length;M.forEach((e,j)=>e.classList.toggle('sel',i===j));const md=$('md');if(md&&md.dataset.i!==String(i)){md.dataset.i=i;md.innerHTML=`<b>${MODES[i][1]}</b>${MODES[i][3]}`;}},
+ press:[],caps:[]},
+{id:'sheet',ch:4,ic:'keyboard',name:'Cheat sheet',lead:'Every control on one page.',
+ tips:['Switch <b>TOUCH / KEYBOARD</b> at the top to see the other layout.','Open this guide again from the title screen or the pause menu.','Good luck, and have fun!'],
+ pro:'Pause: P or Escape (keyboard) or the gear at the top of the screen.',hi:[],len:5,overlay:true,
+ html:()=>`<div class="csg">${BTN.map(b=>`<div class="cr"><div class="ic">${ico(b.ic)}</div><div><b>${b.n}</b><br><small>${DESC[b.k]}</small></div><div class="ks">${b.key.map(k=>`<span class="kk">${k}</span>`).join(' ')}</div></div>`).join('')}</div>`,upd:()=>{},press:[],caps:[]}
+];
+// ---------- engine
+let cur=0,T0=performance.now(),slow=false,mk=false;
+const KM={a:'joy',d:'joy',w:'up',' ':'up',s:'guard',j:'tackle',k:'leaf',l:'vine',o:'special2',n:'special3',i:'beam',u:'charge',shift:'dash',g:'grab',q:'laneBack',e:'laneFront'};
+function fit(){const w=$('wrap').clientWidth,s=w/VW;$('phone').style.transform=`scale(${s})`;$('wrap').style.height=VH*s+'px';document.querySelectorAll('.scr').forEach(e=>{e.firstElementChild.style.transform=`scale(${e.clientWidth/1300})`;});}
+function show(i){cur=Math.max(0,Math.min(STEPS.length-1,i));const s=STEPS[cur],c=CH[s.ch];T0=performance.now();document.documentElement.style.setProperty('--ch',c[1]);
+ $('card').innerHTML=`<span class="cc">${c[0]}</span><span class="cn">${cur+1} / ${STEPS.length}</span><h3>${ico(s.ic)}${s.name}</h3><div class="lead">${s.lead}</div><ul>${s.tips.map(t=>`<li>${t}</li>`).join('')}</ul>${s.hi.length?`<div class="lab">CONTROLS FOR THIS LESSON</div><div class="keys">${s.hi.map(k=>`<div class="kchip"><i>${ico(BI[k].ic)}</i>${BI[k].n}${BI[k].key.map(x=>`<span class="kk">${x}</span>`).join('')}</div>`).join('')}</div>`:''}<div class="pro"><b>PRO TIP</b><br>${s.pro}</div>`;
+ document.body.classList.toggle('ov',!!s.overlay);$('ovl').innerHTML=s.overlay?s.html():'';
+ $('dots').innerHTML=STEPS.map((_,j)=>`<i class="${j===cur?'on':j<cur?'past':''}" data-i="${j}" title="${STEPS[j].name}"></i>`).join('');
+ $('bk').disabled=cur===0;$('nx').innerHTML=cur===STEPS.length-1?'FINISH &#10003;':'NEXT &#9654;';
+ document.querySelectorAll('#les .chip').forEach((e,j)=>e.classList.toggle('sel',j===cur));
+ document.querySelectorAll('[data-b]').forEach(e=>{const k=e.dataset.b,on=s.hi.includes(k);e.classList.toggle('hi',on);e.classList.toggle('dim',!on&&s.hi.length>0);e.querySelectorAll('.tg').forEach(x=>x.remove());if(on&&e.classList.contains('btn')||on&&e.id==='joy')e.insertAdjacentHTML('beforeend',`<span class="tg${k==='special2'?' tl':''}">${BI[k].n}</span>`);});}
+function render(now){const s=STEPS[cur];let t=Math.max(0,(now-T0)/1000*(slow?.4:1));if(t>s.len+1.1){T0=now;t=0;}const tt=Math.min(t,s.len);
+ const on=new Set((s.press||[]).filter(p=>tt>=p[0]&&tt<p[0]+(p[2]||.18)).map(p=>p[1]));
+ document.querySelectorAll('[data-b]').forEach(e=>e.classList.toggle('on',on.has(e.dataset.b)));
+ document.querySelectorAll('.cd').forEach(e=>{const k=e.parentElement.dataset.b,r=s.cd&&s.cd[k]&&s.cd[k].find(c=>tt>=c[0]&&tt<c[1]);e.style.setProperty('--a',r?360*(1-(tt-r[0])/(r[1]-r[0]))+'deg':'0deg');});
+ if(s.overlay){s.upd(tt);return;}
+ g.setTransform(2,0,0,2,0,0);g.clearRect(0,0,VW,VH);bg();
+ const a=D(s.a(tt)),b=D(s.b(tt));const fs=[['A',S.a,a],['B',S.b,b]].sort((p,q)=>p[2].lane-q[2].lane);for(const [sd,m,f] of fs)drawF(m,sd,f,tt);
+ for(const e of s.fx||[])fx(e,tt);for(const p of s.pops||[])pop(p,tt);
+ hud(s.hud?s.hud(tt):{},tt);const c=(s.caps||[]).find(c=>tt>=c[0]&&tt<c[1]);if(c)cap(c[2]);}
+function loop(now){render(now);requestAnimationFrame(loop);}
+// ---------- wiring
+const inFrame=parent!==window,say=m=>{if(inFrame)parent.postMessage(m,'*');};
+let active=!inFrame;
+const closeMe=()=>{active=false;say({ht:'close'});};
+const setMk=v=>{mk=v;document.body.classList.toggle('mk',v);$('mk').classList.toggle('sel',v);$('mt').classList.toggle('sel',!v);};
+$('x').onclick=closeMe;
+$('bk').onclick=()=>show(cur-1);$('nx').onclick=()=>{if(cur===STEPS.length-1)closeMe();else show(cur+1);};
+$('dots').onclick=e=>{if(e.target.dataset.i)show(+e.target.dataset.i);};
+$('rep').onclick=()=>{T0=performance.now();};$('slow').onclick=e=>{slow=!slow;e.target.classList.toggle('sel',slow);};
+$('mt').onclick=()=>setMk(false);$('mk').onclick=()=>setMk(true);
+$('wrap').addEventListener('pointerdown',e=>{const b=e.target.closest('[data-b]');if(b&&STEPS[cur].hi.includes(b.dataset.b))T0=performance.now();});
+addEventListener('keydown',e=>{if(!active)return;if(e.key==='ArrowRight'){show(cur+1);return;}if(e.key==='ArrowLeft'){show(cur-1);return;}if(e.key==='Escape'){closeMe();return;}const k=KM[e.key.toLowerCase()];if(k&&STEPS[cur].hi.includes(k)){T0=performance.now();e.preventDefault();}});
+addEventListener('message',e=>{const d=e.data;if(!d||!d.htcmd)return;
+ if(d.htcmd==='open'){active=true;setMk(!d.touch);fit();show(0);}
+ else if(d.htcmd==='back'){if(cur===0)closeMe();else show(cur-1);}});
+function loop2(now){requestAnimationFrame(loop2);if(active)try{render(now);}catch(e){}}
+setMk(false);fit();show(0);requestAnimationFrame(loop2);say({ht:'ready'});
+</script></body></html>
