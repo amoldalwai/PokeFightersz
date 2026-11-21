@@ -3,7 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, INIT_D = 4, MAX_D = 10, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.3.6'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const NET_VER = '0.4.0'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -38,8 +38,8 @@
   $('tVer').textContent = 'ONLINE v' + NET_VER;
   const verOk = () => !!N.info && N.info.ver === NET_VER && (!N.info.hash || !N.hash || N.info.hash === N.hash);
 
-  NETG.rngOn = seed => { if (seed === undefined || seed === null) return; rs = seed >>> 0; simR = mulberry; hvLast.P = hvLast.E = -1; lkLast.P = lkLast.E = -1; };
-  NETG.rngOff = () => { simR = null; };
+  NETG.rngOn = seed => { if (seed === undefined || seed === null) return; rs = seed >>> 0; simR = mulberry; DetMath.on(); hvLast.P = hvLast.E = -1; lkLast.P = lkLast.E = -1; };
+  NETG.rngOff = () => { simR = null; DetMath.off(); };
 
   // ---- lobby
   const steps = ['nStep0', 'nStepHost', 'nStepJoin', 'nStepLobby'];
@@ -213,8 +213,8 @@
     }
     NETG.inP = dec(host ? N.loc[t] : N.rem[t]); NETG.inE = dec(host ? N.rem[t] : N.loc[t]);
     delete N.loc[t]; delete N.rem[t];
-    now = N.simT; simR = mulberry;
-    try { stepFn(TICK); } finally { simR = null; }
+    now = N.simT; simR = mulberry; DetMath.on(); // the built-in sin, cos, pow ... differ between CPU types; the fight must not use them
+    try { stepFn(TICK); } finally { simR = null; DetMath.off(); }
     N.ring[N.tick] = [rs >>> 0, N.trace ? N.calls.join('|') : N.nCalls, Math.round((P.x + E.x * 3 + P.hp * 5 + E.hp * 7 + P.z * 11 + E.z * 13) * 100)]; N.calls = []; N.nCalls = 0; delete N.ring[N.tick - 400];
     N.tick++; N.simT += TICK;
     if (N.tick % HASH_EVERY === 0) { const h = hashState(); N.hl[N.tick] = h; send({ t: 'h', k: N.tick, h }); cmp(N.tick); }
