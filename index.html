@@ -889,7 +889,7 @@ body:has(#pause.on) #practiceUI{display:none}
     <nav id="optRail">
       <h1>SETTINGS</h1>
       <button class="otab on" data-t="oDisp" data-ic="cellphone">Controls &amp; display</button>
-      <button class="otab" data-t="oAudio" data-ic="volume-high">Audio</button>
+      <button class="otab" data-t="oGfx" data-ic="flash">Graphics</button><button class="otab" data-t="oAudio" data-ic="volume-high">Audio</button>
       <button class="otab" data-t="oGame" data-ic="sword-cross">Gameplay</button>
       <button class="otab" data-t="oReset" data-ic="restart">Reset</button>
       <div class="sp"></div>
@@ -903,6 +903,12 @@ body:has(#pause.on) #practiceUI{display:none}
             <div class="oitem"><div class="t"><b>Controls</b><small>On-screen buttons or keyboard</small></div><div class="seg"><button class="ctlchip" data-m="pc">PC</button><button class="ctlchip" data-m="mobile">Mobile</button></div></div>
             <div class="oitem"><div class="t"><b>Sprites</b><small>How Pok&eacute;mon look in a fight</small></div><div class="seg"><button class="sprchip" data-s="pmd">Action</button><button class="sprchip" data-s="bw">2D poses</button><button class="sprchip" data-s="xy">3D</button></div></div>
             <div class="oitem"><div class="t"><b>Vibration</b><small>Buzz when you land or take a hit</small></div><button class="sw" id="optVibe" aria-label="Vibration"></button></div>
+          </div>
+        </section>
+        <section id="oGfx"><h2>Graphics</h2>
+          <div class="ocard">
+            <div class="oitem"><div class="t"><b>Frame rate</b><small>30 keeps the phone cooler and saves battery. 60 is smoothest. Max follows a 90 or 120 Hz screen.</small></div><div class="seg"><button class="fpschip" data-f="30">30</button><button class="fpschip" data-f="60">60</button><button class="fpschip" data-f="0">Max</button></div></div>
+            <div class="oitem"><div class="t"><b>Effects</b><small>Reduced drops clouds and some particles. Online fights always use full effects.</small></div><div class="seg"><button class="fxchip" data-x="full">Full</button><button class="fxchip" data-x="low">Reduced</button></div></div>
           </div>
         </section>
         <section id="oAudio"><h2>Audio</h2>

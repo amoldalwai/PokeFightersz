@@ -11,6 +11,8 @@ addEventListener('resize', fit); fit();
 const BGT = [[0, 0, 0, 1], [700, 500, 120, 1], [2200, 1300, 200, .5]]; // background canvas margins [side, top, bottom, resolution] per zoom-out tier; the far tier is half resolution so it can reach much further without a huge bitmap
 for (const id of ['bg', 'fxb', 'fxf']) { $(id).width = W; $(id).height = H; }
 let lowQ = new URLSearchParams(location.search).has('lowq'), fAvg = 16, fCnt = 0; // low-quality mode switches on by itself when the frame rate is poor
+let fpsCap = 60, fxLow = false, lastRun = 0; // Settings > Graphics: frame-rate cap (0 follows the screen's own rate) and reduced effects
+try { const v = localStorage.getItem('pf_fps'); if (v === '30' || v === '60' || v === '0') fpsCap = +v; fxLow = localStorage.getItem('pf_fx') === '1'; if (fxLow) lowQ = true; } catch (e) { }
 const ico = n => ICON_PATH[n] ? `<svg class="sv" viewBox="0 0 24 24"><path d="${ICON_PATH[n]}"/></svg>` : '';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, k) => a + (b - a) * k;
@@ -1364,8 +1366,12 @@ function settingsInit() {
   for (const [i, k] of [['vMus', 'mus'], ['vMus2', 'mus'], ['vFx', 'fx'], ['vFx2', 'fx']]) { const e = $(i); if (!e) continue; e.oninput = () => { if (k === 'mus') volMus = +e.value; else volFx = +e.value; applyVol(); saveS(); syncSettings(); }; if (k === 'fx') e.onchange = () => hitSfx('fighting'); }
   for (const [i, k] of [['gD', 'dmg'], ['gS', 'sta'], ['gK', 'ki']]) { const e = $(i); if (e) e.oninput = () => { GM[k] = +e.value / 10; saveS(); syncSettings(); }; }
   document.querySelectorAll('.gpre').forEach(b => b.onclick = () => { if (b.dataset.p !== 'custom') { const [d, s, k] = b.dataset.p.split(',').map(Number); GM.dmg = d; GM.sta = s; GM.ki = k; saveS(); } syncSettings(); });
-  syncSettings();
+  document.querySelectorAll('.fpschip').forEach(b => b.onclick = () => setFps(+b.dataset.f)); document.querySelectorAll('.fxchip').forEach(b => b.onclick = () => setFx(b.dataset.x === 'low'));
+  syncSettings(); syncGfx();
 }
+function syncGfx() { document.querySelectorAll('.fpschip').forEach(b => b.classList.toggle('sel', +b.dataset.f === fpsCap)); document.querySelectorAll('.fxchip').forEach(b => b.classList.toggle('sel', (b.dataset.x === 'low') === fxLow)); }
+function setFps(v) { fpsCap = v; try { localStorage.setItem('pf_fps', String(v)); } catch (e) { } fCnt = 0; syncGfx(); }
+function setFx(low) { fxLow = low; if (!NETG.on) { lowQ = low || new URLSearchParams(location.search).has('lowq'); bgDirty = true; fCnt = 0; } try { localStorage.setItem('pf_fx', low ? '1' : '0'); } catch (e) { } syncGfx(); }
 function flyIn(f, o) {
   const a = f.act; if (!a || a.home || !isFly(f) || o.dead) return;
   const dir = Math.sign(o.x - f.x) || f.face, tx = clamp(o.x - dir * (f.w * .3 + o.w * .3 + 26), WALL_L, WALL_R), tl = Math.max(0, o.z + o.lift - f.z);
@@ -2666,10 +2672,13 @@ function drawCine() {
 
 // ---------------------------------------------------------------- loop
 function frame(ts) {
-  const raw = ts - last; last = ts;
+  const idle = state === 'menu' || state === 'over' || (state === 'pause' && !NETG.on), capMs = idle ? 100 : fpsCap === 30 ? 1000 / 30 : fpsCap === 60 ? 1000 / 60 : 0; // menus and the pause screen show a frozen picture: no need to redraw it
+  if (capMs && ts - lastRun < capMs - 2) { requestAnimationFrame(frame); return; }
+  lastRun = ts; const raw = ts - last; last = ts;
+  if (idle) { if (SPV) SPV.stopAll(); if (NETG.on) NETG.frame(raw, step); requestAnimationFrame(frame); return; }
   if (NETG.on) { NETG.frame(raw, step); if (SPV) { SPV.tick(); if (state !== 'fight') SPV.stopAll(); } if (cine) drawCine(); draw(); requestAnimationFrame(frame); return; }
-  const rdt = Math.max(0, Math.min(.033, raw / 1000 || 0)); now = ts / 1000;
-  if (state === 'fight' && raw > 0) { fAvg += (Math.min(raw, 40) - fAvg) * .03; if (!lowQ && ++fCnt > 150 && fAvg > 26) { lowQ = true; bgDirty = true; } } // slow device: drop the optional effects
+  const rdt = Math.max(0, Math.min(fpsCap === 30 ? .06 : .033, raw / 1000 || 0)); now = ts / 1000;
+  if (state === 'fight' && raw > 0) { fAvg += (Math.min(raw, 60) - fAvg) * .03; if (!lowQ && ++fCnt > 150 && fAvg > (fpsCap === 30 ? 44 : 26)) { lowQ = true; bgDirty = true; } } // slow device: drop the optional effects
   step(rdt);
   if (SPV) { SPV.tick(); if (state !== 'fight') SPV.stopAll(); }
   draw();
@@ -3142,9 +3151,9 @@ function buildMenu() {
     const b = $('optReset');
     if (!rstT) { b.textContent = 'TAP AGAIN TO CONFIRM'; rstT = setTimeout(() => { rstT = 0; b.textContent = 'RESTORE DEFAULTS'; }, 3000); return; }
     clearTimeout(rstT); rstT = 0; b.textContent = 'RESTORED';  setTimeout(() => { b.textContent = 'RESTORE DEFAULTS'; }, 1500);
-    volMus = volFx = 70; applyVol(); GM.dmg = GM.sta = GM.ki = 1; saveS(); muted = false; musicOn = true; vibeOn = true; musSel = 'random'; spriteStyle = 'bw'; setRounds(3);
+    volMus = volFx = 70; applyVol(); GM.dmg = GM.sta = GM.ki = 1; saveS(); muted = false; musicOn = true; vibeOn = true; musSel = 'random'; spriteStyle = 'bw'; setRounds(3); setFps(60); setFx(false);
     setControls(matchMedia('(pointer:coarse)').matches ? 'mobile' : 'pc');
-    try { for (const k of ['pf_mute', 'pf_music', 'pf_vibe', 'pf_track', 'pf_sprite2', 'pf_ctl', 'pf_rounds']) localStorage.removeItem(k); } catch (e) { }
+    try { for (const k of ['pf_mute', 'pf_music', 'pf_vibe', 'pf_track', 'pf_sprite2', 'pf_ctl', 'pf_rounds', 'pf_fps', 'pf_fx']) localStorage.removeItem(k); } catch (e) { }
     if (MUS.inB) { musEl.idx = pickMusic(); musEl.last = musEl.idx; }
     refreshMenu();
   };
