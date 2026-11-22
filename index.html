@@ -780,8 +780,9 @@ body:has(#pause.on) #practiceUI{display:none}
       <div class="trow"><button class="bigbtn dark" id="tOpts" data-ic="cog">SETTINGS</button><button class="bigbtn howb" id="tHow"><span class="htq">?</span>HOW TO PLAY</button></div>
     </div>
     <button class="ballb" id="tBalls" title="Poké Balls"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="#fff"/><path d="M3 24A21 21 0 0 1 45 24Z" fill="#e8402f"/><circle cx="24" cy="24" r="21" fill="none" stroke="#111" stroke-width="3"/><path d="M3 24H45" stroke="#111" stroke-width="4"/><circle cx="24" cy="24" r="7" fill="#fff" stroke="#111" stroke-width="3.5"/><circle cx="24" cy="24" r="2.5" fill="#d8d8d8"/></svg><b id="tBallPts"></b></button>
-    <button class="chip" id="tExit" data-ic="close">Exit</button><div id="tVer"></div>
+    <button class="chip" id="tExit" data-ic="close">Exit</button><div id="tVer"></div><button class="chip" id="tUpd">CHECK FOR UPDATES</button>
   </div>
+  <div class="ov" id="updPane"><div class="updc"><h2 id="updT">UPDATE</h2><p id="updP"></p><div class="updb"><button class="bigbtn gold" id="updGo">UPDATE</button><button class="bigbtn dark" id="updLater">LATER</button></div></div></div>
 
   <div class="ov" id="menu">
     <div class="bkImg" id="mBg"></div><div class="bkWash" id="mWash"></div><div class="bkGrid"></div><div class="bkVig"></div>
@@ -823,16 +824,21 @@ body:has(#pause.on) #practiceUI{display:none}
   <div class="ov" id="netPane">
     <h2>ONLINE 1v1</h2>
     <div class="nsub ntop">Fight a friend. Both of you need Wi-Fi (mobile data may not connect).</div>
-    <div id="nStep0" class="nstep"><input id="nName" maxlength="12" placeholder="YOUR NAME" autocomplete="off" spellcheck="false"><button class="bigbtn gold" id="nHost">HOST A ROOM</button><button class="bigbtn" id="nJoin">JOIN A ROOM</button></div>
+    <div id="nStep0" class="nstep"><input id="nName" maxlength="12" placeholder="ENTER YOUR NAME" autocomplete="off" spellcheck="false"><button class="bigbtn gold" id="nHost">HOST A ROOM</button><button class="bigbtn" id="nJoin">JOIN A ROOM</button></div>
     <div id="nStepHost" class="nstep" style="display:none"><div class="nsub">ROOM CODE</div><div id="nCode">....</div><button class="chip" id="nCopy">COPY CODE</button></div>
     <div id="nStepJoin" class="nstep" style="display:none"><div class="nsub">TYPE THE 4 LETTER CODE</div><input id="nIn" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="go" id="nJoinGo">JOIN</button></div>
     <div id="nStepLobby" class="nstep" style="display:none">
-      <div class="ncards"><div class="ncard" id="nMe"></div><div class="nvs">VS</div><div class="ncard" id="nFr"></div></div>
-      <div class="nopts"><button class="chip" id="nPick">CHANGE MY POK&Eacute;MON</button><button class="chip" id="nMoves">MY MOVES</button>
-        <span class="nhost"><button class="chip" id="nPrev">&lsaquo;</button><b id="nArena"></b><button class="chip" id="nNext">&rsaquo;</button></span>
-        <span class="nhost" id="nRounds"><button class="chip" data-r="1">1 ROUND</button><button class="chip" data-r="3">BEST OF 3</button></span></div>
-      <button class="go nhost" id="nGo">FIGHT!</button>
-      <div class="nguest nsub">The host picks the arena and starts the fight.</div>
+      <div class="nrow">
+        <div class="nside"><div class="ncard" id="nMe"></div><div class="xbtns"><button class="xbtn pri" id="nPick" data-ic="hexagon-multiple">EXPLORE ALL</button><button class="xbtn" id="nMoves" data-ic="pencil">MOVES</button></div></div>
+        <div class="nmid">
+          <div class="nvs">VS</div>
+          <div id="nArenaPrev"><button class="arr nhost" id="nArPrev" data-ic="arrow-left"></button><div id="nArenaName"></div><button class="arr nhost" id="nArNext" data-ic="arrow-left"></button></div>
+          <div id="nRounds"><button class="chip" data-r="1">1 ROUND</button><button class="chip" data-r="3">BEST OF 3</button></div>
+          <button class="go nhost" id="nGo">FIGHT!</button>
+          <div class="nguest nsub">The host picks the arena and starts the fight.</div>
+        </div>
+        <div class="nside"><div class="ncard" id="nFr"></div></div>
+      </div>
     </div>
     <div id="nVer"></div><div id="nPing"></div><div id="nStat"></div>
     <button class="chip" id="nBack">BACK</button>

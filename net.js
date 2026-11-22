@@ -3,7 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, INIT_D = 4, MAX_D = 16, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.5.3'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const NET_VER = '0.6.0'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -50,7 +50,7 @@
     const p = dexById(id), pool = buildKit(p).pool, pick = loadouts[id];
     return pick && pick.length === Math.min(3, pool.length) && pick.every(i => pool[i]) ? pick.slice() : pool.slice(0, 3).map((_, i) => i);
   }
-  const sendPick = () => send({ t: 'pick', pk: selYou, spec: specIdx(selYou) });
+  const sendPick = () => { const m = { t: 'pick', pk: selYou, spec: specIdx(selYou) }, k = JSON.stringify(m); if (k === N.lastPick) return; N.lastPick = k; send(m); }; // refresh() runs on every received message, so repeating a send here would bounce between the phones forever
   function card(id, p, who, name, spec) {
     $(id).innerHTML = p ? `<div class="nwho"></div><img src="${stillUrl(p)}" onerror="this.onerror=null;this.src='${spriteUrl(p)}'" alt=""><div class="nnm">${nm(p.name)}</div><div class="tags">${tags(p.types)}</div><div class="nmv"></div>` : `<div class="nwho"></div><div class="nwait">choosing...</div>`;
     $(id).firstChild.textContent = who + (name ? ' \u00b7 ' + name : '');
@@ -59,21 +59,24 @@
   function refresh() {
     if (!N.linked) return;
     const mine = dexById(selYou), rival = N.rival ? dexById(N.rival.pk) : null, host = N.role === 'host', ok = verOk();
+    const thN = THEMES[host || !N.lobCfg ? themeIdx : N.lobCfg.theme] || THEMES[0], bestN = host || !N.lobCfg ? bestOf : N.lobCfg.best;
     card('nMe', mine, 'YOU', myName(), specIdx(selYou)); card('nFr', rival, 'FRIEND', N.info && cleanName(N.info.name), N.rival && N.rival.spec);
     sendPick();
-    $('nArena').textContent = THEMES[themeIdx].name || THEMES[themeIdx].id;
-    for (const b of document.querySelectorAll('#nRounds .chip')) b.classList.toggle('sel', +b.dataset.r === bestOf);
+    $('nArenaName').textContent = thN.name || thN.id; $('nArenaPrev').style.backgroundImage = `url(${arThumb(thN)})`;
+    $('nArenaPrev').classList.toggle('ro', !host); $('nRounds').classList.toggle('ro', !host);
+    for (const b of document.querySelectorAll('#nRounds .chip')) b.classList.toggle('sel', +b.dataset.r === bestN);
+    if (host) { const lk = themeIdx + ':' + bestOf; if (lk !== N.lastLcfg) { N.lastLcfg = lk; send({ t: 'lcfg', theme: themeIdx, best: bestOf }); } } // the guest sees the host's arena and rounds read-only
     for (const e of document.querySelectorAll('.nhost')) e.style.display = host ? '' : 'none';
     for (const e of document.querySelectorAll('.nguest')) e.style.display = host ? 'none' : '';
     $('nGo').disabled = !rival || !ok;
     const mv = 'v' + NET_VER + (N.hash ? ' (' + N.hash.slice(0, 6) + ')' : ''), fv = N.info ? 'v' + N.info.ver + (N.info.hash ? ' (' + N.info.hash.slice(0, 6) + ')' : '') : '...';
     $('nVer').textContent = 'Your version ' + mv + ' \u00b7 friend ' + fv; $('nVer').classList.toggle('bad', !!N.info && !ok);
-    if (N.info && !ok) { stat('Different game versions. Both of you need the same version before you can fight.', true); return; }
+    if (N.info && !ok) { stat('Different game versions. Update the game (main menu > CHECK FOR UPDATES) so you both have the same version.', true); return; }
     if (!N.info && N.noHello) { $('nGo').disabled = true; stat('Your friend\'s game is too old to compare versions. Both of you need the latest version.', true); return; }
     stat(rival ? (host ? 'Friend connected. Press FIGHT when you are both ready.' : 'Connected. Waiting for the host to start.') : 'Friend connected. Waiting for their pick...');
   }
   NETG.refresh = refresh;
-  NETG.open = () => { NETG.lobby = true; closeNet(); N.rival = null; step('nStep0'); stat(''); showScreen('netPane'); NETG.lobby = true; };
+  NETG.open = () => { NETG.lobby = true; closeNet(); N.rival = null; N.lobCfg = null; step('nStep0'); stat(''); showScreen('netPane'); NETG.lobby = true; };
 
   function newPeer(id) {
     if (N.peer) try { N.peer.destroy(); } catch (e) { }
@@ -99,7 +102,7 @@
   }
   function bind(c) {
     N.conn = c;
-    c.on('open', () => { N.linked = true; N.rival = null; N.info = null; N.noHello = false; step('nStepLobby'); refresh(); hashReady.then(() => send({ t: 'hello', ver: NET_VER, hash: N.hash, name: myName() }));
+    c.on('open', () => { N.linked = true; N.rival = null; N.info = null; N.noHello = false; N.lastPick = N.lastLcfg = ''; step('nStepLobby'); refresh(); hashReady.then(() => send({ t: 'hello', ver: NET_VER, hash: N.hash, name: myName() }));
       setTimeout(() => { if (N.conn === c && N.linked && !N.info) { N.noHello = true; if (NETG.lobby) refresh(); } }, 5000); }); // a game older than the version check never answers
     c.on('data', onData);
     c.on('close', () => { if (N.conn === c) onGone(); });
@@ -132,6 +135,7 @@
     else if (d.t === 'p') send({ t: 'q', s: d.s });
     else if (d.t === 'q') { N.rtts.push(performance.now() - d.s); if (N.rtts.length > 8) N.rtts.shift(); updateNet(); }
     else if (d.t === 'hello') { N.noHello = false; N.info = { ver: String(d.ver), hash: String(d.hash || ''), name: cleanName(d.name) || 'FRIEND' }; if (NETG.lobby) refresh(); }
+    else if (d.t === 'lcfg') { N.lobCfg = { theme: +d.theme, best: +d.best }; if (NETG.lobby) refresh(); }
     else if (d.t === 'pick') { N.rival = { pk: d.pk, spec: d.spec }; if (NETG.lobby) refresh(); }
     else if (d.t === 'start') { if (N.role === 'guest') begin(d.cfg); }
     else if (d.t === 'rdy') { N.readyR = true; N.fpR = d.fp || null; checkGo(); }
@@ -275,10 +279,11 @@
 
   // ---- wiring
   $('tOnline').onclick = () => { audio(); NETG.open(); };
-  $('nHost').onclick = () => { saveName(); hostRoom(); };
-  $('nJoin').onclick = () => { saveName(); N.role = 'guest'; step('nStepJoin'); stat(''); $('nIn').focus(); };
+  $('nHost').onclick = () => { if (!nameOk()) return; saveName(); hostRoom(); };
+  $('nJoin').onclick = () => { if (!nameOk()) return; saveName(); N.role = 'guest'; step('nStepJoin'); stat(''); $('nIn').focus(); };
+  function nameOk() { const e = $('nName'), n = cleanName(e.value); e.classList.toggle('bad', !n); if (!n) { stat('Enter your name first.', true); e.focus(); } else stat(''); return !!n; }
   function saveName() { const n = cleanName($('nName').value); $('nName').value = n; try { localStorage.setItem('pf_name', n); } catch (e) { } }
-  $('nName').onkeydown = e => e.stopPropagation(); $('nName').onkeyup = e => e.stopPropagation();
+  $('nName').onkeydown = e => e.stopPropagation(); $('nName').onkeyup = e => e.stopPropagation(); $('nName').oninput = () => $('nName').classList.remove('bad');
   $('nJoinGo').onclick = () => joinRoom($('nIn').value);
   $('nIn').oninput = e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); };
   $('nIn').onkeydown = e => { if (e.key === 'Enter') joinRoom($('nIn').value); e.stopPropagation(); };
@@ -287,9 +292,36 @@
   $('nPick').onclick = () => openPicker('you');
   $('nMoves').onclick = () => openMoves();
   $('nGo').onclick = fight;
-  $('nPrev').onclick = () => { setThemeIdx(themeIdx - 1); refresh(); }; $('nNext').onclick = () => { setThemeIdx(themeIdx + 1); refresh(); };
+  $('nArPrev').onclick = () => { setThemeIdx(themeIdx - 1); refresh(); }; $('nArNext').onclick = () => { setThemeIdx(themeIdx + 1); refresh(); };
+  $('nArenaPrev').onclick = e => { if (N.role !== 'host' || e.target.closest('.arr')) return; arPg = -1; drawArenas(); $('arenaPane').classList.add('on'); }; // the same arena cards as the battle menu
   for (const b of document.querySelectorAll('#nRounds .chip')) b.onclick = () => { setRounds(+b.dataset.r); refresh(); };
   $('nCopy').onclick = () => { const t = N.code; try { navigator.clipboard.writeText(t); toast('Code copied'); } catch (e) { toast('Code: ' + t); } };
+
+  // ---- update check against the GitHub releases of this game (Android app only: the web page is always current)
+  const REPO = 'amoldalwai/PokeFightersz';
+  const appVer = () => { try { const fv = new URLSearchParams(location.search).get('fakever'); if (fv && window.PF) return fv; // test hook: ?fakever=1.0.0 pretends to be an older app
+     return window.PF && typeof PF.appVersion === 'function' ? String(PF.appVersion()) : ''; } catch (e) { return ''; } };
+  const vnum = v => String(v).replace(/^v/i, '').split('.').map(x => parseInt(x, 10) || 0);
+  const isNewer = (a, b) => { const x = vnum(a), y = vnum(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
+  function showUpd(title, text, url) {
+    $('updT').textContent = title; $('updP').textContent = text; $('updGo').style.display = url ? '' : 'none'; $('updLater').textContent = url ? 'LATER' : 'OK';
+    $('updGo').onclick = () => { $('updPane').classList.remove('on'); try { PF.openUrl(url); } catch (e) { window.open(url, '_blank'); } };
+    $('updLater').onclick = () => $('updPane').classList.remove('on'); $('updPane').classList.add('on');
+  }
+  async function checkUpdate(manual) {
+    const cur = appVer(); if (!cur) return;
+    if (manual) $('tUpd').textContent = 'CHECKING...';
+    try {
+      const r = await fetch('https://api.github.com/repos/' + REPO + '/releases/latest', { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
+      if (!r.ok) throw new Error(r.status);
+      const rel = await r.json(), latest = String(rel.tag_name || '').replace(/^v/i, ''), apk = (rel.assets || []).find(a => /\.apk$/i.test(a.name));
+      if (latest && isNewer(latest, cur)) { $('tUpd').classList.add('has'); showUpd('UPDATE AVAILABLE', 'Version ' + latest + ' is available (you have ' + cur + '). Online matches need both players on the same version.', apk ? apk.browser_download_url : rel.html_url); }
+      else { $('tUpd').classList.remove('has'); if (manual) showUpd('UP TO DATE', 'You have the latest version (' + cur + ').', ''); }
+    } catch (e) { if (manual) showUpd('CANNOT CHECK', 'Could not reach GitHub. Check your internet connection and try again.', ''); }
+    $('tUpd').textContent = 'CHECK FOR UPDATES';
+  }
+  $('tUpd').onclick = () => checkUpdate(true);
+  if (appVer()) { $('tUpd').style.display = 'block'; setTimeout(() => checkUpdate(false), 2500); }
 
   const q = new URLSearchParams(location.search);
   if (q.has('join') || q.has('host')) setTimeout(() => { NETG.open(); if (q.has('host')) hostRoom(); else { N.role = 'guest'; step('nStepJoin'); $('nIn').value = q.get('join').toUpperCase(); joinRoom(q.get('join')); } }, 400);

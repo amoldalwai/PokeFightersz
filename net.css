@@ -62,3 +62,39 @@ body.online #nNet{display:block}
 #netPane.lob #nPing{position:absolute;right:16px;top:16px}
 #netPane.lob #nVer{position:absolute;right:12px;bottom:8px;font-size:10px;opacity:.8}
 #netPane.lob #nStat{min-height:0;font-size:13px}
+
+/* lobby laid out like the battle screen: my card with EXPLORE ALL and MOVES, arena preview and rounds in the middle, friend's card */
+#netPane.lob{gap:6px}
+#netPane.lob h2{font-size:24px;margin:0}
+.nrow{display:flex;align-items:center;justify-content:center;gap:14px}
+.nside{display:flex;flex-direction:column;align-items:center;gap:8px;width:250px}
+.nside:last-child{padding-bottom:50px}
+.nmid{display:flex;flex-direction:column;align-items:center;gap:8px;width:250px}
+#netPane.lob .ncard{width:250px;height:196px}
+#netPane .xbtns{margin-top:0}
+#nArenaPrev{position:relative;width:240px;height:84px;flex:none;border-radius:16px;border:1px solid rgba(255,255,255,.3);box-shadow:0 8px 22px rgba(0,0,0,.5);background:#222 center/cover;overflow:hidden;cursor:pointer}
+#nArenaName{position:absolute;left:0;right:0;bottom:0;padding:14px 46px 4px;font:700 12px var(--uif);letter-spacing:.8px;text-align:center;background:linear-gradient(transparent,rgba(0,0,0,.78))}
+#nArenaPrev .arr{position:absolute;top:50%;margin-top:-17px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(5,8,20,.7);border:1px solid rgba(255,255,255,.35);color:#fff;padding:0;z-index:2}
+#nArenaPrev .arr .sv{font-size:20px;margin:0}
+#nArPrev{left:6px}#nArNext{right:6px}#nArNext .sv{transform:scaleX(-1)}
+#nRounds{display:flex;gap:6px}
+#nRounds .chip{padding:6px 12px;font:700 13px var(--uif);border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07)}
+#nRounds .chip.sel{background:#ffd34d;color:#241a00;border-color:transparent}
+#nRounds.ro{pointer-events:none}
+#nArenaPrev.ro{cursor:default}
+
+/* update check */
+#tUpd{display:none;position:absolute;left:12px;bottom:8px;z-index:8;font:700 11px var(--uif);letter-spacing:.8px;padding:5px 12px;border:1px solid rgba(255,255,255,.25);background:rgba(10,16,40,.6);color:#c4d2ff}
+#tUpd.has{border-color:#ffd34d;color:#ffd34d}
+#updPane{z-index:20;background:rgba(4,6,16,.82)}
+.updc{width:430px;padding:22px 24px;box-sizing:border-box;text-align:center;background:#10183a;border:2px solid rgba(255,255,255,.25);border-radius:18px;font-family:var(--uif)}
+.updc h2{margin:0 0 8px;font:900 24px var(--uif);letter-spacing:3px;color:#ffd34d}
+.updc p{margin:0 0 16px;font:600 15px/1.4 var(--uif);color:#dbe4ff}
+.updb{display:flex;gap:10px;justify-content:center}
+.updb .bigbtn{width:170px}
+#nName.bad{border-color:#ff7a6a}
+
+#netPane{--ui:var(--uif)}
+.nside .xbtn{padding:0 10px;gap:5px;font-size:12px;letter-spacing:.5px;white-space:nowrap}
+/* the connection pill sits just under the settings gear, which hid it when it was at the same height */
+#nNet{left:50%;top:106px;transform:translateX(-50%)}

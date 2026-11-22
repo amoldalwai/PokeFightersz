@@ -3311,7 +3311,7 @@ function drawArenas() {
 }
 $('arenaPrev').onclick = () => { arPg = -1; drawArenas(); $('arenaPane').classList.add('on'); };
 $('arClose').onclick = () => $('arenaPane').classList.remove('on');
-$('arGrid').onclick = e => { const c = e.target.closest('.ar'); if (!c) return; themeIdx = +c.dataset.i; setTheme(THEMES[themeIdx]); $('arenaPane').classList.remove('on'); refreshMenu(); };
+$('arGrid').onclick = e => { const c = e.target.closest('.ar'); if (!c) return; themeIdx = +c.dataset.i; setTheme(THEMES[themeIdx]); $('arenaPane').classList.remove('on'); refreshMenu(); if (NETG.lobby && NETG.refresh) NETG.refresh(); };
 $('arPager').onclick = e => { const b = e.target.closest('.pgb'); if (!b || b.disabled) return; arPg = +b.dataset.pg; drawArenas(); };
 
 function toMenu() { if (NETG.on) { NETG.leave(); return; } if (tourOn) { openTour(); return; } if (lab) { showScreen('labPane'); refreshLab(); } else showScreen('menu'); }
