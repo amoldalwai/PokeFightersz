@@ -3290,7 +3290,7 @@ function drawTour() {
     $('tbGo').style.display = ''; $('tbNew').style.display = 'none'; $('tbOpt').style.display = '';
   }
 }
-function refreshTourBtn() { $('tTourRet').style.display = tour && !tour.over ? '' : 'none'; }
+function refreshTourBtn() { const on = !!(tour && !tour.over); $('tTourRet').style.display = on ? 'flex' : 'none'; $('title').classList.toggle('tr', on); }
 $('tTour').onclick = () => { audio(); openPicker('tour'); };
 $('tTourRet').onclick = () => { audio(); if (tour && !tour.over) openTour(); };
 $('tbBack').onclick = () => { tourOn = false; showScreen('title'); };
