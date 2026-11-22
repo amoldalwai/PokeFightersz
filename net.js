@@ -2,8 +2,8 @@
 // Both devices run the same simulation at a fixed 60 Hz from the same seed and exchange only the controls, so effects and sound come for free.
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
-  const TICK = 1 / 60, INIT_D = 4, MAX_D = 10, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.5.2'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const TICK = 1 / 60, INIT_D = 4, MAX_D = 16, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
+  const NET_VER = '0.5.3'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -234,14 +234,15 @@
       N.acc += rdt; let n = 0, stalled = false;
       while (N.acc >= TICK && n < 8) { if (N.rem[N.tick] === undefined) { stalled = true; break; } tick(stepFn); N.acc -= TICK; n++; }
       if (N.acc > TICK * 10) N.acc = TICK * 3; // came back from a hidden tab: do not race to catch up
-      const ms = performance.now(); // only waits over 80 ms count, and the first 5 s (loading, VS splash) are ignored: three in ten seconds means the link is jittery, so buffer more input
-      if (stalled && N.stall + rdt >= .08 && !N.stallCounted && N.tick > 300) {
+      const ms = performance.now(), prog = n > 0, waiting = stalled && !prog; // a frame that still ran ticks is not a wait: the faster phone always ends a frame at the edge of its friend's input
+      // only waits over 80 ms count, and the first 5 s (loading, VS splash) are ignored: three in ten seconds means the link is jittery, so buffer more input
+      if (waiting && N.stall + rdt >= .08 && !N.stallCounted && N.tick > 300) {
         N.stallCounted = true; N.stallEv = N.stallEv.filter(x => ms - x < 10000); N.stallEv.push(ms);
         if (N.stallEv.length >= 3 && N.wantD < MAX_D) { N.wantD = Math.min(MAX_D, N.wantD + 2); N.stallEv = []; }
       }
-      if (!stalled) { if (N.stall > .1) { N.hitch++; (N.hlog = N.hlog || []).push([N.tick, Math.round(N.stall * 1000), state, Math.round(N.rtts.length ? N.rtts[N.rtts.length - 1] : -1)]); if (N.hlog.length > 40) N.hlog.shift(); } N.stallCounted = false; }
-      if (stalled && N.stall >= .08) N.lastStall = ms; else if (N.wantD > INIT_D && ms - N.lastStall > 10000) { N.wantD--; N.lastStall = ms - 7000; }
-      N.stall = stalled ? N.stall + rdt : 0;
+      if (prog) { if (N.stall > .1) { N.hitch++; (N.hlog = N.hlog || []).push([N.tick, Math.round(N.stall * 1000), state, Math.round(N.rtts.length ? N.rtts[N.rtts.length - 1] : -1)]); if (N.hlog.length > 40) N.hlog.shift(); } N.stallCounted = false; }
+      if (waiting && N.stall >= .08) N.lastStall = ms; else if (N.wantD > INIT_D && ms - N.lastStall > 10000) { N.wantD--; N.lastStall = ms - 7000; }
+      N.stall = prog ? 0 : waiting ? N.stall + rdt : N.stall; // a frame that is simply not due yet (120 Hz screens) leaves the count alone
       if (N.stall > .7) showMsg('WAITING FOR FRIEND...', 0); else if (N.stall === 0 && $('msg').textContent.startsWith('WAITING')) $('msg').classList.remove('on');
       now = N.simT + Math.min(N.acc, TICK);
     } else now = last / 1000;
