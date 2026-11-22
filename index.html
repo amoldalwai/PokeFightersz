@@ -716,6 +716,7 @@ body:has(#pause.on) #practiceUI{display:none}
 .howp{border-color:rgba(255,211,77,.6);color:#ffe27a;background:rgba(255,211,77,.1)}
 .ballb{display:none;position:absolute;right:98px;top:6px;z-index:3;width:48px;height:48px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(10,16,40,.75);cursor:pointer;align-items:center;justify-content:center}
 .ballb svg{width:34px;height:34px}.ballb:active{transform:scale(.94)}
+.ghb{position:absolute;right:156px;top:10px;z-index:3;width:40px;height:40px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(10,16,40,.75);cursor:pointer;display:flex;align-items:center;justify-content:center}.ghb svg{width:22px;height:22px}.ghb:active{transform:scale(.94)}
 .ballb b{position:absolute;right:-8px;bottom:-6px;background:#ffd34d;color:#2b1c00;font:800 11px var(--uif);padding:1px 6px;border-radius:99px;border:1px solid rgba(0,0,0,.35)}
 #htBox{position:absolute;inset:0;z-index:100;display:none;background:#000}#htBox.on{display:block}#htFrame{display:block;width:100%;height:100%;border:0}
 #htOffer{z-index:60;background:rgba(5,8,20,.78)}
@@ -787,6 +788,7 @@ body:has(#pause.on) #practiceUI{display:none}
       <div class="trow"><button class="bigbtn dark" id="tOpts" data-ic="cog">SETTINGS</button><button class="bigbtn howb" id="tHow"><span class="htq">?</span>HOW TO PLAY</button></div>
     </div>
     <button class="ballb" id="tBalls" title="Poké Balls"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="#fff"/><path d="M3 24A21 21 0 0 1 45 24Z" fill="#e8402f"/><circle cx="24" cy="24" r="21" fill="none" stroke="#111" stroke-width="3"/><path d="M3 24H45" stroke="#111" stroke-width="4"/><circle cx="24" cy="24" r="7" fill="#fff" stroke="#111" stroke-width="3.5"/><circle cx="24" cy="24" r="2.5" fill="#d8d8d8"/></svg><b id="tBallPts"></b></button>
+    <button class="ghb" id="tGit" title="Poke Fighters Z on GitHub" aria-label="GitHub"><svg viewBox="0 0 24 24"><path fill="#fff" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></button>
     <button class="chip" id="tExit" data-ic="close">Exit</button><div id="tVer"></div><button class="chip" id="tUpd">CHECK FOR UPDATES</button>
   </div>
   <div class="ov" id="updPane"><div class="updc"><h2 id="updT">UPDATE</h2><p id="updP"></p><div class="updb"><button class="bigbtn gold" id="updGo">UPDATE</button><button class="bigbtn dark" id="updLater">LATER</button></div></div></div>

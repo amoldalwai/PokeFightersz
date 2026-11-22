@@ -321,6 +321,9 @@
     $('tUpd').textContent = 'CHECK FOR UPDATES';
   }
   $('tUpd').onclick = () => checkUpdate(true);
+  const GH = 'https://github.com/' + REPO + '/';
+  $('tGit').onclick = () => { try { if (window.PF && typeof PF.openUrl === 'function') PF.openUrl(GH); else window.open(GH, '_blank'); } catch (e) { window.open(GH, '_blank'); } };
+  if (!(window.PF && PF.openBalls)) $('tGit').style.right = '98px'; // no Poké Ball button in the browser, so the icon takes its place
   if (appVer()) { $('tUpd').style.display = 'block'; setTimeout(() => checkUpdate(false), 2500); }
 
   const q = new URLSearchParams(location.search);
