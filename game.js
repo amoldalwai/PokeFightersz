@@ -567,7 +567,7 @@ function prepFighters() {
   }
 }
 function resetField() {
-  jfx = []; kick = 0; bclash = null; $('tug').classList.remove('on'); $('tapBtn').classList.remove('on'); $('bars').classList.remove('on'); tmClear(); if (SPV) SPV.reset(); for (const f of [P, E]) if (f) { f.spinT = 0; f.shockT = f.shockImm = f.shock = 0; f.shkLog = null; f.flyBack = null; } projectiles = []; vines = []; beams = []; waves = []; rocks = []; zones = []; strikes = []; booms = []; cracks = []; sparks = []; floaters = []; rings = []; puffs = []; pillars = []; popups = []; decals = []; hazards = []; pickups = []; impacts = []; clashes = []; clashT = 0; hzT = 5; pkT = rnd(20, 55); pkDone = false; washA = 0;
+  jfx = []; kick = 0; bclash = null; $('tug').classList.remove('on'); $('tapBtn').classList.remove('on'); $('bars').classList.remove('on'); tmClear(); if (SPV) SPV.reset(); for (const f of [P, E]) if (f) { f.spinT = 0; f.shockT = f.shockImm = f.shock = 0; f.shkLog = null; f.flyBack = null; } projectiles = []; vines = []; beams = []; waves = []; rocks = []; zones = []; strikes = []; booms = []; cracks = []; sparks = []; floaters = []; rings = []; puffs = []; pillars = []; popups = []; decals = []; hazards = []; pickups = []; impacts = []; clashes = []; clashT = 0; hzT = 5; pkT = rnd(20, 55); pkDone = false; washA = 0; VAR.reset();
   matchTime = bestOf > 1 && !practice ? 120 : 180; shake = 0; freeze = 0; winner = null; introT = 0; overT = 0; camX = clamp(WORLD_W / 2 - W / 2, 0, WORLD_W - W); flashT = 0; cine = null; slowT = 0; camZ = 1; punch = 0; $('cine').classList.remove('on'); $('mvbA').classList.remove('on'); $('mvbB').classList.remove('on');
 }
 // best of 3: after each knockout the fighters are reset and the next round starts without leaving the arena
@@ -585,7 +585,7 @@ function nextRound() {
   const oP = P, oE = E; rounds.n++;
   P = makeFighter(cur.pa, -1, false, 1, cur.sa); E = makeFighter(cur.pb, 1, !NETG.on, NETG.on ? 1 : DIFF[selDiff].hp * tourHp(), cur.sb);
   P.stored = oP.stored; E.stored = oE.stored; P.specs = oP.specs; E.specs = oE.specs; E.ai.persona = oE.ai.persona; E.ai.habit = oE.ai.habit;
-  prepFighters(); resetField(); $('msg').classList.remove('on'); state = 'intro';
+  prepFighters(); VAR.roundAdapt(oP, oE); resetField(); $('msg').classList.remove('on'); state = 'intro';
 }
 const HAZARD = { storm: { kind: 'bolt', ty: 'electric', every: [6, 9], dmg: 80, r: 90 }, volcano: { kind: 'geyser', ty: 'fire', every: [7, 10], dmg: 70, r: 80 }, cave: { kind: 'rock', ty: 'rock', every: [6, 9], dmg: 65, r: 70 }, crystalcave: { kind: 'rock', ty: 'rock', every: [6, 9], dmg: 65, r: 70 }, magmacrater: { kind: 'geyser', ty: 'fire', every: [7, 10], dmg: 70, r: 80 }, ice: { kind: 'icicle', ty: 'ice', every: [6, 9], dmg: 65, r: 70 } };
 HAZARD.frozenlake = HAZARD.ice;
@@ -602,7 +602,7 @@ function updateHazards(dt) {
     if (p.y < GROUND - 40) continue;
     for (const f of [P, E]) if (!f.dead && p.life > 0 && Math.abs(f.x - p.x) < f.w * .5 + 24 && f.z + f.lift < 90) {
       p.life = 0; sfx('pick'); spark(p.x, p.y, p.kind === 'berry' ? '#ff5a6a' : '#5ad6ff', 12);
-      if (p.kind === 'berry') { f.hp = Math.min(f.maxhp, f.hp + f.maxhp * .15); floatText(f.x, GROUND - f.h - 14, '+HP', '#7dff9a', 28); } else { f.sta = Math.min(100, f.sta + 45); f.ki = Math.min(100, f.ki + 25); floatText(f.x, GROUND - f.h - 14, '+STAMINA', '#5ad6ff', 24); }
+      if (VAR.collect(f, p)) { } else if (p.kind === 'berry') { f.hp = Math.min(f.maxhp, f.hp + f.maxhp * .15); floatText(f.x, GROUND - f.h - 14, '+HP', '#7dff9a', 28); } else { f.sta = Math.min(100, f.sta + 45); f.ki = Math.min(100, f.ki + 25); floatText(f.x, GROUND - f.h - 14, '+STAMINA', '#5ad6ff', 24); }
     }
   }
   pickups = pickups.filter(p => p.t < p.life);
@@ -624,7 +624,7 @@ function drawHazard(g, z) {
     g.restore();
   }
 }
-function drawPickup(g, p) {
+function drawPickup(g, p) { if (VAR.drawPickup(g, p)) return;
   if (p.life - p.t < 2 && Math.floor(now * 8) % 2) return;
   const y = p.y + Math.sin(now * 4 + p.x) * 4, berry = p.kind === 'berry'; g.save();
   g.globalCompositeOperation = 'lighter'; spr(g, 'shine', p.x, y, 70, now * 2, .8); g.globalCompositeOperation = 'source-over';
@@ -951,7 +951,7 @@ function drawJfx(g) {
   }
 }
 function damage(att, def, amount, knock, pt, big, ty) {
-  if (def.dead || state !== 'fight') return false;
+  if (def.dead || state !== 'fight') return false; if (def.inv <= 0 && VAR.absorb(att, def, amount)) return false;
   if (def.inv > 0) { if (amount > 0 && now - def.evT > .6) { def.evT = now; floatText(pt.x, pt.y - 30, 'EVADED', '#9fe8ff'); } return false; }
   if (amount > 0 && ty && !att.reflecting) { // abilities that turn an incoming type aside
     const ab = def.ability;
@@ -964,7 +964,7 @@ function damage(att, def, amount, knock, pt, big, ty) {
   }
   const eff = ty ? effect(ty, def.kit.types) : 1, stab = ty && att.kit.types.includes(ty) ? 1.15 : 1;
   const cHit = !!(def.act && def.act.t < .3 && amount > 0 && !att.reflecting && !att.hazard), jugS = def.canJuggle && def.z > 20 ? Math.pow(.8, def.juggleN) : 1, abil = att.ability || {};
-  let d0 = amount * att.mult * (att.debT > 0 ? .72 : 1) * (def.shieldT > 0 ? .5 : 1) * (att.isAI ? DIFF[selDiff].dmg * (tourOn && tour ? 1 + .05 * tour.round : 1) : 1) * (eff === 0 ? .15 : clamp(eff, .25, 4)) * stab * wxMul(ty) * (abil.boost && att.abilOn && ty && att.kit.types.includes(ty) ? 1.5 : 1) * (abil.guts && statusy(att) ? 1.2 : 1) * (att.burnT > 0 ? .8 : 1) * (LIFE && att.hp > 0 && att.hp < att.maxhp * .25 ? 1.2 : 1) * (cHit ? 1.25 : 1) * jugS * (def.ability.multi && def.hp >= def.maxhp * .95 ? .5 : 1) * (def.ability.armor || 1) * (abil.atk || 1) * (def.ability.resist && def.ability.resist.includes(ty) ? .5 : 1) * (def.ability.scale && statusy(def) ? .72 : 1) * (def.sleepT > 0 ? 1.3 : 1) * DMG_SCALE * GM.dmg * (att.shockT > 0 && att.shockV === 2 ? .5 : 1);
+  let d0 = amount * att.mult * VAR.dmgMul(att, def, ty, amount) * (att.debT > 0 ? .72 : 1) * (def.shieldT > 0 ? .5 : 1) * (att.isAI ? DIFF[selDiff].dmg * (tourOn && tour ? 1 + .05 * tour.round : 1) : 1) * (eff === 0 ? .15 : clamp(eff, .25, 4)) * stab * wxMul(ty) * (abil.boost && att.abilOn && ty && att.kit.types.includes(ty) ? 1.5 : 1) * (abil.guts && statusy(att) ? 1.2 : 1) * (att.burnT > 0 ? .8 : 1) * (LIFE && att.hp > 0 && att.hp < att.maxhp * .25 ? 1.2 : 1) * (cHit ? 1.25 : 1) * jugS * (def.ability.multi && def.hp >= def.maxhp * .95 ? .5 : 1) * (def.ability.armor || 1) * (abil.atk || 1) * (def.ability.resist && def.ability.resist.includes(ty) ? .5 : 1) * (def.ability.scale && statusy(def) ? .72 : 1) * (def.sleepT > 0 ? 1.3 : 1) * DMG_SCALE * GM.dmg * (att.shockT > 0 && att.shockV === 2 ? .5 : 1);
   const crit = amount >= 14 && !att.reflecting && !def.ability.nocrit && Math.random() < .07 + (abil.crit || 0); if (crit) d0 *= 1.5;
   if (now - def.comboT < .9) def.comboN++; else def.comboN = 0; def.comboT = now; d0 *= Math.max(.45, 1 / (1 + .22 * def.comboN)); // long strings of hits lose power
   let blocked = !att.unblockable && def.guarding && staEff(def) > 0 && Math.sign(att.x - def.x) === def.face, gbreak = false;
@@ -1009,7 +1009,7 @@ function damage(att, def, amount, knock, pt, big, ty) {
     if (def.ability.contact && att.act && att.act.name === 'melee' && !statusy(att) && Math.random() < .3) applyStatus(att, def.ability.contact, false, def);
   }
   if (def.ability.sturdy && !def.sturdyUsed && def.hp >= def.maxhp * .9 && d >= def.hp) { d = def.hp - 1; def.sturdyUsed = true; floatText(def.x, GROUND - def.z - def.lift - def.h - 30, 'STURDY!', '#d9c08a', 28); }
-  def.hp = Math.max(0, def.hp - d); att.ki = Math.min(100, att.ki + (blocked ? 1 : 5)); if (!blocked && d > 0 && amount > 0) shockHit(def, d);
+  def.hp = Math.max(0, def.hp - d); VAR.onHit(att, def, ty, d, eff, blocked, big); att.ki = Math.min(100, att.ki + (blocked ? 1 : 5)); if (!blocked && d > 0 && amount > 0) shockHit(def, d);
   if (!blocked) { if (now - (att.cbT ?? -9) < 1.3) { att.cbN++; att.cbD += d; } else { att.cbN = 1; att.cbD = d; } att.cbT = now; }
   if (att === meF()) { stats.dealt += d; stats.combo = Math.max(stats.combo, att.cbN || 0); } if (def === meF()) stats.taken += d;
   if (!blocked && att.act && !att.hazard && (att.act.name === 'melee' || att.act.name === 'grab' || (att.act.name === 'sp' && CANCEL_KEYS.has(att.act.key)))) att.act.landed = true;
@@ -1302,12 +1302,12 @@ function startAct(f, name) {
   else if (name === 'special' || name === 'special2' || name === 'special3') {
     const i = name === 'special' ? 0 : name === 'special2' ? 1 : 2, sp = f.specs[i]; if (!sp) return;
     const A = ARCH[sp.key]; if (f.cool['s' + i] > 0 || f.ki < A.cost || !canSpend(f, sp.sta)) return;
-    spend(f, sp.sta); f.ki -= A.cost; f.cool['s' + i] = A.cool; if (o.ability.pressure) f.sta = Math.max(0, f.sta - 5); f.act = { name: 'sp', key: sp.key, t: 0, ty: sp.type, sp, miss: rollMiss(sp.acc), sv: SPV ? SPV.pick(f, sp.key, sp.type) : 0 };
+    spend(f, sp.sta); f.ki -= A.cost; f.cool['s' + i] = VAR.coolFor ? VAR.coolFor(f, i, A) : A.cool; if (o.ability.pressure) f.sta = Math.max(0, f.sta - 5); f.act = { name: 'sp', key: sp.key, t: 0, ty: sp.type, sp, miss: rollMiss(sp.acc), sv: SPV ? SPV.pick(f, sp.key, sp.type) : 0 };
     if (A.cost >= 16 && f.cineCool <= 0) { f.cineCool = 5; startCine(f, sp.type, sp.name); }
     moveBanner(f, sp.name, sp.type, sp.icon);
     A.start && A.start(f, o, f.act); f.alertT = .5; f.alertLen = ALERT_LEN[sp.key] || 0; f.alertAim = AIM_KEYS.has(sp.key);
   } else if (name === 'beam') { if (f.ki < 50 || f.z > 0 || f.cool.beam > 0 || !canSpend(f, k.beam.sta)) return; spend(f, k.beam.sta); f.ki -= 50; f.cool.beam = 7; f.act = { name, t: 0, fired: false, sv: SPV ? SPV.pick(f, 'beam', k.beam.type) : 0 }; sfx('charge'); if (f.act.sv) { const ba = f.act; SPV.snd('bcharge', () => f.act === ba && !ba.fired); } if (!f.noCine) startCine(f, k.beam.type, k.beam.name); f.alertT = .9; f.alertLen = 1100; f.alertAim = true; }
-  const ac = f.act; if (ac && (ac.name === 'melee' || ac.name === 'grab' || (ac.name === 'sp' && (CONTACT_SP.has(ac.key) || (TM[ac.key] && TM[ac.key].rush))))) flyIn(f, o);
+  if (f.act) VAR.onAct(f, f.act); const ac = f.act; if (ac && (ac.name === 'melee' || ac.name === 'grab' || (ac.name === 'sp' && (CONTACT_SP.has(ac.key) || (TM[ac.key] && TM[ac.key].rush))))) flyIn(f, o);
 }
 const CONTACT_SP = new Set(['combo', 'dash', 'leap', 'spin']);
 function streak(f, x0, l0, x1, l1) { // faded afterimages along the path a flyer just flew
@@ -1475,7 +1475,7 @@ function aiInput(f, o, dt) {
   if (a.goto != null) { if (!pickups.length || Math.abs(a.goto - f.x) < 24) a.goto = null; else { inp[a.goto > f.x ? 'r' : 'l'] = true; return inp; } } // walk to a pickup
   if (a.t <= 0) {
     a.t = Df.think * (.7 + Math.random() * .6); a.mode = 'idle';
-    const pk = pickups.find(p => p.y > GROUND - 120 && Math.abs(p.x - f.x) < 650 && ((p.kind === 'berry' && f.hp < f.maxhp * .7) || (p.kind === 'orb' && f.sta < 50)));
+    const pk = pickups.find(p => p.y > GROUND - 120 && Math.abs(p.x - f.x) < 650 && VAR.wants(f, p));
     if (pk && d > 160 && Math.random() < .7) { a.goto = pk.x; a.t = .3; return inp; }
     const reach = f.w * .35 + k.melee.reach, opts = [], ew = ty => clamp(1 + (effect(ty, o.kit.types) - 1) * .7, .35, 2.2);
     const inLane = Math.abs(f.lp - o.lp) < .6;
@@ -1496,7 +1496,7 @@ function aiInput(f, o, dt) {
       if (gs > .3) lw.grab = 1 + L * 2;
       if (hb.rep >= 3 && hb.last === 'melee') lw.guard = (lw.guard || 1) * 1.5;
     }
-    for (const x of opts) x[1] *= (pw[x[0]] || 1) * (lw[x[0]] || 1);
+    for (const x of opts) x[1] *= (pw[x[0]] || 1) * (lw[x[0]] || 1); VAR.aiOpts(f, o, opts);
     if (f.hover) { if (!f.air) { if (Math.random() < .5) { f.air = true; f.alt = 0; puff(f.x, GROUND, 10, 'rgba(235,235,225,.5)', 110); } } else if (Math.random() < .4) { f.alt = d < 220 ? 0 : Math.floor(Math.random() * 3); if (f.alt === 0 && d < 200 && Math.random() < .3) f.air = false; } } // flying AI takes off and lands now and then
     let tot = 0; for (const x of opts) tot += x[1]; let r = Math.random() * tot, pick = 'approach';
     for (const x of opts) { r -= x[1]; if (r <= 0) { pick = x[0]; break; } }
@@ -1731,7 +1731,7 @@ function projectileHit(p, t) {
   if (p.lift) t.vz = 520;
 }
 function updateWorld(dt) {
-  updateHazards(dt); tmWorld(dt); if (SPV) SPV.update(dt);
+  updateHazards(dt); tmWorld(dt); VAR.world(dt); if (SPV) SPV.update(dt);
   for (const p of projectiles) {
     if (p.pat) { patStep(p, dt); if (p.wait) continue; }
     else if (!p.aimed) { // a straight shot leaves angled toward the target, so flying or crouching foes can still be hit
@@ -2267,7 +2267,7 @@ function draw() {
   }
   for (const w of waves) (w.kind === 'surf' ? drawSurf : w.kind === 'boulder' ? drawBoulder : drawQuakeWave)(fxf, w);
   for (const b of beams) drawBeam(fxf, b); if (bclash) drawBClash(fxf);
-  for (const p of projectiles) drawProj(fxf, p);
+  for (const p of projectiles) drawProj(fxf, p); VAR.draw(fxf);
   for (const u of popups) { const k = u.t / .4; fxf.save(); fxf.globalAlpha = 1 - k; spr(fxf, u.img, u.x, u.y, (36 + 60 * easeOut(k * 2)) * (u.s || 1), u.rot); fxf.restore(); }
   drawJfx(fxf); for (const m of impacts) { const k = m.t / .22; fxf.save(); fxf.globalAlpha = 1 - k; fxf.strokeStyle = m.col; fxf.lineWidth = 4 - 2 * k; fxf.beginPath(); for (let i = 0; i < m.n; i++) { const a = i / m.n * 6.283 + m.rot, r0 = 24 + 40 * k, r1 = r0 + 36 * (1 - k * .5); fxf.moveTo(m.x + Math.cos(a) * r0, m.y + Math.sin(a) * r0); fxf.lineTo(m.x + Math.cos(a) * r1, m.y + Math.sin(a) * r1); } fxf.stroke(); fxf.restore(); }
   for (const s of strikes) { if (s.sv) SPV.bolt(fxf, s); else drawBolt(fxf, s.x, clamp(1 - s.t / .5, 0, 1)); }
@@ -2713,7 +2713,7 @@ function step(rdt) { // one slice of game time; online it runs at a fixed rate o
     }
   }
 }
-function endMatch() {
+function endMatch() { VAR.matchEnd();
   state = 'over'; const me = meF(), win = winner === me; jingle(win);
   $('winImg').src = spriteUrl(winner.p); $('over').classList.toggle('lose', !win && !demo);
   $('winStars').innerHTML = Array.from({ length: 26 }, (_, i) => { const a = i / 26 * 6.283, r = 70 + (i % 3) * 22; return `<i style="left:${95 + Math.cos(a) * r}px;top:${95 + Math.sin(a) * r}px;animation-delay:${(i * .09).toFixed(2)}s;--s:${(.6 + (i % 4) * .22).toFixed(2)}"></i>`; }).join('');
@@ -3260,7 +3260,7 @@ function tourResolve(playerWon) { // record the player's match and play out ever
   tour.win[tour.round][pm.i] = playerWon ? tour.you : pm.opp; simRound(tour.round);
   if (!playerWon) { for (let r = tour.round + 1; r < 3; r++) simRound(r); tour.over = 'out'; tour.champ = tour.win[2][0]; }
   else if (tour.round === 2) { tour.over = 'champ'; tour.champ = tour.you; }
-  else tour.round++;
+  else { tour.round++; VAR.perkOffer(); }
   tourSave();
 }
 function tourEnd(win) { // the result is stored right away; CONTINUE only opens the bracket
@@ -3287,7 +3287,7 @@ function drawTour() {
     $('tbGo').style.display = 'none'; $('tbNew').style.display = ''; $('tbOpt').style.display = 'none';
   } else {
     $('tbSub').textContent = TOUR_ROUNDS[tour.round]; $('tbMsg').textContent = `Next: ${nameOf(tour.you)} vs ${nameOf(pm.opp)}`;
-    $('tbGo').style.display = ''; $('tbNew').style.display = 'none'; $('tbOpt').style.display = '';
+    $('tbGo').style.display = ''; $('tbNew').style.display = 'none'; $('tbOpt').style.display = ''; VAR.perkUI();
   }
 }
 function refreshTourBtn() { const on = !!(tour && !tour.over); $('tTourRet').style.display = on ? 'flex' : 'none'; $('title').classList.toggle('tr', on); }

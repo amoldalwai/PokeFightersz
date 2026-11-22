@@ -811,7 +811,7 @@ body:has(#pause.on) #practiceUI{display:none}
       <div id="diffRow"></div>
       <div id="note"></div>
       <button class="go" id="goBtn">FIGHT!</button>
-      <button class="watchb" id="watchBtn">WATCH AI FIGHT</button>
+      <div style="display:flex;gap:6px;justify-content:center"><button class="watchb" id="watchBtn" style="width:122px;font-size:11px;letter-spacing:1px">WATCH AI FIGHT</button><button class="watchb" id="dailyBtn" title="Same rival, arena and rule for everyone today" style="width:112px;font-size:11px;letter-spacing:1px">DAILY</button></div>
     </div>
     <div class="card rival" id="slotRival">
       <div class="ctag">RIVAL (AI)</div>
@@ -978,7 +978,9 @@ body:has(#pause.on) #practiceUI{display:none}
     <script src="data/spfx.js"></script>
 <script src="data/whirlfx.js"></script>
 <script src="data/movefx.js"></script>
+<script src="variety.js"></script>
 <script src="game.js"></script>
+<script src="variety_moves.js"></script>
 <script src="lib/peerjs.min.js"></script>
 <script src="detmath.js"></script>
 <script src="net.js"></script>
