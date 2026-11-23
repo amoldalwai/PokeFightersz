@@ -37,8 +37,21 @@
   const lh = document.createElement('div'); lh.id = 'lowhp'; const tint = document.getElementById('tint'); if (tint) tint.insertAdjacentElement('afterend', lh); else document.getElementById('stage').appendChild(lh);
 
   const _ed = V.extraDraw;
+  // weather bonus tag in each fighter's HUD panel: only the fighters the weather helps or hurts get one
+  const wxTag = [null, null], wxKey = ['', ''];
+  for (const [i, id] of ['nameA', 'nameB'].entries()) { const n = document.getElementById(id); if (!n) continue; const s = document.createElement('span'); s.className = 'wxtag'; s.id = 'wxTag' + 'AB'[i]; n.insertAdjacentElement('afterend', s); wxTag[i] = s; }
+  const wxStyle = document.createElement('style'); wxStyle.textContent = '.wxtag{display:none;align-items:center;gap:4px;margin-left:8px;padding:1px 8px 1px 5px;border-radius:10px;background:rgba(0,0,0,.55);border:1px solid var(--c);color:#fff;font:800 10px system-ui,sans-serif;letter-spacing:.8px;white-space:nowrap;vertical-align:middle}.wxtag.on{display:inline-flex}.wxtag .sv{width:13px;height:13px;fill:var(--c)}.wxtag.dn{color:#ffb0a8}';
+  document.head.appendChild(wxStyle);
+  const updWx = () => {
+    [P, E].forEach((f, i) => {
+      const el = wxTag[i]; if (!el) return; const w = f && weather, up = w && f.kit.types.some(t => w.up.includes(t)), dn = w && !up && f.kit.types.some(t => w.down.includes(t)), key = up ? w.id + '+' : dn ? w.id + '-' : '';
+      if (key === wxKey[i]) return; wxKey[i] = key; el.classList.toggle('on', !!key); el.classList.toggle('dn', !!dn);
+      if (key) { el.style.setProperty('--c', dn ? '#ff8a7a' : w.col); el.innerHTML = ico(w.icon) + w.name + (up ? ' +20%' : ' \u221220%'); }
+    });
+  };
   V.extraDraw = () => {
     if (_ed) _ed();
+    if (P && E) updWx();
     const f = state === 'fight' && !demo && !lab ? meF() : null, hp = f && !f.dead ? f.hp / f.maxhp : 1, cls = hp < .1 ? 'on crit' : hp < .25 ? 'on' : '';
     if (lh.className !== cls) { lh.className = cls; lh.style.opacity = cls ? '' : '0'; }
   };

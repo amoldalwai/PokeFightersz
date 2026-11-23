@@ -21,7 +21,7 @@
     + '#evBanner.on{opacity:1;transform:translate(-50%,0) scale(1)}#evBanner .ei{width:36px;height:36px;border-radius:50%;background:var(--c);display:grid;place-items:center;box-shadow:inset 0 0 0 3px rgba(255,255,255,.35)}#evBanner .ei .sv{width:22px;height:22px;fill:#0a1028}'
     + '#evBanner b{display:block;font:900 19px system-ui,sans-serif;letter-spacing:2px;color:#fff;text-shadow:0 0 14px var(--c),0 2px 0 rgba(0,0,0,.6);font-style:italic}#evBanner small{display:block;font:700 12px system-ui,sans-serif;letter-spacing:1px;color:#d6e2ff;margin-top:1px}'
     + '#evChip{position:relative;display:none;align-items:center;gap:7px;height:26px;padding:0 12px 0 6px;border-radius:14px;background:rgba(6,10,28,.78);border:1px solid var(--c);color:#fff;font:800 11px system-ui,sans-serif;letter-spacing:1px;pointer-events:none;z-index:29;white-space:nowrap;overflow:hidden}#evChip.on{display:flex}#evChip .sv{width:16px;height:16px;fill:var(--c)}#evChip i{position:absolute;left:0;bottom:0;height:3px;background:var(--c)}'
-    + '#hudRow{position:absolute;left:50%;top:108px;transform:translateX(-50%);display:flex;gap:6px;align-items:center;justify-content:center;white-space:nowrap;pointer-events:none}#hudRow #wx{position:static;transform:none;margin:0;height:26px;padding:0 12px 0 8px;display:none;align-items:center}#hudRow #wx.on{display:flex}'
+    + '#hudRow{position:absolute;left:50%;top:108px;transform:translateX(-50%);display:flex;gap:6px;align-items:center;justify-content:center;white-space:nowrap;pointer-events:none}#wx{display:none!important}'
     + '#blackout{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:none}.btn.evlock{opacity:.22;filter:grayscale(1)}'
     + '#evEdge{position:absolute;inset:0;pointer-events:none;opacity:0;box-shadow:inset 0 0 70px 6px var(--c,#fff),inset 0 0 14px 2px var(--c,#fff)}#evEdge.on{animation:evEdge 1.6s ease-in-out infinite}@keyframes evEdge{0%,100%{opacity:.3}50%{opacity:.9}}';
   document.head.appendChild(style);
@@ -30,7 +30,7 @@
   ban.id = 'evBanner'; chip.id = 'evChip'; blk.id = 'blackout'; blk.width = W; blk.height = H;
   if (tint) { tint.insertAdjacentElement('afterend', blk); } else stage.appendChild(blk);
   stage.appendChild(ban);
-  { const row = document.createElement('div'); row.id = 'hudRow'; const wx = document.getElementById('wx'), hud = document.getElementById('hud') || stage; if (wx) row.appendChild(wx); row.appendChild(chip); hud.appendChild(row); } // weather and event chips share one row under the timer
+  { const row = document.createElement('div'); row.id = 'hudRow'; const hud = document.getElementById('hud') || stage; row.appendChild(chip); hud.appendChild(row); } // the event chip sits in a row under the timer; the weather bonus lives on the fighters' panels
   const edge = document.createElement('div'); edge.id = 'evEdge'; if (tint) tint.insertAdjacentElement('afterend', edge); else stage.appendChild(edge);
 
   V.bannerX = (title, sub, ic, c) => {
