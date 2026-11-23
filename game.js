@@ -2690,7 +2690,7 @@ function step(rdt) { // one slice of game time; online it runs at a fixed rate o
   if (state === 'pause') { /* frozen */ }
   else if (cine) { cine.t += dt; if (!NETG.on) drawCine(); if (cine.t >= cine.dur) endCine(); }
   else if (state === 'intro') {
-    introT += dt; if (VAR.cinHold(dt)) introT = Math.min(introT, 0); if (vsWait && introT > -.05) introT = -.05; $('vsSplash').classList.toggle('on', introT < 0); $('vsSplash').classList.toggle('out', introT < 0 && introT > -.25 && !vsWait);
+    introT += dt; if (vsWait && introT > -.05) introT = -.05; if (VAR.cinHold(dt)) introT = Math.min(introT, 0); $('vsSplash').classList.toggle('on', introT < 0); $('vsSplash').classList.toggle('out', introT < 0 && introT > -.25 && !vsWait);
     if (introT < 0) vsTick(dt); else vsClear();
     if (introT < 0) { /* versus splash */ } else if (VAR.cinOn()) { /* map intro */ } else if (introT < .9) showMsg(rounds.n > 1 ? 'ROUND ' + rounds.n : 'READY?', 0); else if (introT < 1.9) { if (!$('msg').textContent.startsWith('FIGHT')) { showMsg('FIGHT!', 0); sfx('go'); } } else { $('msg').classList.remove('on'); state = 'fight'; P.sta = E.sta = 20; fightStart(); }
     updateFighter(P, E, {}, dt); updateFighter(E, P, {}, dt); separate(P, E);
