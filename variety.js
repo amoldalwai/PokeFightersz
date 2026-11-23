@@ -240,7 +240,7 @@ const VAR = (() => {
     }
     // hazard waves on arenas that already have hazards: three strikes in a row
     const h = HAZARD[curTheme.id] || (S.rule === 'chaos' ? HAZARD.cave : null);
-    if (h) { S.hzwT -= dt; if (S.hzwT <= 0) { S.hzwT = S.rule === 'chaos' ? rnd(12, 16) : rnd(30, 42); VAR.banner('hazard'); for (let i = 0; i < 3; i++) { const tg = i % 2 ? P : E; hazards.push({ ...h, x: clamp(tg.x + rnd(-200, 200), WALL_L + 60, WALL_R - 60), t: 0, warn: .95 + i * .45, done: false }); } } }
+    if (h && S.hzMatch !== false) { S.hzwT -= dt; if (S.hzwT <= 0) { S.hzwT = S.rule === 'chaos' ? rnd(22, 30) : rnd(55, 80); VAR.banner('hazard'); for (let i = 0; i < 3; i++) { const tg = i % 2 ? P : E; hazards.push({ ...h, x: clamp(tg.x + rnd(-200, 200), WALL_L + 60, WALL_R - 60), t: 0, warn: .95 + i * .45, done: false }); } } }
     // low gravity pulse
     if (S.rule === 'lowgrav') S.lowG = Math.max(S.lowG, 1);
     if (S.lowG > 0) { S.lowG -= dt; for (const f of [P, E]) if (!f.dead && f.z > 0) f.vz += 1100 * dt; }
@@ -258,7 +258,7 @@ const VAR = (() => {
   }
 
   function reset() {
-    S.ents = []; S.pkT = rnd(10, 16); S.wxT = rnd(30, 45); S.hzwT = rnd(25, 35); S.lgT = rnd(32, 48); S.lowG = 0; S.cheer = false;
+    S.ents = []; S.pkT = rnd(10, 16); S.wxT = rnd(30, 45); S.hzwT = rnd(55, 75); S.lgT = rnd(32, 48); S.lowG = 0; S.cheer = false;
     if (!P || !E) return;
     if (rounds && rounds.n <= 1) { S.style = null; S.rule = S.nextRule || null; S.nextRule = null; S.ruleShown = false; }
     for (const f of [P, E]) { f.vr = null; vr(f); }

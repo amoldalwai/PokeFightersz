@@ -567,7 +567,7 @@ function prepFighters() {
   }
 }
 function resetField() {
-  jfx = []; kick = 0; bclash = null; $('tug').classList.remove('on'); $('tapBtn').classList.remove('on'); $('bars').classList.remove('on'); tmClear(); if (SPV) SPV.reset(); for (const f of [P, E]) if (f) { f.spinT = 0; f.shockT = f.shockImm = f.shock = 0; f.shkLog = null; f.flyBack = null; } projectiles = []; vines = []; beams = []; waves = []; rocks = []; zones = []; strikes = []; booms = []; cracks = []; sparks = []; floaters = []; rings = []; puffs = []; pillars = []; popups = []; decals = []; hazards = []; pickups = []; impacts = []; clashes = []; clashT = 0; hzT = 5; pkT = rnd(20, 55); pkDone = false; washA = 0; VAR.reset();
+  jfx = []; kick = 0; bclash = null; $('tug').classList.remove('on'); $('tapBtn').classList.remove('on'); $('bars').classList.remove('on'); tmClear(); if (SPV) SPV.reset(); for (const f of [P, E]) if (f) { f.spinT = 0; f.shockT = f.shockImm = f.shock = 0; f.shkLog = null; f.flyBack = null; } projectiles = []; vines = []; beams = []; waves = []; rocks = []; zones = []; strikes = []; booms = []; cracks = []; sparks = []; floaters = []; rings = []; puffs = []; pillars = []; popups = []; decals = []; hazards = []; pickups = []; impacts = []; clashes = []; clashT = 0; hzT = rnd(14, 20); pkT = rnd(20, 55); pkDone = false; washA = 0; VAR.reset();
   matchTime = bestOf > 1 && !practice ? 120 : 180; shake = 0; freeze = 0; winner = null; introT = 0; overT = 0; camX = clamp(WORLD_W / 2 - W / 2, 0, WORLD_W - W); flashT = 0; cine = null; slowT = 0; camZ = 1; punch = 0; $('cine').classList.remove('on'); $('mvbA').classList.remove('on'); $('mvbB').classList.remove('on');
 }
 // best of 3: after each knockout the fighters are reset and the next round starts without leaving the arena
@@ -592,7 +592,7 @@ HAZARD.frozenlake = HAZARD.ice;
 function updateHazards(dt) {
   if (state !== 'fight') return;
   const h = HAZARD[curTheme.id];
-  if (h && !practice) { hzT -= dt; if (hzT <= 0) { hzT = rnd(h.every[0], h.every[1]); const tg = Math.random() < .5 ? P : E; hazards.push({ ...h, x: clamp(tg.x + rnd(-170, 170), WALL_L + 60, WALL_R - 60), t: 0, warn: .95, done: false }); } }
+  if (h && !practice && VAR.S.hzMatch !== false) { hzT -= dt; if (hzT <= 0) { hzT = rnd(h.every[0], h.every[1]) * 2.4; const tg = Math.random() < .5 ? P : E; hazards.push({ ...h, x: clamp(tg.x + rnd(-170, 170), WALL_L + 60, WALL_R - 60), t: 0, warn: .95, done: false }); } }
   for (const z of hazards) { z.t += dt; if (!z.done && z.t >= z.warn) { z.done = true; hazardStrike(z); } }
   hazards = hazards.filter(z => z.t < z.warn + .6);
   // one berry or orb per round, dropped at a random moment; whoever walks into it takes it

@@ -94,23 +94,23 @@
   };
 
   function debris(cx, n) {
-    for (let i = 0; i < n; i++) V.spawn({ kind: 'debris', x: cx + rnd(150, 800), y: -rnd(20, 260), vx: -rnd(520, 860), vy: rnd(240, 480), sz: rnd(50, 130), rot: rnd(0, 6), spin: rnd(-9, 9), life: 3.2, upd: (e, dt) => { e.x += e.vx * dt; e.y += e.vy * dt; e.rot += e.spin * dt; return e.y < GROUND + 40; }, draw: (g, e) => V.drawRock(g, e.x, e.y, e.sz, e.rot, e.seed), seed: i * 13 + 5 });
+    for (let i = 0; i < n; i++) V.spawn({ kind: 'debris', x: cx + rnd(150, 800), y: -rnd(20, 260), vx: -rnd(520, 860), vy: rnd(240, 480), sz: rnd(35, 80), rot: rnd(0, 6), spin: rnd(-9, 9), life: 3.2, upd: (e, dt) => { e.x += e.vx * dt; e.y += e.vy * dt; e.rot += e.spin * dt; return e.y < GROUND + 40; }, draw: (g, e) => V.drawRock(g, e.x, e.y, e.sz, e.rot, e.seed), seed: i * 13 + 5 });
   }
-  const doRock = () => { V.banner('rock'); sfx('boom'); debris((P.x + E.x) / 2, 16); for (let i = 0; i < 8; i++) { const tg = i % 2 ? P : E; strikeAt('rock', 'rock', tg.x + rnd(-260, 260), 55, 90, 1.1 + i * .3, rnd(110, 190)); } };
-  const doBolt = () => { V.banner('bolt'); for (let i = 0; i < 4; i++) { const tg = i % 2 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-110, 110), 60, 75, 1 + i * .55); } };
+  const doRock = () => { V.banner('rock'); sfx('boom'); debris((P.x + E.x) / 2, 6); for (let i = 0; i < 4; i++) { const tg = i % 2 ? P : E; strikeAt('rock', 'rock', tg.x + rnd(-260, 260), 55, 70, 1.1 + i * .5, rnd(70, 120)); } };
+  const doBolt = () => { V.banner('bolt'); for (let i = 0; i < 3; i++) { const tg = i % 2 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-110, 110), 60, 75, 1 + i * .6); } };
   V.forceRock = doRock; V.forceBolt = doBolt;
   V.forceWave = () => { const h = HAZARD[curTheme.id] || HAZARD.cave; V.banner('hazard'); for (let i = 0; i < 3; i++) { const tg = i % 2 ? P : E; hazards.push({ ...h, x: clamp(tg.x + rnd(-200, 200), WALL_L + 60, WALL_R - 60), t: 0, warn: .95 + i * .45, done: false }); } };
   V.extraWorld = dt => {
     const wid = weather ? weather.id : ''; if (wid !== T.wid) { T.wid = wid; updateTint(); } // the screen tint follows the sky, including when a weather move ends
-    if (practice || lab || !V.S.evMatch) return;
-    // rock slide: big rocks tumble across the arena and drop around both fighters
-    T.rs -= dt; if (T.rs <= 0) { T.rs = rnd(42, 62); doRock(); }
+    if (practice || lab || !V.S.evMatch || V.S.hzMatch === false) return;
+    // rock slide: a few boulders drop around both fighters (rare)
+    T.rs -= dt; if (T.rs <= 0) { T.rs = rnd(90, 130); doRock(); }
     // lightning strike: bolts fall on both fighters one after another
-    T.lt -= dt; if (T.lt <= 0) { T.lt = rnd(26, 40); doBolt(); }
-    if (weather && weather.id === 'thunder') { T.th -= dt; if (T.th <= 0) { T.th = rnd(3.6, 5.6); const tg = Math.random() < .5 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-130, 130), 45, 70, .95); } } else T.th = Math.max(T.th, 2);
+    T.lt -= dt; if (T.lt <= 0) { T.lt = rnd(60, 90); doBolt(); }
+    if (weather && weather.id === 'thunder' && !HAZARD[curTheme.id]) { T.th -= dt; if (T.th <= 0) { T.th = rnd(12, 18); const tg = Math.random() < .5 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-130, 130), 45, 70, .95); } } else T.th = Math.max(T.th, 2);
     if (weather && weather.id === 'cyclone') { const w = Math.sign(Math.sin(now * .5)) * 75 * dt; for (const f of [P, E]) if (!f.dead && f.hitT <= 0 && f.z + f.lift < 60) f.x = clamp(f.x + w * (f.kit.types.includes('flying') ? .3 : 1), WALL_L, WALL_R); }
   };
-  V.moveResetWx = () => { T.rs = rnd(38, 55); T.lt = rnd(22, 34); T.th = 2; };
+  V.moveResetWx = () => { T.rs = rnd(70, 100); T.lt = rnd(45, 70); T.th = 2; };
 
   // ---- weather choice: AUTO lets the sky change during the fight, anything else is fixed for the whole match
   const WX_OPTS = [['auto', 'Weather: Auto'], ['clear', 'Weather: Clear'], ['sun', 'Weather: Sun'], ['rain', 'Weather: Rain'], ['thunder', 'Weather: Thunderstorm'], ['snow', 'Weather: Snow'], ['fog', 'Weather: Fog'], ['cyclone', 'Weather: Cyclone'], ['sand', 'Weather: Sandstorm'], ['hail', 'Weather: Hail']];
@@ -119,7 +119,11 @@
   // dynamic events (rock slides, lightning, timed events, weather shifts, hazard waves, extra pickups) can be switched off for a match
   let evOn = true; try { evOn = localStorage.getItem('pf_ev') !== '0'; } catch (e) { }
   V.S.evMatch = true;
-  V.evOn = () => evOn;
+  let hzOn = true; try { hzOn = localStorage.getItem('pf_hz') !== '0'; } catch (e) { }
+  V.S.hzMatch = true;
+  V.hzOn = () => hzOn;
+  const setHzBtn = (b, on) => { b.textContent = 'Hazards: ' + (on ? 'On' : 'Off'); b.classList.toggle('off', !on); };
+  V.setHz = on => { hzOn = !!on; try { localStorage.setItem('pf_hz', hzOn ? '1' : '0'); } catch (e) { } for (const id of ['hzBtn', 'nHzBtn']) { const b = document.getElementById(id); if (b) setHzBtn(b, hzOn); } document.querySelectorAll('.hzchip').forEach(b => b.classList.toggle('sel', (b.dataset.v === '1') === hzOn)); };  V.evOn = () => evOn;
   const setEvBtn = (b, on) => { b.textContent = 'Events: ' + (on ? 'On' : 'Off'); b.classList.toggle('off', !on); };
   V.setEv = on => { evOn = !!on; try { localStorage.setItem('pf_ev', evOn ? '1' : '0'); } catch (e) { } for (const id of ['evBtn', 'nEvBtn']) { const b = document.getElementById(id); if (b) setEvBtn(b, evOn); } };
   V.wxSel = () => sel;
@@ -127,9 +131,10 @@
   V.lobbyWx = (host, cfg) => {
     const s = document.getElementById('nWxSel'); if (!s) return; const v = host ? sel : (cfg && cfg.wx) || 'auto'; if (s.value !== v) s.value = v; s.disabled = !host;
     const b = document.getElementById('nEvBtn'); if (b) { b.disabled = !host; setEvBtn(b, host ? evOn : !cfg || cfg.ev !== 0); }
+    const h = document.getElementById('nHzBtn'); if (h) { h.disabled = !host; setHzBtn(h, host ? hzOn : !cfg || cfg.hz !== 0); }
   };
   const _sm = startMatch;
-  startMatch = function (opts) { const ol = opts && opts.online; V.S.wxMatch = ol ? (ol.wx || 'auto') : V.S.nextRule ? 'auto' : sel; V.S.evMatch = ol ? ol.ev !== 0 : V.S.nextRule ? true : evOn; return _sm.apply(this, arguments); };
+  startMatch = function (opts) { const ol = opts && opts.online; V.S.wxMatch = ol ? (ol.wx || 'auto') : V.S.nextRule ? 'auto' : sel; V.S.evMatch = ol ? ol.ev !== 0 : V.S.nextRule ? true : evOn; V.S.hzMatch = ol ? ol.hz !== 0 : V.S.nextRule ? true : hzOn; return _sm.apply(this, arguments); };
   const _pw = pickWeather;
   pickWeather = function () {
     const id = V.S.wxMatch; if (!id || id === 'auto' || (id !== 'clear' && !WEATHER[id])) return _pw();
@@ -141,11 +146,14 @@
   const style = document.createElement('style');
   style.textContent = '.arctl{position:absolute;top:5px;left:6px;right:6px;display:flex;gap:4px;z-index:4}.wxsel{flex:1;min-width:0;background:rgba(10,16,40,.82);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:9px;font:700 10px system-ui,sans-serif;letter-spacing:.3px;padding:3px 4px}.evbtn{flex:none;width:76px;background:rgba(20,70,40,.88);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:9px;font:700 10px system-ui,sans-serif;letter-spacing:.3px;padding:3px 2px;cursor:pointer}.evbtn.off{background:rgba(90,30,30,.88)}.wxsel:disabled,.evbtn:disabled{opacity:.75}';
   document.head.appendChild(style);
-  const mkCtl = (wid, bid, host) => {
+  const mkCtl = (wid, bid, hid, host) => {
     const a = document.getElementById(host); if (!a) return; const row = document.createElement('div'); row.className = 'arctl'; row.onclick = e => e.stopPropagation();
     const s = document.createElement('select'); s.id = wid; s.className = 'wxsel'; s.title = 'Auto lets the weather change during the fight; any other choice stays all match'; s.innerHTML = WX_OPTS.map(o => `<option value="${o[0]}">${o[1]}</option>`).join(''); s.value = sel;
-    const b = document.createElement('button'); b.id = bid; b.className = 'evbtn'; b.title = 'Rock slides, lightning, zero gravity, blackout and other timed events'; setEvBtn(b, evOn); row.appendChild(s); row.appendChild(b); a.appendChild(row); return [s, b];
+    const b = document.createElement('button'); b.id = bid; b.className = 'evbtn'; b.title = 'Rock slides, lightning, zero gravity, blackout and other timed events'; setEvBtn(b, evOn); row.appendChild(s); row.appendChild(b);
+    const hb = document.createElement('button'); hb.id = hid; hb.className = 'evbtn'; hb.title = 'Rock slides, lightning, falling rocks and other arena hazards'; setHzBtn(hb, hzOn); row.appendChild(hb); a.appendChild(row); return [s, b, hb];
   };
-  const mc = mkCtl('wxSel', 'evBtn', 'arenaPrev'); if (mc) { mc[0].onchange = () => V.setWx(mc[0].value); mc[1].onclick = () => V.setEv(!evOn); }
-  mkCtl('nWxSel', 'nEvBtn', 'nArenaPrev');
+  const mc = mkCtl('wxSel', 'evBtn', 'hzBtn', 'arenaPrev'); if (mc) { mc[0].onchange = () => V.setWx(mc[0].value); mc[1].onclick = () => V.setEv(!evOn); mc[2].onclick = () => V.setHz(!hzOn); }
+  mkCtl('nWxSel', 'nEvBtn', 'nHzBtn', 'nArenaPrev');
+  const rr = document.querySelector('.rndchip') && document.querySelector('.rndchip').closest('.oitem');
+  if (rr) { rr.insertAdjacentHTML('afterend', '<div class="oitem"><div class="t"><b>Arena hazards</b><small>Lightning, rock slides, geysers and other arena dangers</small></div><div class="seg"><button class="hzchip" data-v="1">On</button><button class="hzchip" data-v="0">Off</button></div></div>'); document.querySelectorAll('.hzchip').forEach(b => b.onclick = () => V.setHz(b.dataset.v === '1')); V.setHz(hzOn); }
 })();
