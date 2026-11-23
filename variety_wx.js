@@ -92,12 +92,12 @@
     if (practice || lab) return;
     // rock slide: rocks tumble across the arena and drop around both fighters
     T.rs -= dt; if (T.rs <= 0) {
-      T.rs = rnd(42, 62); showMsg('ROCK SLIDE!', 1400); sfx('boom'); const cx = (P.x + E.x) / 2; debris(cx, 12);
+      T.rs = rnd(42, 62); V.banner('rock'); sfx('boom'); const cx = (P.x + E.x) / 2; debris(cx, 12);
       for (let i = 0; i < 8; i++) { const tg = i % 2 ? P : E; strikeAt('rock', 'rock', tg.x + rnd(-260, 260), 48, 60, .9 + i * .3); }
     }
     // lightning strike: bolts fall on both fighters one after another
     T.lt -= dt; if (T.lt <= 0) {
-      T.lt = rnd(26, 40); showMsg('LIGHTNING STRIKE!', 1300);
+      T.lt = rnd(26, 40); V.banner('bolt');
       for (let i = 0; i < 4; i++) { const tg = i % 2 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-110, 110), 60, 75, 1 + i * .55); }
     }
     if (weather && weather.id === 'thunder') { T.th -= dt; if (T.th <= 0) { T.th = rnd(3.6, 5.6); const tg = Math.random() < .5 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-130, 130), 45, 70, .95); } } else T.th = Math.max(T.th, 2);

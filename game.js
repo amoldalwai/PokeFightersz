@@ -1295,7 +1295,7 @@ const ARCH = {
 };
 function startAct(f, name) {
   const k = f.kit, o = other(f);
-  if (f.confT > 0 && Math.random() < .3) { floatText(f.x, GROUND - f.h - 10, 'MISFIRE!', '#ff7ae6', 22); f.hitT = .3; return; }
+  if (VAR.locked(f, name)) return; if (f.confT > 0 && Math.random() < .3) { floatText(f.x, GROUND - f.h - 10, 'MISFIRE!', '#ff7ae6', 22); f.hitT = .3; return; }
   if (name === 'melee') { if (!canSpend(f, k.melee.sta)) return; spend(f, k.melee.sta); f.chainQ = false; f.act = { name, t: 0, hit: false, landed: false, n: 0, miss: rollMiss(k.melee.acc) }; }
   else if (name === 'grab') { if (f.z > 0 || !canSpend(f, 14)) return; spend(f, 14); f.act = { name, t: 0, hit: false, ph: 0, miss: Math.random() >= grabOdds(f, f.side === P.side ? E : P) }; } // grab odds: 50%, 70% for the stronger+heavier fighter
   else if (name === 'ranged') { if (f.cool.ranged > 0 || f.ki < k.ranged.cost || !canSpend(f, k.ranged.sta)) return; spend(f, k.ranged.sta); f.act = { name, t: 0, fired: false, miss: rollMiss(k.ranged.acc) }; }

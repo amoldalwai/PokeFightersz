@@ -165,9 +165,11 @@ const VAR = (() => {
     if (!S.style[f.side]) { S.style[f.side] = STYLE_IDS[Math.floor(Math.random() * STYLE_IDS.length)]; floatText(f.x, top(f) - 30, STYLES[S.style[f.side]].n + ' STYLE', '#ffd0a0', 20); }
     if (practice && S.forceStyle) S.style[f.side] = S.forceStyle;
     const st = STYLES[S.style[f.side]]; if (!st) return; tag();
-    const dd = Math.abs(o.x - f.x);
+    const dd = Math.abs(o.x - f.x), evk = S.ev && S.ev.key;
     for (const x of opts) {
       const nm = x[0]; let m = st.w[nm] || 1;
+      if (evk === 'brawl' && (nm === 'ranged' || nm === 'special' || nm === 'special2' || nm === 'special3')) m = 0; // locked moves are not worth rolling
+      if (evk === 'overdrive') m *= nm === 'melee' || nm === 'grab' ? 0 : nm === 'ranged' || nm.startsWith('special') ? 3 : 1;
       if (st.keep && nm === 'retreat' && dd < st.keep) m *= 2; // ranged styles back away when you get close
       const i = nm === 'special' ? 0 : nm === 'special2' ? 1 : nm === 'special3' ? 2 : -1;
       if (i >= 0 && f.specs[i]) { const key = f.specs[i].key; for (const g in st.sp) if (K[g] && K[g].has(key)) m *= st.sp[g]; }
@@ -233,17 +235,16 @@ const VAR = (() => {
     // weather shift: the sky changes mid-fight for a while
     S.wxT -= dt; if (S.wxT <= 0 && S.wxMatch === 'auto') {
       S.wxT = S.rule === 'chaos' ? rnd(10, 14) : rnd(34, 50); const ids = Object.keys(WEATHER).filter(k => !weather || weather.id !== k), id = ids[Math.floor(Math.random() * ids.length)];
-      if (id) { setWeather(id, rnd(22, 32)); updateTint(); showMsg('WEATHER SHIFT: ' + WEATHER[id].name.toUpperCase(), 1500); }
+      if (id) { setWeather(id, rnd(22, 32)); updateTint(); VAR.bannerX('WEATHER SHIFT', WEATHER[id].name, WEATHER[id].icon, WEATHER[id].col); }
     }
     // hazard waves on arenas that already have hazards: three strikes in a row
     const h = HAZARD[curTheme.id] || (S.rule === 'chaos' ? HAZARD.cave : null);
-    if (h) { S.hzwT -= dt; if (S.hzwT <= 0) { S.hzwT = S.rule === 'chaos' ? rnd(12, 16) : rnd(30, 42); showMsg('HAZARD WAVE!', 1200); for (let i = 0; i < 3; i++) { const tg = i % 2 ? P : E; hazards.push({ ...h, x: clamp(tg.x + rnd(-200, 200), WALL_L + 60, WALL_R - 60), t: 0, warn: .95 + i * .45, done: false }); } } }
+    if (h) { S.hzwT -= dt; if (S.hzwT <= 0) { S.hzwT = S.rule === 'chaos' ? rnd(12, 16) : rnd(30, 42); VAR.banner('hazard'); for (let i = 0; i < 3; i++) { const tg = i % 2 ? P : E; hazards.push({ ...h, x: clamp(tg.x + rnd(-200, 200), WALL_L + 60, WALL_R - 60), t: 0, warn: .95 + i * .45, done: false }); } } }
     // low gravity pulse
     if (S.rule === 'lowgrav') S.lowG = Math.max(S.lowG, 1);
-    if (S.lowG > 0) { S.lowG -= dt; for (const f of [P, E]) if (!f.dead && f.z > 0) f.vz += 1100 * dt; if (S.lowG <= 0) showMsg('GRAVITY BACK', 900); }
-    else { S.lgT -= dt; if (S.lgT <= 0) { S.lgT = rnd(38, 55); S.lowG = 5; showMsg('LOW GRAVITY!', 1300); } }
+    if (S.lowG > 0) { S.lowG -= dt; for (const f of [P, E]) if (!f.dead && f.z > 0) f.vz += 1100 * dt; }
     // crowd cheer: when both fighters are nearly out, the crowd pushes them on
-    if (!S.cheer && P.hp < P.maxhp * .3 && E.hp < E.maxhp * .3 && P.hp > 0 && E.hp > 0) { S.cheer = true; showMsg('THE CROWD ROARS!', 1500); for (const f of [P, E]) { f.hp = Math.min(f.maxhp, f.hp + f.maxhp * .03); f.buffT = Math.max(f.buffT, 4); f.sta = 100; } }
+    if (!S.cheer && P.hp < P.maxhp * .3 && E.hp < E.maxhp * .3 && P.hp > 0 && E.hp > 0) { S.cheer = true; VAR.banner('crowd'); for (const f of [P, E]) { f.hp = Math.min(f.maxhp, f.hp + f.maxhp * .03); f.buffT = Math.max(f.buffT, 4); f.sta = 100; } }
   }
 
   function world(dt) {
@@ -267,6 +268,7 @@ const VAR = (() => {
 
   // ---- drawing: the variety pips and comeback meter over each fighter, plus the moves' own effects
   function draw(g) {
+    if (VAR.extraDraw) VAR.extraDraw();
     if (!live()) return;
     for (const f of [P, E]) {
       if (f.dead) continue; const v = vr(f), n = Math.min(4, distinct(f)), x0 = f.x - 21, y = top(f) - 6;
