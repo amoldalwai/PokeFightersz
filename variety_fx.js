@@ -29,10 +29,12 @@
   };
 
   const style = document.createElement('style');
-  style.textContent = '#lowhp{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(255,0,0,0) 45%,rgba(220,0,20,.55) 100%)}#lowhp.on{animation:lhBeat 1s ease-in-out infinite}#lowhp.crit{animation-duration:.6s;background:radial-gradient(ellipse at center,rgba(255,0,0,0) 35%,rgba(235,0,20,.7) 100%)}'
+  style.textContent = '#lowhp{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(255,0,0,0) 45%,rgba(220,0,20,.55) 100%)}#lowhp.on{animation:lhBeat 1s steps(5) infinite}#lowhp.crit{animation-duration:.6s;background:radial-gradient(ellipse at center,rgba(255,0,0,0) 35%,rgba(235,0,20,.7) 100%)}'
     + '@keyframes lhBeat{0%,100%{opacity:.35}12%{opacity:1}28%{opacity:.5}42%{opacity:.95}70%{opacity:.35}}'
-    + '.btn.rdy{animation:rdyPulse 1s ease-in-out infinite}@keyframes rdyPulse{0%,100%{box-shadow:0 0 8px 2px #ffd34d,inset 0 0 8px #ffd34d}50%{box-shadow:0 0 22px 8px #ffe27a,inset 0 0 16px #ffe27a}}'
-    + '.kibar.rdy{animation:kiPulse 1s ease-in-out infinite}@keyframes kiPulse{50%{filter:brightness(1.6)}}';
+    + '.btn.rdy{box-shadow:0 0 14px 4px #ffd34d,inset 0 0 12px #ffd34d}'
+    + '.kibar.rdy{filter:brightness(1.4)}'
+    // endless decorative loops tick in steps: smooth easing makes the GPU redraw the whole screen every vsync (120 Hz), which heats the phone
+    + '#title .tfighter,.stagebox img,#menu .stagebox img,#movesPane .stagebox img,#labPane .stagebox img{animation-timing-function:steps(10)!important}#tSil{animation-timing-function:steps(150)!important}.sta.warn{animation-timing-function:steps(1)!important}.stat b{animation-timing-function:steps(6)!important}#evEdge.on{animation-timing-function:steps(8)!important}.vsStr{animation-timing-function:steps(48)!important}';
   document.head.appendChild(style);
   const lh = document.createElement('div'); lh.id = 'lowhp'; const tint = document.getElementById('tint'); if (tint) tint.insertAdjacentElement('afterend', lh); else document.getElementById('stage').appendChild(lh);
 
