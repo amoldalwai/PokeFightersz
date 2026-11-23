@@ -15,7 +15,7 @@
   const EASE = [sine, io, lin, io, lin, io];
   function keyframes(nat) {
     const mid = (P.x + E.x) / 2 - W / 2, cl = x => clamp(x, 0, WORLD_W - W), fyN = H * .56, body = f => GROUND - f.h * .5;
-    return [[0, cl(mid - 560), .78, fyN], [2.1, cl(mid + 430), .94, fyN], [2.9, cl(P.x - W / 2 - 40), 1.7, body(P)], [3.9, cl(P.x - W / 2 + 10), 1.78, body(P)], [4.5, cl(E.x - W / 2 + 40), 1.7, body(E)], [5.4, cl(E.x - W / 2 - 10), 1.78, body(E)], [6, nat, 1, fyN]];
+    return [[0, cl(mid - 560), .78, fyN], [2.1, cl(mid + 430), .94, fyN], [2.9, cl(P.x - W / 2 - 130), 1.7, body(P)], [3.9, cl(P.x - W / 2 - 110), 1.78, body(P)], [4.5, cl(E.x - W / 2 + 130), 1.7, body(E)], [5.4, cl(E.x - W / 2 + 110), 1.78, body(E)], [6, nat, 1, fyN]];
   }
   const active = () => S.cin && S.cin.on && S.cin.vis && state === 'intro' && introT >= 0;
   V.cinX = () => { // after the normal camera pan: replace it with the intro path
@@ -34,7 +34,7 @@
     + '#cinMap{left:50%;top:27%;transform:translateX(-50%);text-align:center}#cinMap small{display:block;font:800 17px system-ui,sans-serif;letter-spacing:8px;color:#ffe27a;text-shadow:0 2px 6px #000}'
     + '#cinMap b{display:block;font:900 70px system-ui,sans-serif;font-style:italic;letter-spacing:4px;text-shadow:0 0 28px rgba(80,140,255,.9),0 5px 0 rgba(0,0,0,.7);white-space:nowrap}#cinMap i{display:block;height:5px;margin:8px auto 0;background:linear-gradient(90deg,transparent,#ffe27a,transparent);width:0}'
     + '#cinMap .chips{margin-top:12px;display:flex;gap:10px;justify-content:center}#cinMap .chips span{background:rgba(6,10,28,.82);border:1px solid #8fa0e8;border-radius:14px;padding:4px 14px;font:800 14px system-ui,sans-serif;letter-spacing:1.5px}'
-    + '.cinP{bottom:13%;width:400px;padding:12px 18px;background:linear-gradient(90deg,rgba(6,10,28,.92),rgba(20,30,70,.82));border-left:6px solid var(--c);border-radius:8px 18px 18px 8px}.cinP.r{border-left:0;border-right:6px solid var(--c);text-align:right;border-radius:18px 8px 8px 18px;background:linear-gradient(270deg,rgba(6,10,28,.92),rgba(20,30,70,.82))}'
+    + '.cinP{bottom:13%;width:360px;padding:12px 18px;background:linear-gradient(90deg,rgba(6,10,28,.92),rgba(20,30,70,.82));border-left:6px solid var(--c);border-radius:8px 18px 18px 8px}.cinP.r{border-left:0;border-right:6px solid var(--c);text-align:right;border-radius:18px 8px 8px 18px;background:linear-gradient(270deg,rgba(6,10,28,.92),rgba(20,30,70,.82))}'
     + '#cinP1{left:4%}#cinP2{right:4%}.cinP small{display:block;font:700 13px system-ui,sans-serif;letter-spacing:4px;color:#9fb2e8}.cinP b{display:block;font:900 42px system-ui,sans-serif;font-style:italic;letter-spacing:3px;text-shadow:0 3px 0 rgba(0,0,0,.6)}'
     + '.cinP .ty{display:flex;gap:8px;margin:5px 0 8px}.cinP.r .ty{justify-content:flex-end}.cinP .ty span{padding:2px 12px;border-radius:11px;font:800 13px system-ui,sans-serif;letter-spacing:1px;color:#10141f}'
     + '.cinP .st{display:grid;grid-template-columns:44px 1fr;gap:3px 10px;align-items:center;font:700 12px system-ui,sans-serif;letter-spacing:1px;color:#b8c6f0}.cinP.r .st{grid-template-columns:1fr 44px;grid-auto-flow:row dense}.cinP.r .st em{grid-column:2}.cinP.r .st i{grid-column:1}'
