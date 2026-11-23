@@ -86,20 +86,17 @@
   const T = { rs: 0, lt: 0, th: 0, wid: '' };
   const strikeAt = (kind, ty, x, dmg, r, warn, sz) => hazards.push({ kind, ty, x: clamp(x, WALL_L + 60, WALL_R - 60), dmg, r, sz, every: [9, 9], t: 0, warn, done: false });
 
-  // a chunky boulder: seeded outline, shaded face and a few cracks
+  // the same pixel boulders the Rock moves use (rock1 to rock3), with a soft shadow on the floor
   V.drawRock = (g, x, y, size, rot, seed) => {
-    const r = size * .5, n = 9; g.save(); g.translate(x, y); g.rotate(rot);
-    const pts = []; for (let i = 0; i < n; i++) { const a = i / n * 6.283, k = .78 + h(i + Math.floor(seed) % 97, 7) * .3; pts.push([Math.cos(a) * r * k, Math.sin(a) * r * k * .92]); }
-    const gr = g.createLinearGradient(-r, -r, r, r); gr.addColorStop(0, '#b3a58f'); gr.addColorStop(.55, '#7d705f'); gr.addColorStop(1, '#4a4036');
-    g.fillStyle = gr; g.strokeStyle = '#2d261f'; g.lineWidth = Math.max(2, size * .03); g.lineJoin = 'round'; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); g.stroke();
-    g.strokeStyle = 'rgba(30,24,18,.55)'; g.lineWidth = Math.max(1.5, size * .02); g.beginPath(); g.moveTo(pts[1][0] * .3, pts[1][1] * .3); g.lineTo(pts[3][0] * .8, pts[3][1] * .8); g.moveTo(pts[5][0] * .2, pts[5][1] * .2); g.lineTo(pts[7][0] * .75, pts[7][1] * .75); g.stroke();
-    g.fillStyle = 'rgba(255,245,225,.28)'; g.beginPath(); g.ellipse(-r * .3, -r * .35, r * .35, r * .16, -.6, 0, 6.283); g.fill(); g.restore();
+    const k = 1 + Math.floor(Math.abs(seed)) % 3, sh = clamp(1 - (GROUND - y) / 420, 0, 1);
+    if (sh > 0) { g.save(); g.fillStyle = `rgba(0,0,0,${.25 * sh})`; g.beginPath(); g.ellipse(x, GROUND + 14, size * .35 * sh, size * .08 * sh, 0, 0, 6.283); g.fill(); g.restore(); }
+    spr(g, 'rock' + k, x, y, size, rot);
   };
 
   function debris(cx, n) {
-    for (let i = 0; i < n; i++) V.spawn({ kind: 'debris', x: cx + rnd(150, 800), y: -rnd(20, 260), vx: -rnd(520, 860), vy: rnd(240, 480), sz: rnd(70, 140), rot: rnd(0, 6), spin: rnd(-9, 9), life: 3.2, upd: (e, dt) => { e.x += e.vx * dt; e.y += e.vy * dt; e.rot += e.spin * dt; return e.y < GROUND + 40; }, draw: (g, e) => V.drawRock(g, e.x, e.y, e.sz, e.rot, e.seed), seed: i * 13 + 5 });
+    for (let i = 0; i < n; i++) V.spawn({ kind: 'debris', x: cx + rnd(150, 800), y: -rnd(20, 260), vx: -rnd(520, 860), vy: rnd(240, 480), sz: rnd(50, 130), rot: rnd(0, 6), spin: rnd(-9, 9), life: 3.2, upd: (e, dt) => { e.x += e.vx * dt; e.y += e.vy * dt; e.rot += e.spin * dt; return e.y < GROUND + 40; }, draw: (g, e) => V.drawRock(g, e.x, e.y, e.sz, e.rot, e.seed), seed: i * 13 + 5 });
   }
-  const doRock = () => { V.banner('rock'); sfx('boom'); debris((P.x + E.x) / 2, 16); for (let i = 0; i < 8; i++) { const tg = i % 2 ? P : E; strikeAt('rock', 'rock', tg.x + rnd(-260, 260), 55, 95, 1.1 + i * .3, 190); } };
+  const doRock = () => { V.banner('rock'); sfx('boom'); debris((P.x + E.x) / 2, 16); for (let i = 0; i < 8; i++) { const tg = i % 2 ? P : E; strikeAt('rock', 'rock', tg.x + rnd(-260, 260), 55, 90, 1.1 + i * .3, rnd(110, 190)); } };
   const doBolt = () => { V.banner('bolt'); for (let i = 0; i < 4; i++) { const tg = i % 2 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-110, 110), 60, 75, 1 + i * .55); } };
   V.forceRock = doRock; V.forceBolt = doBolt;
   V.forceWave = () => { const h = HAZARD[curTheme.id] || HAZARD.cave; V.banner('hazard'); for (let i = 0; i < 3; i++) { const tg = i % 2 ? P : E; hazards.push({ ...h, x: clamp(tg.x + rnd(-200, 200), WALL_L + 60, WALL_R - 60), t: 0, warn: .95 + i * .45, done: false }); } };
