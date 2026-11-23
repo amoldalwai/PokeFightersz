@@ -231,7 +231,7 @@ const VAR = (() => {
     pkDone = true; // the old one-per-round drop is replaced by repeating pickups
     S.pkT -= dt; if (S.pkT <= 0) { S.pkT = S.rule === 'berries' ? rnd(5, 7) : rnd(14, 22); spawnPickup(); }
     // weather shift: the sky changes mid-fight for a while
-    S.wxT -= dt; if (S.wxT <= 0) {
+    S.wxT -= dt; if (S.wxT <= 0 && S.wxMatch === 'auto') {
       S.wxT = S.rule === 'chaos' ? rnd(10, 14) : rnd(34, 50); const ids = Object.keys(WEATHER).filter(k => !weather || weather.id !== k), id = ids[Math.floor(Math.random() * ids.length)];
       if (id) { setWeather(id, rnd(22, 32)); updateTint(); showMsg('WEATHER SHIFT: ' + WEATHER[id].name.toUpperCase(), 1500); }
     }

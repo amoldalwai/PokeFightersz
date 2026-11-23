@@ -12,6 +12,18 @@
   add('ice', 'snow'); add('frozenlake', 'snow'); add('forest', 'fog'); add('ruins', 'fog', 'thunder'); add('night', 'fog', 'thunder'); add('shrine', 'fog'); add('glade', 'fog');
   add('storm', 'thunder'); add('canyon', 'cyclone'); add('desert', 'cyclone'); add('cliffs', 'cyclone', 'fog'); add('redcanyon', 'cyclone'); add('plaza', 'thunder'); add('city', 'thunder'); add('champion', 'thunder'); add('stadium', 'thunder');
 
+  // ---- twelve new arenas (appended, so saved arena numbers and online arena indexes stay the same)
+  const NEW_MAPS = [
+    ['clockwork', 'Clockwork Citadel', '#c9a47a', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'dust'], ['spiritruins', 'Spirit Ruins', '#5a5aa0', ['clear', 'fog', 'thunder', 'rain'], 'fly'],
+    ['dinofalls', 'Dino Falls', '#c9a47a', ['clear', 'sun', 'rain', 'fog', 'thunder'], 'leaf'], ['cosmic', 'Cosmic Crystals', '#6a64a8', ['clear', 'thunder', 'snow'], 'fly'],
+    ['bamboo', 'Bamboo Grove', '#8cc84a', ['clear', 'sun', 'rain', 'fog', 'cyclone'], 'leaf'], ['lakeside', 'Lakeside Clearing', '#d9a768', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'dust'],
+    ['moonlake', 'Moonlit Lake', '#5d6a9a', ['clear', 'fog', 'rain', 'thunder'], 'fly'], ['sunsetruins', 'Sunset Ruins', '#d99a62', ['clear', 'sun', 'sand', 'cyclone', 'rain'], 'dust'],
+    ['skyisles', 'Sky Islands', '#8cd048', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'leaf'], ['sunken', 'Sunken Temple', '#7aa2c0', ['clear'], undefined],
+    ['starshrine', 'Starlit Shrine', '#7a74b8', ['clear', 'fog', 'thunder', 'snow'], 'fly'], ['suntemple', 'Sun Temple', '#e8b878', ['clear', 'sun', 'sand', 'cyclone'], 'dust'],
+  ];
+  for (const [id, name, gc, wx, amb] of NEW_MAPS) { THEMES.push({ id, name, file: id + '.jpg' }); GROUND_COL[id] = gc; THEME_WEATHER[id] = wx; if (amb) AMBIENT[id] = amb; }
+  for (const id of ['bamboo', 'skyisles', 'dinofalls']) TUFT_MAPS.add(id);
+
   // pseudo-random per index: the look never changes the simulation
   const h = (i, s) => { const x = Math.sin(i * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
   const dim = () => { };
@@ -92,4 +104,28 @@
     if (weather && weather.id === 'cyclone') { const w = Math.sign(Math.sin(now * .5)) * 75 * dt; for (const f of [P, E]) if (!f.dead && f.hitT <= 0 && f.z + f.lift < 60) f.x = clamp(f.x + w * (f.kit.types.includes('flying') ? .3 : 1), WALL_L, WALL_R); }
   };
   V.moveResetWx = () => { T.rs = rnd(38, 55); T.lt = rnd(22, 34); T.th = 2; };
+
+  // ---- weather choice: AUTO lets the sky change during the fight, anything else is fixed for the whole match
+  const WX_OPTS = [['auto', 'Weather: Auto (changes)'], ['clear', 'Weather: Clear'], ['sun', 'Weather: Sun'], ['rain', 'Weather: Rain'], ['thunder', 'Weather: Thunderstorm'], ['snow', 'Weather: Snow'], ['fog', 'Weather: Fog'], ['cyclone', 'Weather: Cyclone'], ['sand', 'Weather: Sandstorm'], ['hail', 'Weather: Hail']];
+  let sel = 'auto'; try { const v = localStorage.getItem('pf_wx'); if (WX_OPTS.some(o => o[0] === v)) sel = v; } catch (e) { }
+  V.S.wxMatch = 'auto';
+  V.wxSel = () => sel;
+  V.setWx = v => { if (!WX_OPTS.some(o => o[0] === v)) v = 'auto'; sel = v; try { localStorage.setItem('pf_wx', v); } catch (e) { } for (const id of ['wxSel', 'nWxSel']) { const s = document.getElementById(id); if (s && s.value !== v) s.value = v; } };
+  V.lobbyWx = (host, cfg) => { const s = document.getElementById('nWxSel'); if (!s) return; const v = host ? sel : (cfg && cfg.wx) || 'auto'; if (s.value !== v) s.value = v; s.disabled = !host; };
+  const _sm = startMatch;
+  startMatch = function (opts) { V.S.wxMatch = opts && opts.online ? (opts.online.wx || 'auto') : V.S.nextRule ? 'auto' : sel; return _sm.apply(this, arguments); };
+  const _pw = pickWeather;
+  pickWeather = function () {
+    const id = V.S.wxMatch; if (!id || id === 'auto' || (id !== 'clear' && !WEATHER[id])) return _pw();
+    const el = $('wx'); weather = id === 'clear' ? null : { id, ...WEATHER[id] }; weatherBase = weather; rainFx = false;
+    if (weather) { el.innerHTML = ico(weather.icon) + weather.name + `<small>${weather.up.map(t => t.toUpperCase()).join('/')} +20%</small>`; el.style.setProperty('--c', weather.col); el.classList.add('on'); } else el.classList.remove('on');
+  };
+  const _sw = setWeather;
+  setWeather = function (id, dur) { if (V.S.wxMatch !== 'auto') return; _sw(id, dur); updateTint(); }; // a chosen weather stays, even against weather moves
+  const style = document.createElement('style');
+  style.textContent = '.wxsel{width:178px;background:rgba(10,16,40,.82);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:9px;font:700 10px system-ui,sans-serif;letter-spacing:.4px;padding:3px 5px;position:absolute;top:5px;left:50%;transform:translateX(-50%);z-index:4}.wxsel:disabled{opacity:.75}';
+  document.head.appendChild(style);
+  const mkSel = (id, host) => { const a = document.getElementById(host); if (!a) return; const s = document.createElement('select'); s.id = id; s.className = 'wxsel'; s.innerHTML = WX_OPTS.map(o => `<option value="${o[0]}">${o[1]}</option>`).join(''); s.value = sel; s.onclick = e => e.stopPropagation(); a.appendChild(s); return s; };
+  const ms = mkSel('wxSel', 'arenaPrev'); if (ms) ms.onchange = () => V.setWx(ms.value);
+  mkSel('nWxSel', 'nArenaPrev');
 })();
