@@ -279,6 +279,7 @@ const VAR = (() => {
       if (!v.cmbUsed && v.cmb > 6) { g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(f.x - 22, y + 8, 44, 4); g.fillStyle = '#ffb347'; g.fillRect(f.x - 22, y + 8, 44 * clamp(v.cmb / 100, 0, 1), 4); }
       if (v.aura > 0) { g.globalCompositeOperation = 'lighter'; g.strokeStyle = '#ffd34d'; g.lineWidth = 3; g.beginPath(); g.ellipse(f.x, center(f).y, f.w * .5 + 8 + Math.sin(now * 10) * 3, f.h * .55, 0, 0, 6.283); g.stroke(); }
       g.restore();
+      if (VAR.statusDraw) VAR.statusDraw(g, f);
     }
     for (const e of S.ents) if (e.draw) { g.save(); e.draw(g, e); g.restore(); }
   }
