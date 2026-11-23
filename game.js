@@ -548,7 +548,7 @@ async function startMatch(opts) {
   cur = { pa, pb, sa, sb }; rounds = { a: 0, b: 0, n: 1 }; stats = { dealt: 0, taken: 0, combo: 0, parry: 0 }; prepFighters(); if (SPV) { const wt = []; for (const f of [P, E]) { for (const s of f.specs) if (s) wt.push(s.type); wt.push(f.kit.ranged.type, f.kit.beam.type); } SPV.warm(wt); }
   $('faceA').src = `assets/pose/hg/${pa.name}.png`; $('faceB').src = `assets/pose/hg/${pb.name}.png`; // still portraits: no animated frames to pay for
   $('nameA').innerHTML = nm(pa.name).toUpperCase() + `<small>${P.ability.name}</small>`; $('nameB').innerHTML = nm(pb.name).toUpperCase() + `<small>${E.ability.name}</small>`;
-  resetField(); introT = practice ? 0 : -3.2; vsWait = !practice && !demo && !ol;
+  resetField(); introT = practice ? 0 : -3.2; vsWait = !practice && !demo && !ol; VAR.cinStart();
   const mf = meF(), k = mf.kit, sp = mf.specs;
   $('legend').innerHTML = `<b>J</b> ${ico(k.melee.icon)} ${k.melee.name} · <b>K</b> ${ico(k.ranged.icon)} ${k.ranged.name} · ` + sp.map((s, i) => `<b>${'LON'[i]}</b> ${ico(s.icon)} ${s.name}`).join(' · ') + ` · <b>I</b> ${ico(k.beam.icon)} ${k.beam.name} · <b>Shift</b> ${ico('run-fast')} dash · <b>U</b> ${ico('battery-charging')} charge · <b>S</b> ${ico('shield')} duck + guard · <b>G</b> ${ico('hand-back-right')} grab · <b>Q/E</b> ${ico('swap-vertical')} lane`;
   btnCost = { tackle: ['sta', k.melee.sta], leaf: ['sta', k.ranged.sta], vine: ['sta', sp[0].sta], special2: ['sta', sp[1] ? sp[1].sta : 0], special3: ['sta', sp[2] ? sp[2].sta : 0], beam: ['ki', 50], dash: ['sta', DASH_STA] };
@@ -2217,7 +2217,7 @@ function draw() {
   if (!P) { drawBg(0); return; }
   let tx = (P.x + E.x) / 2 - W / 2; const M = meF(), O = other(M), follow = !demo && !lab && !P.dead && !E.dead; // the player stays in the free middle of the screen, clear of the buttons; a far-away foe may leave the view
   if (follow) { const s = Math.sign(O.x - M.x) || 1; tx = clamp(tx, M.x - (s > 0 ? .48 : .64) * W, M.x - (s > 0 ? .30 : .52) * W); }
-  camX += (clamp(tx, 0, WORLD_W - W) - camX) * .12; if (follow) camX = clamp(clamp(camX, M.x - .70 * W, M.x - .26 * W), 0, WORLD_W - W);
+  camX += (clamp(tx, 0, WORLD_W - W) - camX) * .12; if (follow) camX = clamp(clamp(camX, M.x - .70 * W, M.x - .26 * W), 0, WORLD_W - W); VAR.cinX();
   drawBg(camX);
   clashDim += ((bclash ? 1 : 0) - clashDim) * Math.min(1, hudDt * 7); if (clashDim > .01) { fxb.fillStyle = `rgba(0,0,14,${(.8 * clashDim).toFixed(3)})`; fxb.fillRect(0, 0, W, H); } // the arena darkens during a beam clash so the eye stays on the beams
   fxb.save(); fxb.translate(-camX, 0); fxf.save(); fxf.translate(-camX, 0);
@@ -2329,7 +2329,7 @@ function draw() {
   if (!lab) punch *= Math.exp(-hudDt * 10);
   $('world').style.transformOrigin = ko ? `${loser.x - camX}px ${GROUND - loser.h / 2}px` : `${(P.x + E.x) / 2 - camX}px ${GROUND}px`;
   $('world').style.transform = (shake > .5 || Math.abs(kick) > .5 ? `translate(${(Math.random() - .5) * shake + kick}px,${(Math.random() - .5) * shake}px) ` : '') + `scale(${camZ + punch})` + (clashT > .02 ? ` rotate(${(Math.sin(now * 55) * clashT * 2.5).toFixed(2)}deg)` : '');
-  clashT = Math.max(0, clashT - hudDt * 1.6);
+  clashT = Math.max(0, clashT - hudDt * 1.6); VAR.cinApply();
   hud();
 }
 // A little life on top of the animated sprite: breathing, hopping steps, stretch and squash on jumps and landings, lunges, recoil.
@@ -2690,9 +2690,9 @@ function step(rdt) { // one slice of game time; online it runs at a fixed rate o
   if (state === 'pause') { /* frozen */ }
   else if (cine) { cine.t += dt; if (!NETG.on) drawCine(); if (cine.t >= cine.dur) endCine(); }
   else if (state === 'intro') {
-    introT += dt; if (vsWait && introT > -.05) introT = -.05; $('vsSplash').classList.toggle('on', introT < 0); $('vsSplash').classList.toggle('out', introT < 0 && introT > -.25 && !vsWait);
+    introT += dt; if (VAR.cinHold(dt)) introT = Math.min(introT, 0); if (vsWait && introT > -.05) introT = -.05; $('vsSplash').classList.toggle('on', introT < 0); $('vsSplash').classList.toggle('out', introT < 0 && introT > -.25 && !vsWait);
     if (introT < 0) vsTick(dt); else vsClear();
-    if (introT < 0) { /* versus splash */ } else if (introT < .9) showMsg(rounds.n > 1 ? 'ROUND ' + rounds.n : 'READY?', 0); else if (introT < 1.9) { if (!$('msg').textContent.startsWith('FIGHT')) { showMsg('FIGHT!', 0); sfx('go'); } } else { $('msg').classList.remove('on'); state = 'fight'; P.sta = E.sta = 20; fightStart(); }
+    if (introT < 0) { /* versus splash */ } else if (VAR.cinOn()) { /* map intro */ } else if (introT < .9) showMsg(rounds.n > 1 ? 'ROUND ' + rounds.n : 'READY?', 0); else if (introT < 1.9) { if (!$('msg').textContent.startsWith('FIGHT')) { showMsg('FIGHT!', 0); sfx('go'); } } else { $('msg').classList.remove('on'); state = 'fight'; P.sta = E.sta = 20; fightStart(); }
     updateFighter(P, E, {}, dt); updateFighter(E, P, {}, dt); separate(P, E);
   } else if (state === 'fight' || state === 'ko') {
     tauntTick();
