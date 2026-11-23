@@ -56,8 +56,10 @@
       for (let i = 0; i < Q(120); i++) { const near = i % 3 === 0, sz = near ? 4.5 : 2.6, x = ((h(i, 1) * (960 + 80) + t * (28 + h(i, 5) * 30) + Math.sin(t * 1.3 + i) * 20) % (960 + 80)) - 40, y = ((h(i, 2) * (480 + 40) + t * (near ? 90 : 55) * (.7 + h(i, 6) * .6)) % (480 + 40)) - 20; g.globalAlpha = near ? .9 : .6; g.beginPath(); g.arc(x, y, sz, 0, 6.283); g.fill(); }
       g.globalAlpha = 1; const gr = g.createLinearGradient(0, 480 * .7, 0, 480); gr.addColorStop(0, 'rgba(235,245,255,0)'); gr.addColorStop(1, 'rgba(235,245,255,.3)'); g.fillStyle = gr; g.fillRect(0, 480 * .7, 960, 480 * .3); g.restore();
     } else if (id === 'fog') {
-      g.save(); dim(g, 'rgba(215,222,235,.20)');
-      for (let i = 0; i < 6; i++) { const y = 150 + i * 56, x = ((t * (8 + i * 3) * (i % 2 ? 1 : -1) - camX * .1 * (i + 1)) % 600 + 600) % 600 - 600; const gr = g.createLinearGradient(0, y - 40, 0, y + 40); gr.addColorStop(0, 'rgba(235,240,248,0)'); gr.addColorStop(.5, `rgba(235,240,248,${.22 + .06 * Math.sin(t * .5 + i)})`); gr.addColorStop(1, 'rgba(235,240,248,0)'); g.fillStyle = gr; for (let k = 0; k < 3; k++) g.fillRect(x + k * 600, y - 40, 640, 80); }
+      g.save();
+      const blob = (x, y, rx, ry, a) => { g.save(); g.translate(x, y); g.scale(1, ry / rx); const gr = g.createRadialGradient(0, 0, 0, 0, 0, rx); gr.addColorStop(0, `rgba(236,241,249,${a})`); gr.addColorStop(.55, `rgba(236,241,249,${a * .5})`); gr.addColorStop(1, 'rgba(236,241,249,0)'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rx, 0, 6.283); g.fill(); g.restore(); };
+      for (let i = 0; i < Q(10); i++) { const span = 960 + 700, x = (((h(i, 1) * span + t * (6 + h(i, 2) * 10) * (i % 2 ? 1 : -1) - camX * .08 * (1 + i % 3)) % span) + span) % span - 350; blob(x, 270 + h(i, 3) * 170, 240 + h(i, 4) * 200, 60 + h(i, 5) * 60, .42 + .08 * Math.sin(t * .5 + i)); }
+      const fg = g.createLinearGradient(0, 480 * .72, 0, 480); fg.addColorStop(0, 'rgba(236,241,249,0)'); fg.addColorStop(1, 'rgba(236,241,249,.14)'); g.fillStyle = fg; g.fillRect(0, 480 * .72, 960, 480 * .28);
       g.restore();
     } else if (id === 'cyclone') {
       g.save(); dim(g, 'rgba(70,80,70,.22)'); const fx = 960 * .5 + Math.sin(t * .35) * 320, base = 396;
@@ -78,42 +80,59 @@
   };
 
   // ---- sim side: thunderstorm bolts, cyclone wind, rock slides and lightning strikes
-  const TINT = { thunder: 'rgba(8,10,30,.42)', snow: 'rgba(205,228,255,.12)', fog: 'rgba(222,228,240,.30)', cyclone: 'rgba(80,92,72,.28)' };
+  const TINT = { thunder: 'rgba(8,10,30,.42)', snow: 'rgba(205,228,255,.12)', fog: 'rgba(222,228,240,.08)', cyclone: 'rgba(80,92,72,.28)' };
   const _ut = updateTint;
   updateTint = function () { _ut(); const c = weather && TINT[weather.id]; if (c) { const el = $('tint'), cur = el.style.backgroundImage; el.style.backgroundImage = (cur && cur !== 'none' ? cur + ',' : '') + `linear-gradient(${c},${c})`; } };
   const T = { rs: 0, lt: 0, th: 0, wid: '' };
-  const strikeAt = (kind, ty, x, dmg, r, warn) => hazards.push({ kind, ty, x: clamp(x, WALL_L + 60, WALL_R - 60), dmg, r, every: [9, 9], t: 0, warn, done: false });
+  const strikeAt = (kind, ty, x, dmg, r, warn, sz) => hazards.push({ kind, ty, x: clamp(x, WALL_L + 60, WALL_R - 60), dmg, r, sz, every: [9, 9], t: 0, warn, done: false });
+
+  // a chunky boulder: seeded outline, shaded face and a few cracks
+  V.drawRock = (g, x, y, size, rot, seed) => {
+    const r = size * .5, n = 9; g.save(); g.translate(x, y); g.rotate(rot);
+    const pts = []; for (let i = 0; i < n; i++) { const a = i / n * 6.283, k = .78 + h(i + Math.floor(seed) % 97, 7) * .3; pts.push([Math.cos(a) * r * k, Math.sin(a) * r * k * .92]); }
+    const gr = g.createLinearGradient(-r, -r, r, r); gr.addColorStop(0, '#b3a58f'); gr.addColorStop(.55, '#7d705f'); gr.addColorStop(1, '#4a4036');
+    g.fillStyle = gr; g.strokeStyle = '#2d261f'; g.lineWidth = Math.max(2, size * .03); g.lineJoin = 'round'; g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(30,24,18,.55)'; g.lineWidth = Math.max(1.5, size * .02); g.beginPath(); g.moveTo(pts[1][0] * .3, pts[1][1] * .3); g.lineTo(pts[3][0] * .8, pts[3][1] * .8); g.moveTo(pts[5][0] * .2, pts[5][1] * .2); g.lineTo(pts[7][0] * .75, pts[7][1] * .75); g.stroke();
+    g.fillStyle = 'rgba(255,245,225,.28)'; g.beginPath(); g.ellipse(-r * .3, -r * .35, r * .35, r * .16, -.6, 0, 6.283); g.fill(); g.restore();
+  };
 
   function debris(cx, n) {
-    for (let i = 0; i < n; i++) V.spawn({ kind: 'debris', x: cx + rnd(150, 800), y: -rnd(20, 260), vx: -rnd(520, 860), vy: rnd(240, 480), sz: rnd(34, 70), rot: rnd(0, 6), spin: rnd(-9, 9), life: 3, upd: (e, dt) => { e.x += e.vx * dt; e.y += e.vy * dt; e.rot += e.spin * dt; return e.y < GROUND + 40; }, draw: (g, e) => spr(g, 'rocks', e.x, e.y, e.sz, e.rot) });
+    for (let i = 0; i < n; i++) V.spawn({ kind: 'debris', x: cx + rnd(150, 800), y: -rnd(20, 260), vx: -rnd(520, 860), vy: rnd(240, 480), sz: rnd(70, 140), rot: rnd(0, 6), spin: rnd(-9, 9), life: 3.2, upd: (e, dt) => { e.x += e.vx * dt; e.y += e.vy * dt; e.rot += e.spin * dt; return e.y < GROUND + 40; }, draw: (g, e) => V.drawRock(g, e.x, e.y, e.sz, e.rot, e.seed), seed: i * 13 + 5 });
   }
+  const doRock = () => { V.banner('rock'); sfx('boom'); debris((P.x + E.x) / 2, 16); for (let i = 0; i < 8; i++) { const tg = i % 2 ? P : E; strikeAt('rock', 'rock', tg.x + rnd(-260, 260), 55, 95, 1.1 + i * .3, 190); } };
+  const doBolt = () => { V.banner('bolt'); for (let i = 0; i < 4; i++) { const tg = i % 2 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-110, 110), 60, 75, 1 + i * .55); } };
+  V.forceRock = doRock; V.forceBolt = doBolt;
+  V.forceWave = () => { const h = HAZARD[curTheme.id] || HAZARD.cave; V.banner('hazard'); for (let i = 0; i < 3; i++) { const tg = i % 2 ? P : E; hazards.push({ ...h, x: clamp(tg.x + rnd(-200, 200), WALL_L + 60, WALL_R - 60), t: 0, warn: .95 + i * .45, done: false }); } };
   V.extraWorld = dt => {
     const wid = weather ? weather.id : ''; if (wid !== T.wid) { T.wid = wid; updateTint(); } // the screen tint follows the sky, including when a weather move ends
-    if (practice || lab) return;
-    // rock slide: rocks tumble across the arena and drop around both fighters
-    T.rs -= dt; if (T.rs <= 0) {
-      T.rs = rnd(42, 62); V.banner('rock'); sfx('boom'); const cx = (P.x + E.x) / 2; debris(cx, 12);
-      for (let i = 0; i < 8; i++) { const tg = i % 2 ? P : E; strikeAt('rock', 'rock', tg.x + rnd(-260, 260), 48, 60, .9 + i * .3); }
-    }
+    if (practice || lab || !V.S.evMatch) return;
+    // rock slide: big rocks tumble across the arena and drop around both fighters
+    T.rs -= dt; if (T.rs <= 0) { T.rs = rnd(42, 62); doRock(); }
     // lightning strike: bolts fall on both fighters one after another
-    T.lt -= dt; if (T.lt <= 0) {
-      T.lt = rnd(26, 40); V.banner('bolt');
-      for (let i = 0; i < 4; i++) { const tg = i % 2 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-110, 110), 60, 75, 1 + i * .55); }
-    }
+    T.lt -= dt; if (T.lt <= 0) { T.lt = rnd(26, 40); doBolt(); }
     if (weather && weather.id === 'thunder') { T.th -= dt; if (T.th <= 0) { T.th = rnd(3.6, 5.6); const tg = Math.random() < .5 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-130, 130), 45, 70, .95); } } else T.th = Math.max(T.th, 2);
     if (weather && weather.id === 'cyclone') { const w = Math.sign(Math.sin(now * .5)) * 75 * dt; for (const f of [P, E]) if (!f.dead && f.hitT <= 0 && f.z + f.lift < 60) f.x = clamp(f.x + w * (f.kit.types.includes('flying') ? .3 : 1), WALL_L, WALL_R); }
   };
   V.moveResetWx = () => { T.rs = rnd(38, 55); T.lt = rnd(22, 34); T.th = 2; };
 
   // ---- weather choice: AUTO lets the sky change during the fight, anything else is fixed for the whole match
-  const WX_OPTS = [['auto', 'Weather: Auto (changes)'], ['clear', 'Weather: Clear'], ['sun', 'Weather: Sun'], ['rain', 'Weather: Rain'], ['thunder', 'Weather: Thunderstorm'], ['snow', 'Weather: Snow'], ['fog', 'Weather: Fog'], ['cyclone', 'Weather: Cyclone'], ['sand', 'Weather: Sandstorm'], ['hail', 'Weather: Hail']];
+  const WX_OPTS = [['auto', 'Weather: Auto'], ['clear', 'Weather: Clear'], ['sun', 'Weather: Sun'], ['rain', 'Weather: Rain'], ['thunder', 'Weather: Thunderstorm'], ['snow', 'Weather: Snow'], ['fog', 'Weather: Fog'], ['cyclone', 'Weather: Cyclone'], ['sand', 'Weather: Sandstorm'], ['hail', 'Weather: Hail']];
   let sel = 'auto'; try { const v = localStorage.getItem('pf_wx'); if (WX_OPTS.some(o => o[0] === v)) sel = v; } catch (e) { }
   V.S.wxMatch = 'auto';
+  // dynamic events (rock slides, lightning, timed events, weather shifts, hazard waves, extra pickups) can be switched off for a match
+  let evOn = true; try { evOn = localStorage.getItem('pf_ev') !== '0'; } catch (e) { }
+  V.S.evMatch = true;
+  V.evOn = () => evOn;
+  const setEvBtn = (b, on) => { b.textContent = 'Events: ' + (on ? 'On' : 'Off'); b.classList.toggle('off', !on); };
+  V.setEv = on => { evOn = !!on; try { localStorage.setItem('pf_ev', evOn ? '1' : '0'); } catch (e) { } for (const id of ['evBtn', 'nEvBtn']) { const b = document.getElementById(id); if (b) setEvBtn(b, evOn); } };
   V.wxSel = () => sel;
   V.setWx = v => { if (!WX_OPTS.some(o => o[0] === v)) v = 'auto'; sel = v; try { localStorage.setItem('pf_wx', v); } catch (e) { } for (const id of ['wxSel', 'nWxSel']) { const s = document.getElementById(id); if (s && s.value !== v) s.value = v; } };
-  V.lobbyWx = (host, cfg) => { const s = document.getElementById('nWxSel'); if (!s) return; const v = host ? sel : (cfg && cfg.wx) || 'auto'; if (s.value !== v) s.value = v; s.disabled = !host; };
+  V.lobbyWx = (host, cfg) => {
+    const s = document.getElementById('nWxSel'); if (!s) return; const v = host ? sel : (cfg && cfg.wx) || 'auto'; if (s.value !== v) s.value = v; s.disabled = !host;
+    const b = document.getElementById('nEvBtn'); if (b) { b.disabled = !host; setEvBtn(b, host ? evOn : !cfg || cfg.ev !== 0); }
+  };
   const _sm = startMatch;
-  startMatch = function (opts) { V.S.wxMatch = opts && opts.online ? (opts.online.wx || 'auto') : V.S.nextRule ? 'auto' : sel; return _sm.apply(this, arguments); };
+  startMatch = function (opts) { const ol = opts && opts.online; V.S.wxMatch = ol ? (ol.wx || 'auto') : V.S.nextRule ? 'auto' : sel; V.S.evMatch = ol ? ol.ev !== 0 : V.S.nextRule ? true : evOn; return _sm.apply(this, arguments); };
   const _pw = pickWeather;
   pickWeather = function () {
     const id = V.S.wxMatch; if (!id || id === 'auto' || (id !== 'clear' && !WEATHER[id])) return _pw();
@@ -123,9 +142,13 @@
   const _sw = setWeather;
   setWeather = function (id, dur) { if (V.S.wxMatch !== 'auto') return; _sw(id, dur); updateTint(); }; // a chosen weather stays, even against weather moves
   const style = document.createElement('style');
-  style.textContent = '.wxsel{width:178px;background:rgba(10,16,40,.82);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:9px;font:700 10px system-ui,sans-serif;letter-spacing:.4px;padding:3px 5px;position:absolute;top:5px;left:50%;transform:translateX(-50%);z-index:4}.wxsel:disabled{opacity:.75}';
+  style.textContent = '.arctl{position:absolute;top:5px;left:6px;right:6px;display:flex;gap:4px;z-index:4}.wxsel{flex:1;min-width:0;background:rgba(10,16,40,.82);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:9px;font:700 10px system-ui,sans-serif;letter-spacing:.3px;padding:3px 4px}.evbtn{flex:none;width:76px;background:rgba(20,70,40,.88);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:9px;font:700 10px system-ui,sans-serif;letter-spacing:.3px;padding:3px 2px;cursor:pointer}.evbtn.off{background:rgba(90,30,30,.88)}.wxsel:disabled,.evbtn:disabled{opacity:.75}';
   document.head.appendChild(style);
-  const mkSel = (id, host) => { const a = document.getElementById(host); if (!a) return; const s = document.createElement('select'); s.id = id; s.className = 'wxsel'; s.innerHTML = WX_OPTS.map(o => `<option value="${o[0]}">${o[1]}</option>`).join(''); s.value = sel; s.onclick = e => e.stopPropagation(); a.appendChild(s); return s; };
-  const ms = mkSel('wxSel', 'arenaPrev'); if (ms) ms.onchange = () => V.setWx(ms.value);
-  mkSel('nWxSel', 'nArenaPrev');
+  const mkCtl = (wid, bid, host) => {
+    const a = document.getElementById(host); if (!a) return; const row = document.createElement('div'); row.className = 'arctl'; row.onclick = e => e.stopPropagation();
+    const s = document.createElement('select'); s.id = wid; s.className = 'wxsel'; s.title = 'Auto lets the weather change during the fight; any other choice stays all match'; s.innerHTML = WX_OPTS.map(o => `<option value="${o[0]}">${o[1]}</option>`).join(''); s.value = sel;
+    const b = document.createElement('button'); b.id = bid; b.className = 'evbtn'; b.title = 'Rock slides, lightning, zero gravity, blackout and other timed events'; setEvBtn(b, evOn); row.appendChild(s); row.appendChild(b); a.appendChild(row); return [s, b];
+  };
+  const mc = mkCtl('wxSel', 'evBtn', 'arenaPrev'); if (mc) { mc[0].onchange = () => V.setWx(mc[0].value); mc[1].onclick = () => V.setEv(!evOn); }
+  mkCtl('nWxSel', 'nEvBtn', 'nArenaPrev');
 })();

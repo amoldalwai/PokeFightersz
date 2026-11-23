@@ -230,6 +230,7 @@ const VAR = (() => {
 
   function events(dt) {
     if (practice || lab) return;
+    if (!S.evMatch) return; // dynamic events are off: only the original single pickup drops
     pkDone = true; // the old one-per-round drop is replaced by repeating pickups
     S.pkT -= dt; if (S.pkT <= 0) { S.pkT = S.rule === 'berries' ? rnd(5, 7) : rnd(14, 22); spawnPickup(); }
     // weather shift: the sky changes mid-fight for a while

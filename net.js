@@ -65,7 +65,7 @@
     $('nArenaName').textContent = thN.name || thN.id; $('nArenaPrev').style.backgroundImage = `url(${arThumb(thN)})`;
     $('nArenaPrev').classList.toggle('ro', !host); VAR.lobbyWx(host, N.lobCfg); $('nRounds').classList.toggle('ro', !host);
     for (const b of document.querySelectorAll('#nRounds .chip')) b.classList.toggle('sel', +b.dataset.r === bestN);
-    if (host) { const lk = themeIdx + ':' + bestOf + ':' + VAR.wxSel(); if (lk !== N.lastLcfg) { N.lastLcfg = lk; send({ t: 'lcfg', theme: themeIdx, best: bestOf, wx: VAR.wxSel() }); } } // the guest sees the host's arena and rounds read-only
+    if (host) { const lk = themeIdx + ':' + bestOf + ':' + VAR.wxSel() + ':' + VAR.evOn(); if (lk !== N.lastLcfg) { N.lastLcfg = lk; send({ t: 'lcfg', theme: themeIdx, best: bestOf, wx: VAR.wxSel(), ev: VAR.evOn() ? 1 : 0 }); } } // the guest sees the host's arena and rounds read-only
     for (const e of document.querySelectorAll('.nhost')) e.style.display = host ? '' : 'none';
     for (const e of document.querySelectorAll('.nguest')) e.style.display = host ? 'none' : '';
     $('nGo').disabled = !rival || !ok;
@@ -135,7 +135,7 @@
     else if (d.t === 'p') send({ t: 'q', s: d.s });
     else if (d.t === 'q') { N.rtts.push(performance.now() - d.s); if (N.rtts.length > 8) N.rtts.shift(); updateNet(); }
     else if (d.t === 'hello') { N.noHello = false; N.info = { ver: String(d.ver), hash: String(d.hash || ''), name: cleanName(d.name) || 'FRIEND' }; if (NETG.lobby) refresh(); }
-    else if (d.t === 'lcfg') { N.lobCfg = { theme: +d.theme, best: +d.best, wx: d.wx || 'auto' }; if (NETG.lobby) refresh(); }
+    else if (d.t === 'lcfg') { N.lobCfg = { theme: +d.theme, best: +d.best, wx: d.wx || 'auto', ev: d.ev === 0 ? 0 : 1 }; if (NETG.lobby) refresh(); }
     else if (d.t === 'pick') { N.rival = { pk: d.pk, spec: d.spec }; if (NETG.lobby) refresh(); }
     else if (d.t === 'start') { if (N.role === 'guest') begin(d.cfg); }
     else if (d.t === 'rdy') { N.readyR = true; N.fpR = d.fp || null; checkGo(); }
@@ -146,7 +146,7 @@
   }
   function fight() {
     if (N.role !== 'host' || !N.rival || !verOk()) return;
-    const cfg = { seed: (nativeRnd() * 4294967296) >>> 0, pa: selYou, pb: N.rival.pk, spP: specIdx(selYou), spE: N.rival.spec, bestOf, theme: themeIdx, wx: VAR.wxSel(), sprite: spriteStyle, gm: [GM.dmg, GM.sta, GM.ki], names: [myName(), N.info.name] };
+    const cfg = { seed: (nativeRnd() * 4294967296) >>> 0, pa: selYou, pb: N.rival.pk, spP: specIdx(selYou), spE: N.rival.spec, bestOf, theme: themeIdx, wx: VAR.wxSel(), ev: VAR.evOn() ? 1 : 0, sprite: spriteStyle, gm: [GM.dmg, GM.sta, GM.ki], names: [myName(), N.info.name] };
     send({ t: 'start', cfg }); begin(cfg);
   }
   function begin(cfg) {
@@ -292,7 +292,7 @@
   $('nPick').onclick = () => openPicker('you');
   $('nMoves').onclick = () => openMoves();
   $('nGo').onclick = fight;
-  $('nArPrev').onclick = () => { setThemeIdx(themeIdx - 1); refresh(); }; $('nArNext').onclick = () => { setThemeIdx(themeIdx + 1); refresh(); }; { const ws = $('nWxSel'); if (ws) ws.onchange = () => { VAR.setWx(ws.value); refresh(); }; }
+  $('nArPrev').onclick = () => { setThemeIdx(themeIdx - 1); refresh(); }; $('nArNext').onclick = () => { setThemeIdx(themeIdx + 1); refresh(); }; { const ws = $('nWxSel'); if (ws) ws.onchange = () => { VAR.setWx(ws.value); refresh(); }; const eb = $('nEvBtn'); if (eb) eb.onclick = () => { VAR.setEv(!VAR.evOn()); refresh(); }; }
   $('nArenaPrev').onclick = e => { if (N.role !== 'host' || e.target.closest('.arr')) return; arPg = -1; drawArenas(); $('arenaPane').classList.add('on'); }; // the same arena cards as the battle menu
   for (const b of document.querySelectorAll('#nRounds .chip')) b.onclick = () => { setRounds(+b.dataset.r); refresh(); };
   $('nCopy').onclick = () => { const t = N.code; try { navigator.clipboard.writeText(t); toast('Code copied'); } catch (e) { toast('Code: ' + t); } };

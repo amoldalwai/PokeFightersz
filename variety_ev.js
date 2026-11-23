@@ -65,7 +65,7 @@
   const _ew = V.extraWorld;
   V.extraWorld = dt => {
     _ew(dt);
-    if (practice || lab) { if (S.ev) endEv(); return; }
+    if (practice || lab || !S.evMatch) { if (S.ev) endEv(); return; }
     if (S.ev) {
       S.ev.t += dt; tickEv(dt); if (S.ev.t >= S.ev.dur) { endEv(); return; }
       const sec = Math.ceil(S.ev.dur - S.ev.t); if (sec !== T.sec) { T.sec = sec; const b = chip.querySelector('b'); if (b) b.textContent = sec + 's'; }

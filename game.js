@@ -615,7 +615,7 @@ function hazardStrike(z) {
 function drawHazard(g, z) {
   if (z.t < z.warn) {
     g.save(); g.strokeStyle = `rgba(255,70,50,${.45 + .4 * Math.sin(now * 28)})`; g.lineWidth = 4; g.beginPath(); g.ellipse(z.x, GROUND + 6, z.r, z.r * .2, 0, 0, 6.283); g.stroke(); g.fillStyle = 'rgba(255,60,40,.14)'; g.fill();
-    if (z.kind === 'rock' || z.kind === 'icicle') { const f = clamp((z.t - (z.warn - .3)) / .3, 0, 1); if (f > 0) spr(g, z.kind === 'rock' ? 'rocks' : 'icicle', z.x, -60 + (GROUND + 20) * f * f, 90, now * 6); }
+    if (z.kind === 'rock' || z.kind === 'icicle') { const fl = z.sz ? .7 : .3, f = clamp((z.t - (z.warn - fl)) / fl, 0, 1); if (f > 0) { const ry = -60 + (GROUND + 20) * f * f; if (z.sz && z.kind === 'rock') VAR.drawRock(g, z.x, ry, z.sz, now * 4, z.x); else spr(g, z.kind === 'rock' ? 'rocks' : 'icicle', z.x, ry, 90, now * 6); } }
     g.restore();
   } else if (z.kind === 'geyser') {
     const a = 1 - (z.t - z.warn) / .6; g.save(); g.globalAlpha = clamp(a, 0, 1); g.globalCompositeOperation = 'lighter';
