@@ -12,7 +12,7 @@
   add('ice', 'snow'); add('frozenlake', 'snow'); add('forest', 'fog'); add('ruins', 'fog', 'thunder'); add('night', 'fog', 'thunder'); add('shrine', 'fog'); add('glade', 'fog');
   add('storm', 'thunder'); add('canyon', 'cyclone'); add('desert', 'cyclone'); add('cliffs', 'cyclone', 'fog'); add('redcanyon', 'cyclone'); add('plaza', 'thunder'); add('city', 'thunder'); add('champion', 'thunder'); add('stadium', 'thunder');
 
-  // ---- twelve new arenas (appended, so saved arena numbers and online arena indexes stay the same)
+  // ---- twelve new arenas, placed after Red Canyon Gate and before the Wasteland
   const NEW_MAPS = [
     ['clockwork', 'Clockwork Citadel', '#c9a47a', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'dust'], ['spiritruins', 'Spirit Ruins', '#5a5aa0', ['clear', 'fog', 'thunder', 'rain'], 'fly'],
     ['dinofalls', 'Dino Falls', '#c9a47a', ['clear', 'sun', 'rain', 'fog', 'thunder'], 'leaf'], ['cosmic', 'Cosmic Crystals', '#6a64a8', ['clear', 'thunder', 'snow'], 'fly'],
@@ -21,7 +21,7 @@
     ['skyisles', 'Sky Islands', '#8cd048', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'leaf'], ['sunken', 'Sunken Temple', '#7aa2c0', ['clear'], undefined],
     ['starshrine', 'Starlit Shrine', '#7a74b8', ['clear', 'fog', 'thunder', 'snow'], 'fly'], ['suntemple', 'Sun Temple', '#e8b878', ['clear', 'sun', 'sand', 'cyclone'], 'dust'],
   ];
-  for (const [id, name, gc, wx, amb] of NEW_MAPS) { THEMES.push({ id, name, file: id + '.jpg' }); GROUND_COL[id] = gc; THEME_WEATHER[id] = wx; if (amb) AMBIENT[id] = amb; }
+  { const fresh = []; for (const [id, name, gc, wx, amb] of NEW_MAPS) { fresh.push({ id, name, file: id + '.jpg' }); GROUND_COL[id] = gc; THEME_WEATHER[id] = wx; if (amb) AMBIENT[id] = amb; } const at = THEMES.findIndex(t => t.id === 'desert'); THEMES.splice(at < 0 ? THEMES.length : at, 0, ...fresh); } // they sit between Red Canyon Gate and the Wasteland
   for (const id of ['bamboo', 'skyisles', 'dinofalls']) TUFT_MAPS.add(id);
 
   // pseudo-random per index: the look never changes the simulation
