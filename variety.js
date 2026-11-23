@@ -270,6 +270,7 @@ const VAR = (() => {
   // ---- drawing: the variety pips and comeback meter over each fighter, plus the moves' own effects
   function draw(g) {
     if (VAR.extraDraw) VAR.extraDraw();
+    if (VAR.fxDraw) VAR.fxDraw(g);
     if (!live()) return;
     for (const f of [P, E]) {
       if (f.dead) continue; const v = vr(f), n = Math.min(4, distinct(f)), x0 = f.x - 21, y = top(f) - 6;

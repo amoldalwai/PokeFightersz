@@ -21,17 +21,20 @@
     + '#evBanner.on{opacity:1;transform:translate(-50%,0) scale(1)}#evBanner .ei{width:46px;height:46px;border-radius:50%;background:var(--c);display:grid;place-items:center;box-shadow:inset 0 0 0 3px rgba(255,255,255,.35)}#evBanner .ei .sv{width:28px;height:28px;fill:#0a1028}'
     + '#evBanner b{display:block;font:900 24px system-ui,sans-serif;letter-spacing:2.5px;color:#fff;text-shadow:0 0 14px var(--c),0 2px 0 rgba(0,0,0,.6);font-style:italic}#evBanner small{display:block;font:700 12px system-ui,sans-serif;letter-spacing:1px;color:#d6e2ff;margin-top:1px}'
     + '#evChip{position:absolute;left:50%;top:164px;transform:translateX(-50%);display:none;align-items:center;gap:7px;padding:3px 12px 3px 6px;border-radius:14px;background:rgba(6,10,28,.78);border:1px solid var(--c);color:#fff;font:800 11px system-ui,sans-serif;letter-spacing:1px;pointer-events:none;z-index:29;white-space:nowrap;overflow:hidden}#evChip.on{display:flex}#evChip .sv{width:16px;height:16px;fill:var(--c)}#evChip i{position:absolute;left:0;bottom:0;height:3px;background:var(--c)}'
-    + '#blackout{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:none}.btn.evlock{opacity:.22;filter:grayscale(1)}';
+    + '#blackout{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;display:none}.btn.evlock{opacity:.22;filter:grayscale(1)}'
+    + '#evEdge{position:absolute;inset:0;pointer-events:none;opacity:0;box-shadow:inset 0 0 70px 6px var(--c,#fff),inset 0 0 14px 2px var(--c,#fff)}#evEdge.on{animation:evEdge 1.6s ease-in-out infinite}@keyframes evEdge{0%,100%{opacity:.3}50%{opacity:.9}}';
   document.head.appendChild(style);
   const stage = document.getElementById('stage'), tint = document.getElementById('tint');
   const ban = document.createElement('div'), chip = document.createElement('div'), blk = document.createElement('canvas');
   ban.id = 'evBanner'; chip.id = 'evChip'; blk.id = 'blackout'; blk.width = W; blk.height = H;
   if (tint) { tint.insertAdjacentElement('afterend', blk); } else stage.appendChild(blk);
   stage.appendChild(ban); stage.appendChild(chip);
+  const edge = document.createElement('div'); edge.id = 'evEdge'; if (tint) tint.insertAdjacentElement('afterend', edge); else stage.appendChild(edge);
 
   V.bannerX = (title, sub, ic, c) => {
     ban.innerHTML = `<div class="ei">${ico(ic)}</div><div><b>${title}</b><small>${sub}</small></div>`; ban.style.setProperty('--c', c);
     ban.classList.remove('on'); void ban.offsetWidth; ban.classList.add('on'); clearTimeout(T.bt); T.bt = setTimeout(() => ban.classList.remove('on'), 2300);
+    edge.style.setProperty('--c', c); edge.className = 'on'; clearTimeout(T.et); if (!S.ev) T.et = setTimeout(() => { if (!S.ev) edge.className = ''; }, 2300); // one-off events glow for the banner, timed ones for their whole run
   };
   V.banner = k => { const b = BN[k] || EV[k]; if (b) V.bannerX(b.n, b.s, b.ic, b.c); };
 
@@ -51,7 +54,7 @@
     if (k === 'lowgrav') S.lowG = d.dur;
     setLocks(k); chip.style.setProperty('--c', d.c); chip.innerHTML = `${ico(d.ic)}<span>${d.n}</span><b></b><i></i>`;
   }
-  function endEv() { S.ev = null; setLocks(null); }
+  function endEv() { S.ev = null; setLocks(null); edge.className = ''; }
   V.forceEv = k => { if (EV[k]) startEv(k); };
 
   function tickEv(dt) {
@@ -81,7 +84,7 @@
   // the overlay and chip follow the sim state; nothing here changes it
   V.extraDraw = () => {
     const on = !!S.ev && state === 'fight';
-    chip.classList.toggle('on', on);
+    chip.classList.toggle('on', on); if (!on && !S.ev && state !== 'fight' && edge.className) edge.className = '';
     if (!on) { if (blk.style.display !== 'none') blk.style.display = 'none'; if (document.querySelector('.btn.evlock')) setLocks(null); return; }
     if (S.ev.key !== 'blackout') { if (blk.style.display !== 'none') blk.style.display = 'none'; return; }
     blk.style.display = 'block';

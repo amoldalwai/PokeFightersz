@@ -42,5 +42,49 @@
     const f = state === 'fight' && !demo && !lab ? meF() : null, hp = f && !f.dead ? f.hp / f.maxhp : 1, cls = hp < .1 ? 'on crit' : hp < .25 ? 'on' : '';
     if (lh.className !== cls) { lh.className = cls; lh.style.opacity = cls ? '' : '0'; }
   };
+  // ---- dust, landing cracks, melee swipe arcs and the KO ring: all render-time, they only read the sim
+  const FX = { puffs: [], cracks: [], rings: [], pf: [], last: performance.now(), ko: false, arcN: 0 };
+  V.fx = FX;
+  const dustCol = () => { const c = GROUND_COL[curTheme.id] || '#c8b496'; return hexRgb(lighten(c, .15)).join(','); };
+  const puffAt = (x, y, n, big) => { const m = lowQ ? .5 : 1; for (let i = 0; i < Math.ceil(n * m); i++) FX.puffs.push({ x: x + (Math.random() - .5) * 26, y, vx: (Math.random() - .5) * (big ? 260 : 70), vy: -Math.random() * (big ? 70 : 28), t: 0, life: .55 + Math.random() * .3, r: big ? 16 : 8 }); };
+  V.fxDraw = g => {
+    const nowMs = performance.now(), dt = Math.min(.05, (nowMs - FX.last) / 1000); FX.last = nowMs;
+    if (!P || !E) return;
+    const live = state === 'fight' || state === 'ko';
+    if (live) [P, E].forEach((f, i) => {
+      const s = FX.pf[i] || (FX.pf[i] = { x: f.x, z: 0, zmax: 0, sp: 0, at: 0 });
+      const fly = f.hover && (f.air || f.lift > 12), gy = GROUND + laneY(f) + 2;
+      s.sp += (Math.abs(f.x - s.x) / Math.max(dt, .001) - s.sp) * .25; s.x = f.x;
+      if (!fly && f.z <= 2 && !f.dead && s.sp > 230 && nowMs - s.at > (s.sp > 700 ? 35 : 120)) { s.at = nowMs; puffAt(f.x - f.face * f.w * .25, gy, s.sp > 700 ? 2 : 1, false); }
+      if (f.z > s.zmax) s.zmax = f.z;
+      if (s.z > 24 && f.z <= 2 && !fly) { puffAt(f.x, gy, s.zmax > 140 ? 12 : 6, true); if (s.zmax > 140 && !lowQ) FX.cracks.push({ x: f.x, y: gy, t: 0 }); s.zmax = 0; }
+      if (f.z <= 2) s.zmax = 0; s.z = f.z;
+    });
+    // ground cracks
+    for (let i = FX.cracks.length - 1; i >= 0; i--) {
+      const c = FX.cracks[i]; c.t += dt; const a = 1 - c.t / 1.6; if (a <= 0) { FX.cracks.splice(i, 1); continue; }
+      g.save(); g.strokeStyle = `rgba(30,20,10,${a * .7})`; g.lineWidth = 2; g.beginPath(); for (const sg of [-1, 1]) { let x = c.x, y = c.y; g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += sg * (10 + k * 9); y += k % 2 ? 3 : -2; g.lineTo(x, y); } } g.stroke(); g.restore();
+    }
+    // dust puffs
+    if (FX.puffs.length) { const col = dustCol(); for (let i = FX.puffs.length - 1; i >= 0; i--) { const p = FX.puffs[i]; p.t += dt; if (p.t > p.life) { FX.puffs.splice(i, 1); continue; } p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .94; const k = p.t / p.life; g.fillStyle = `rgba(${col},${.7 * (1 - k)})`; g.beginPath(); g.arc(p.x, p.y, p.r * (1 + k * 1.6), 0, 6.283); g.fill(); } }
+    // melee swipe arcs: a tapered crescent in the move's type colour during the swing
+    if (live) for (const f of [P, E]) {
+      const a = f.act; if (!a || a.name !== 'melee' || f.dead || a.t < .06 || a.t > .3) continue;
+      const k = (a.t - .06) / .24, col = colsOf(f.kit.melee.type)[1], c = center(f), cx = f.x + f.face * f.w * .2, cy = c.y - f.h * .08, R = 52 + f.w * .5, n = lowQ ? 8 : 14; FX.arcN++;
+      g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+      for (let j = 0; j < n; j++) {
+        const u = j / n, w = (1 - Math.abs(u - .5) * 1.6) * 15 * (1 - k); if (w <= 0) continue; let a0 = -1.3 + u * 2.1 * ease(Math.min(1, k * 1.6)), a1 = a0 + .16; if (f.face < 0) { const t0 = Math.PI - a1; a1 = Math.PI - a0; a0 = t0; }
+        g.globalAlpha = (1 - k) * .9; g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.arc(cx, cy, R, a0, a1); g.stroke(); g.strokeStyle = '#fff'; g.lineWidth = w * .35; g.beginPath(); g.arc(cx, cy, R, a0, a1); g.stroke();
+      }
+      g.restore();
+    }
+    // KO ring
+    if (state === 'ko' && !FX.ko) { FX.ko = true; const l = [P, E].find(f => f.dead); if (l) FX.rings.push({ x: l.x, y: center(l).y, t: 0 }); } else if (state !== 'ko') FX.ko = false;
+    for (let i = FX.rings.length - 1; i >= 0; i--) {
+      const r = FX.rings[i]; r.t += dt; if (r.t > .7) { FX.rings.splice(i, 1); continue; } const k = r.t / .7;
+      g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = `rgba(255,255,255,${1 - k})`; g.lineWidth = 14 * (1 - k) + 2; g.beginPath(); g.arc(r.x, r.y, 30 + ease(k) * 380, 0, 6.283); g.stroke();
+      g.strokeStyle = `rgba(255,220,140,${.8 * (1 - k)})`; g.lineWidth = 6 * (1 - k); g.beginPath(); g.arc(r.x, r.y, 20 + ease(k) * 250, 0, 6.283); g.stroke(); g.restore();
+    }
+  };
   V.statusDrawOn = true;
 })();
