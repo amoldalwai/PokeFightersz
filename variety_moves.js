@@ -107,15 +107,15 @@
   ARCH.gravity = {
     cost: 18, cool: 5, range: [150, 540], dur: .7,
     start() { sfx('charge'); },
-    tick(f, o, a) { f.vx = 0; f.charging = true; if (!a.done && a.t >= .3) { a.done = true; spawn({ kind: 'well', owner: f, x: clamp(lerp(f.x, o.x, .85), WALL_L + 60, WALL_R - 60), lane: f.lp, ty: a.ty, miss: a.miss, life: 2.1, upd: uWell, draw: dWell }); sfx('boom'); } },
+    tick(f, o, a) { f.vx = 0; f.charging = true; if (!a.done && a.t >= .3) { a.done = true; spawn({ kind: 'well', owner: f, x: clamp(lerp(f.x, o.x, .85), WALL_L + 60, WALL_R - 60), lane: f.lp, ty: a.ty, miss: a.miss, life: 4.8, upd: uWell, draw: dWell }); sfx('boom'); } },
   };
   function uWell(e, dt) {
     const f = e.owner, o = other(f);
-    if (!o.dead && Math.abs(e.lane - o.lp) <= 1.2 && Math.abs(o.x - e.x) < 220 && !e.miss) { const pull = o.z + o.lift > 20 ? 90 : 250; o.x = clamp(o.x + Math.sign(e.x - o.x) * pull * dt, WALL_L, WALL_R); o.slowT = Math.max(o.slowT, .25); }
-    if (e.t > 1.95 && !e.done) { e.done = true; boom(e.x, GROUND - 40, 150, cols(e.ty)[1], 16); aoe(f, e.x, GROUND - 40, 150, D(f, 44), 340, true, null, e.ty); return false; }
+    if (!o.dead && Math.abs(e.lane - o.lp) <= 1.2 && Math.abs(o.x - e.x) < 260 && !e.miss) { const pull = o.z + o.lift > 20 ? 110 : 300; o.x = clamp(o.x + Math.sign(e.x - o.x) * pull * dt, WALL_L, WALL_R); o.slowT = Math.max(o.slowT, .25); }
+    if (e.t > 4.6 && !e.done) { e.done = true; boom(e.x, GROUND - 40, 170, cols(e.ty)[1], 16); aoe(f, e.x, GROUND - 40, 170, D(f, 50), 340, true, null, e.ty); return false; }
   }
   function dWell(g, e) {
-    const c = cols(e.ty), k = clamp(e.t / .3, 0, 1) * (e.t > 1.8 ? clamp((2.1 - e.t) / .3, 0, 1) : 1), cy = GROUND - 40;
+    const c = cols(e.ty), k = clamp(e.t / .3, 0, 1) * (e.t > 4.3 ? clamp((4.8 - e.t) / .5, 0, 1) : 1), cy = GROUND - 40;
     g.save(); const gr = g.createRadialGradient(e.x, cy, 4, e.x, cy, 130 * k); gr.addColorStop(0, 'rgba(10,0,30,.95)'); gr.addColorStop(.6, 'rgba(60,20,110,.55)'); gr.addColorStop(1, c[1] + '00'); g.fillStyle = gr; g.beginPath(); g.ellipse(e.x, cy, 140 * k, 90 * k, 0, 0, 6.283); g.fill();
     g.globalCompositeOperation = 'lighter'; g.strokeStyle = c[1]; g.lineWidth = 2.5; for (let i = 0; i < 4; i++) { g.beginPath(); for (let t = 0; t < 2.4; t += .2) { const a = i * 1.57 + t * 2.1 - e.t * 6, r = (140 - t * 50) * k; g.lineTo(e.x + Math.cos(a) * r, cy + Math.sin(a) * r * .65); } g.stroke(); } g.restore();
   }
@@ -169,7 +169,7 @@
   // ---- 9. decoy: a clone that shoots and soaks three projectiles
   ARCH.decoy = {
     cost: 16, cool: 8, range: [0, 9999], dur: .6, when: f => !V.S.ents.some(e => e.kind === 'decoy' && e.owner === f),
-    start(f, o, a) { spawn({ kind: 'decoy', owner: f, x: clamp(f.x + f.face * 120, WALL_L + 40, WALL_R - 40), hp: 3, shot: .6, lane: f.lp, ty: a.ty, life: 4.2, upd: uDecoy, draw: dDecoy }); puff(f.x, GROUND, 8, 'rgba(235,235,235,.6)', 90); sfx('whip'); },
+    start(f, o, a) { spawn({ kind: 'decoy', owner: f, x: clamp(f.x + f.face * 120, WALL_L + 40, WALL_R - 40), hp: 3, shot: .6, lane: f.lp, ty: a.ty, life: 6, upd: uDecoy, draw: dDecoy }); puff(f.x, GROUND, 8, 'rgba(235,235,235,.6)', 90); sfx('whip'); },
     tick(f) { f.vx = 0; },
   };
   function uDecoy(e, dt) {
@@ -203,7 +203,7 @@
   ARCH.wall = {
     cost: 14, cool: 7, range: [60, 600], dur: .55,
     start(f, o, a) { sfx('whip'); },
-    tick(f, o, a) { f.vx = 0; if (!a.done && a.t >= .25) { a.done = true; const x = clamp(f.x + f.face * 130, WALL_L + 40, WALL_R - 40); spawn({ kind: 'wall', owner: f, x, h: 120, hp: 3, side: Math.sign(o.x - x) || f.face, lane: f.lp, ty: a.ty, life: 4.2, upd: uWall, draw: dWall }); sfx('block'); } },
+    tick(f, o, a) { f.vx = 0; if (!a.done && a.t >= .25) { a.done = true; const x = clamp(f.x + f.face * 130, WALL_L + 40, WALL_R - 40); spawn({ kind: 'wall', owner: f, x, h: 120, hp: 3, side: Math.sign(o.x - x) || f.face, lane: f.lp, ty: a.ty, life: 6.5, upd: uWall, draw: dWall }); sfx('block'); } },
   };
   function uWall(e) {
     const f = e.owner, o = other(f);
@@ -303,7 +303,7 @@
     start(f, o, a) { a.lx = f.x; sfx('whip'); },
     tick(f, o, a, dt) {
       ARCH.dash.tick(f, o, a, dt);
-      if (a.t >= .1 && a.t < .4 && Math.abs(f.x - a.lx) > 48) { a.lx = f.x; spawn({ kind: 'patch', owner: f, x: f.x, lane: f.lp, ty: a.ty, cd: .1, life: 3.2, upd: uPatch, draw: dPatch }); }
+      if (a.t >= .1 && a.t < .4 && Math.abs(f.x - a.lx) > 48) { a.lx = f.x; spawn({ kind: 'patch', owner: f, x: f.x, lane: f.lp, ty: a.ty, cd: .1, life: 5.5, upd: uPatch, draw: dPatch }); }
     },
   };
   function uPatch(e, dt) {

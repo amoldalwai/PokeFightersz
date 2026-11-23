@@ -2290,7 +2290,7 @@ function draw() {
   }
   fxb.restore(); fxf.restore();
   fxf.save(); fxf.translate(-camX, 0); for (const f of [P, E]) drawAlert(fxf, f); if (!lowQ) drawFrontProps(fxf); fxf.restore();
-  if (!lowQ) { drawAmbient(fxf); drawWeather(fxf); }
+  if (!lowQ) { drawAmbient(fxf); } drawWeather(fxf);
   let wc = null; for (const f of [P, E]) { const a = f.act; if (a && !f.dead && ((a.name === 'sp' && a.key !== 'dash') || (a.name === 'beam' && a.fired))) wc = colsOf(a.ty || f.kit.beam.type)[1]; }
   if (wc) washCol = rgbOf(wc); washA += ((wc ? .13 : 0) - washA) * Math.min(1, hudDt * 10);
   if (washA > .004) { fxf.save(); fxf.globalCompositeOperation = 'lighter'; fxf.fillStyle = `rgba(${washCol},${washA})`; fxf.fillRect(0, 0, W, H); fxf.restore(); }

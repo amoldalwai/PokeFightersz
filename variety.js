@@ -28,14 +28,14 @@ const VAR = (() => {
     tricky: new Set(['teleport', 'decoy', 'dig', 'pushpull', 'mark', 'boomer', 'debuff']),
   };
   const STYLES = {
-    rusher: { n: 'RUSHER', w: { approach: 2.2, dash: 2, melee: 1.8, guard: .5, retreat: .3, ranged: .6, rest: .6 }, sp: { contact: 1.6 } },
-    zoner: { n: 'ZONER', w: { ranged: 2.2, retreat: 2.2, approach: .45, melee: .7, dash: .6 }, sp: { proj: 2 } },
-    trapper: { n: 'TRAPPER', w: { retreat: 1.4, sidestep: .6, approach: .8 }, sp: { trap: 2.6 } },
-    counter: { n: 'COUNTER', w: { guard: 2.4, grab: 1.6, approach: .5, melee: 1.3 }, sp: { counter: 3 } },
-    turtle: { n: 'TURTLE', w: { guard: 3, rest: 2, retreat: 1.3, approach: .5, melee: .7 }, sp: { def: 2.5 } },
-    trickster: { n: 'TRICKSTER', w: { sidestep: 3, align: 1.5, dash: 2, jump: 2.2, guard: .6 }, sp: { tricky: 2.2 } },
-    berserker: { n: 'BERSERKER', w: { melee: 2.2, guard: .15, approach: 1.8, retreat: .2, rest: .3 }, sp: { contact: 1.4 }, dmg: 1.1, take: 1.1 },
-    sniper: { n: 'SNIPER', w: { ranged: 1.6, retreat: 1.6, approach: .5 }, sp: { proj: 1.8 } },
+    rusher: { n: 'RUSHER', w: { approach: 3, dash: 2.5, melee: 2.2, guard: .3, retreat: .15, ranged: .4, rest: .5 }, sp: { contact: 2 } },
+    zoner: { n: 'ZONER', w: { ranged: 3, retreat: 3, approach: .25, melee: .4, dash: .5, guard: .8 }, sp: { proj: 3 }, keep: 360 },
+    trapper: { n: 'TRAPPER', w: { retreat: 1.8, sidestep: .5, approach: .6, ranged: .6 }, sp: { trap: 3.5 }, keep: 280 },
+    counter: { n: 'COUNTER', w: { guard: 3.5, grab: 2.2, approach: .3, melee: 1.6, dash: .4 }, sp: { counter: 4 } },
+    turtle: { n: 'TURTLE', w: { guard: 4.5, rest: 3, retreat: 1.8, approach: .3, melee: .5, ranged: 1.2 }, sp: { def: 3.5 } },
+    trickster: { n: 'TRICKSTER', w: { sidestep: 4, align: 2, dash: 3, jump: 3, guard: .4, melee: .8 }, sp: { tricky: 3 } },
+    berserker: { n: 'BERSERKER', w: { melee: 3, guard: .1, approach: 2.8, retreat: .1, rest: .2, ranged: .3 }, sp: { contact: 1.8 }, dmg: 1.1, take: 1.1 },
+    sniper: { n: 'SNIPER', w: { ranged: 2.6, retreat: 2.6, approach: .3, melee: .4, guard: .8 }, sp: { proj: 2.6 }, keep: 420 },
   };
   const STYLE_IDS = Object.keys(STYLES);
   const RULES = { glass: { n: 'GLASS CANNON', d: 'everyone deals 40% more damage' }, lowgrav: { n: 'MOON ARENA', d: 'low gravity all fight' }, chaos: { n: 'STORM CHASER', d: 'weather and hazards every few seconds' }, berries: { n: 'BERRY RAIN', d: 'a pickup drops every 6 seconds' }, rush: { n: 'OVERCLOCK', d: 'cooldowns recover twice as fast' } };
@@ -147,7 +147,7 @@ const VAR = (() => {
       if (ph > v.phase) {
         v.phase = ph; spark(f.x, center(f).y, ph === 3 ? '#ff5a3a' : '#ffb347', 20); sfx('boom'); shake = Math.max(shake, 10);
         floatText(f.x, top(f) - 46, ph === 3 ? 'RAGE!' : 'PHASE 2', ph === 3 ? '#ff5a3a' : '#ffb347', 30);
-        if (ph === 3 && S.style && S.style[f.side] !== 'turtle') S.style[f.side] = 'berserker';
+        if (ph === 3 && S.style && S.style[f.side] === 'counter') { S.style[f.side] = 'berserker'; tag(); }
       }
       if (v.phase > 1) for (const k in f.cool) f.cool[k] = Math.max(0, f.cool[k] - dt * .16 * (v.phase - 1));
     }
@@ -155,14 +155,20 @@ const VAR = (() => {
   }
 
   // ---- AI: styles re-weight the options the AI rolls each think
+  function tag() { // the AI's style sits under its name on the HUD
+    const el = document.querySelector('#nameB small'); if (!el || !E) return;
+    const st = STYLES[S.style && S.style[E.side]], txt = (E.ability && E.ability.name || '') + (st ? ' \u00b7 ' + st.n : ''); if (el.textContent !== txt) el.textContent = txt;
+  }
   function aiOpts(f, o, opts) {
     if (!aiOn() || !f.isAI) return;
     if (!S.style) S.style = {};
     if (!S.style[f.side]) { S.style[f.side] = STYLE_IDS[Math.floor(Math.random() * STYLE_IDS.length)]; floatText(f.x, top(f) - 30, STYLES[S.style[f.side]].n + ' STYLE', '#ffd0a0', 20); }
     if (practice && S.forceStyle) S.style[f.side] = S.forceStyle;
-    const st = STYLES[S.style[f.side]]; if (!st) return;
+    const st = STYLES[S.style[f.side]]; if (!st) return; tag();
+    const dd = Math.abs(o.x - f.x);
     for (const x of opts) {
       const nm = x[0]; let m = st.w[nm] || 1;
+      if (st.keep && nm === 'retreat' && dd < st.keep) m *= 2; // ranged styles back away when you get close
       const i = nm === 'special' ? 0 : nm === 'special2' ? 1 : nm === 'special3' ? 2 : -1;
       if (i >= 0 && f.specs[i]) { const key = f.specs[i].key; for (const g in st.sp) if (K[g] && K[g].has(key)) m *= st.sp[g]; }
       if (nm === 'ranged' && st.sp.proj) m *= 1;
@@ -173,7 +179,8 @@ const VAR = (() => {
     if (!aiOn() || !oP || !oP.vr || !S.style) return;
     const c = oP.vr.cat, t = c.melee + c.ranged + c.special; if (t < 4) return;
     const old = S.style[E.side]; let ns = old;
-    if (c.ranged / t > .4) ns = 'rusher'; else if (c.melee / t > .5) ns = 'counter'; else if (c.special / t > .45) ns = 'trickster'; else ns = STYLE_IDS[Math.floor(Math.random() * STYLE_IDS.length)];
+    const pickOf = l => { const r = l.filter(x => x !== old); return r[Math.floor(Math.random() * r.length)]; };
+    if (c.ranged / t > .4) ns = pickOf(['rusher', 'trickster', 'trapper', 'turtle']); else if (c.melee / t > .5) ns = pickOf(['counter', 'zoner', 'sniper', 'trapper']); else if (c.special / t > .45) ns = pickOf(['counter', 'sniper', 'rusher', 'trickster']); else ns = pickOf(STYLE_IDS);
     if (ns !== old) { S.style[E.side] = ns; S.adaptMsg = STYLES[ns].n; }
   }
 
@@ -226,7 +233,7 @@ const VAR = (() => {
     // weather shift: the sky changes mid-fight for a while
     S.wxT -= dt; if (S.wxT <= 0) {
       S.wxT = S.rule === 'chaos' ? rnd(10, 14) : rnd(34, 50); const ids = Object.keys(WEATHER).filter(k => !weather || weather.id !== k), id = ids[Math.floor(Math.random() * ids.length)];
-      if (id) { setWeather(id, rnd(18, 26)); showMsg('WEATHER SHIFT: ' + WEATHER[id].name.toUpperCase(), 1500); }
+      if (id) { setWeather(id, rnd(22, 32)); updateTint(); showMsg('WEATHER SHIFT: ' + WEATHER[id].name.toUpperCase(), 1500); }
     }
     // hazard waves on arenas that already have hazards: three strikes in a row
     const h = HAZARD[curTheme.id] || (S.rule === 'chaos' ? HAZARD.cave : null);
@@ -243,7 +250,7 @@ const VAR = (() => {
     if (!live()) return;
     if (S.rule && !S.ruleShown) { S.ruleShown = true; showMsg('DAILY: ' + RULES[S.rule].n, 2600); }
     for (const f of [P, E]) fighterTick(f, dt);
-    events(dt);
+    events(dt); if (VAR.extraWorld) VAR.extraWorld(dt);
     for (const e of S.ents) { e.t += dt; if (e.upd(e, dt) === false || e.t > e.life) e.dead = true; }
     if (S.ents.some(e => e.dead)) S.ents = S.ents.filter(e => !e.dead);
   }
@@ -253,7 +260,7 @@ const VAR = (() => {
     if (!P || !E) return;
     if (rounds && rounds.n <= 1) { S.style = null; S.rule = S.nextRule || null; S.nextRule = null; S.ruleShown = false; }
     for (const f of [P, E]) { f.vr = null; vr(f); }
-    if (VAR.moveReset) VAR.moveReset();
+    if (VAR.moveReset) VAR.moveReset(); if (VAR.moveResetWx) VAR.moveResetWx(); tag();
     for (const f of [P, E]) if (hasPerk(f, 'feet')) f.kit = Object.assign({}, f.kit, { speed: f.kit.speed * 1.08 });
     if (S.adaptMsg && E.isAI) { floatText(E.x, top(E) - 30, 'AI CHANGED STYLE: ' + S.adaptMsg, '#ffd0a0', 20); S.adaptMsg = null; }
   }
