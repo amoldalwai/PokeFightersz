@@ -101,5 +101,105 @@
       g.strokeStyle = `rgba(255,220,140,${.8 * (1 - k)})`; g.lineWidth = 6 * (1 - k); g.beginPath(); g.arc(r.x, r.y, 20 + ease(k) * 250, 0, 6.283); g.stroke(); g.restore();
     }
   };
+  // ---- spin, dash and leap: the attacker's type decides the look. Render-only: it reads the sim and never changes it.
+  const MF = FX.mf = { p: [], rg: [], mk: [], fx: [], last: performance.now() }, MS = new WeakMap(); V.S.mfx = true;
+  const LK = {
+    normal: { s: ['impact'], add: 0, aura: '#e8e4d0', body: 'plain', gr: null, ds: 'streak', li: 'ring' },
+    fire: { s: ['flareball', 'fireball'], add: 1, aura: '#ff8a2a', body: 'plain', gr: 'scorch', ds: 'sheath', li: 'burst' },
+    water: { s: ['waterwisp'], add: 0, aura: '#4aa8ff', body: 'bubbles', gr: 'puddle', ds: 'streak', li: 'splash' },
+    electric: { s: ['electroball'], add: 1, aura: '#ffe01a', body: 'plain', gr: 'zap', ds: 'zig', li: 'bolts' },
+    grass: { s: ['leaf1', 'leaf2', 'petal'], add: 0, aura: '#5ed85a', body: 'plain', gr: null, ds: 'spiral', li: 'burst' },
+    ice: { s: ['icicle', 'waterwisp'], add: 0, aura: '#8fe6ff', body: 'plain', gr: 'frost', ds: 'streak', li: 'spikes' },
+    fighting: { s: ['impact', 'wisp'], add: 0, aura: '#e0602a', body: 'rings', gr: null, ds: 'streak', li: 'ring' },
+    poison: { s: ['poisonwisp'], add: 0, aura: '#b050e0', body: 'plain', gr: 'puddle', ds: 'sheath', li: 'splash' },
+    ground: { s: ['mudwisp', 'rock1', 'rock2'], add: 0, aura: '#c89a50', body: 'plain', gr: 'mud', ds: 'streak', li: 'spikes' },
+    flying: { s: ['feather'], add: 0, aura: '#b8ccff', body: 'plain', gr: null, ds: 'spiral', li: 'burst' },
+    psychic: { s: ['mistball'], add: 1, aura: '#ff6adf', body: 'rings', gr: null, ds: 'phase', li: 'ring' },
+    bug: { s: ['shine', 'greenmetal1'], add: 0, aura: '#a8c820', body: 'plain', gr: null, ds: 'zig', li: 'burst' },
+    rock: { s: ['rock1', 'rock2', 'rock3'], add: 0, aura: '#b8a070', body: 'boulder', gr: null, ds: 'sheath', li: 'rocks' },
+    ghost: { s: ['wisp', 'shadowball'], add: 1, aura: '#9a70e0', body: 'plain', gr: null, ds: 'phase', li: 'burst' },
+    dragon: { s: ['bluefireball'], add: 1, aura: '#7a6af0', body: 'rings', gr: null, ds: 'sheath', li: 'ring' },
+    dark: { s: ['blackwisp'], add: 0, aura: '#6a5a7a', body: 'plain', gr: null, ds: 'phase', li: 'burst' },
+    steel: { s: ['shine', 'greenmetal1'], add: 0, aura: '#aab8cc', body: 'metal', gr: null, ds: 'streak', li: 'rocks' },
+    fairy: { s: ['shine'], add: 1, aura: '#ff9ad0', body: 'plain', gr: null, ds: 'spiral', li: 'burst' },
+  };
+  const rr = (a, b) => a + Math.random() * (b - a), pk = a => a[Math.floor(Math.random() * a.length)];
+  const lookOf = (f, a) => { const ty = window.__mfxType || (a.ty && a.ty !== 'normal' ? a.ty : f.kit.types[0]) || 'normal'; return [LK[ty] || LK.normal, ty]; };
+  const addP = (L, x, y, vx, vy, life, size, o) => { if (MF.p.length > 110) return; o = o || {}; MF.p.push({ x, y, vx, vy, life, t: 0, size, sp: o.sp || pk(L.s), rot: rr(0, 6.283), vr: rr(-5, 5), add: o.add !== undefined ? o.add : L.add, g: o.g || 0 }); };
+  const ringAt = (x, y, col, R, life, w, flat) => MF.rg.push({ x, y, col, R, life, t: 0, w, flat });
+  const burstAt = (L, x, y, n, spd, size) => { n = Math.ceil(n * (lowQ ? .5 : 1)); for (let i = 0; i < n; i++) { const an = rr(0, 6.283), v = rr(spd * .4, spd); addP(L, x, y, Math.cos(an) * v, Math.sin(an) * v - spd * .25, rr(.45, .8), size * rr(.7, 1.2), { g: 260 }); } };
+  const rgba = (hex, a) => `rgba(${hexRgb(hex).join(',')},${a})`;
+  const glowAt = (g, x, y, r, col, a) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, rgba(col, a)); gr.addColorStop(1, rgba(col, 0)); g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 6.283); g.fill(); g.restore(); };
+  function landAt(L, f, gy) {
+    const lx = f.x + f.face * 30; ringAt(lx, gy, L.aura, 150, .5, 7, true); ringAt(lx, gy, '#ffffff', 90, .35, 4, true);
+    if (L.li === 'spikes') MF.fx.push({ k: 'spikes', x: lx, y: gy, c: L.aura, t: 0, life: .9 });
+    else if (L.li === 'bolts') MF.fx.push({ k: 'bolts', x: lx, y: gy, c: L.aura, t: 0, life: .35 });
+    else if (L.li === 'rocks') for (let i = 0; i < (lowQ ? 4 : 8); i++) addP(L, lx + rr(-100, 100), gy - rr(150, 280), 0, rr(300, 520), rr(.55, .8), rr(22, 36), { g: 900, add: 0 });
+    else if (L.li === 'splash') for (let i = 0; i < (lowQ ? 6 : 12); i++) addP(L, lx + rr(-20, 20), gy - 6, rr(-230, 230), rr(-400, -180), rr(.55, .85), rr(20, 30), { g: 900 });
+    else if (L.li === 'burst') burstAt(L, lx, gy - 20, 14, 340, 28);
+    if (L.gr) MF.mk.push({ x: lx, y: gy, k: L.gr, c: L.aura, t: 0, life: 3, big: 1 });
+  }
+  function mfAct(g, f, dt) {
+    const a = f.act; if (!a || a.name !== 'sp' || f.dead) return; const k = a.key; if (k !== 'spin' && k !== 'dash' && k !== 'leap') return;
+    let m = MS.get(a); if (!m) { m = { acc: 0, hit: false, land: false, gx: f.x, rg: 0, st: false }; MS.set(a, m); }
+    const [L] = lookOf(f, a), c = center(f), oc = center(other(f)), gy = GROUND + laneY(f) + 2, q = lowQ ? .5 : 1, bk = -f.face, sz = clamp(f.h * .38, 22, 46);
+    const on = k === 'spin' ? !!a.spinOn : k === 'dash' ? (a.t > .1 && a.t < .4 && Math.abs(f.vx) > 500) : (!!a.jumped && !a.landed);
+    if (on) {
+      glowAt(g, c.x, c.y, f.h * .8, L.aura, .5);
+      if (k === 'spin') {
+        const r = f.h * .5;
+        if (L.body === 'boulder') for (let i = 0; i < 3; i++) { const an = now * 14 + i * 2.1; spr(g, 'rock' + (1 + i), c.x + Math.cos(an) * r, c.y + Math.sin(an) * r * .9, 26, an); }
+        else if (L.body === 'bubbles') for (let i = 0; i < 4; i++) { const an = now * 9 + i * 1.57; spr(g, 'waterwisp', c.x + Math.cos(an) * r, c.y + Math.sin(an) * r * .9, 22, 0, .85); }
+        else if (L.body === 'metal') for (let i = 0; i < 3; i++) { const an = now * 12 + i * 2.1; g.save(); g.globalCompositeOperation = 'lighter'; spr(g, 'shine', c.x + Math.cos(an) * r, c.y + Math.sin(an) * r * .9, 30, an); g.restore(); }
+        else if (L.body === 'rings' && now - m.rg > .1) { m.rg = now; ringAt(c.x, c.y, L.aura, f.h * .9, .35, 3, false); }
+      } else if (k === 'dash') {
+        if (L.ds === 'streak') { const x0 = c.x + bk * 160, gr = g.createLinearGradient(c.x, 0, x0, 0); gr.addColorStop(0, rgba(L.aura, .6)); gr.addColorStop(1, rgba(L.aura, 0)); g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round'; g.strokeStyle = gr; g.lineWidth = f.h * .5; g.beginPath(); g.moveTo(c.x, c.y); g.lineTo(x0, c.y); g.stroke(); g.lineWidth = f.h * .16; g.strokeStyle = 'rgba(255,255,255,.55)'; g.stroke(); g.restore(); }
+        else if (L.ds === 'zig') { g.save(); g.globalCompositeOperation = 'lighter'; g.lineJoin = 'round'; for (let j = 0; j < 2; j++) { g.strokeStyle = j ? '#fff' : L.aura; g.lineWidth = j ? 2 : 5; g.beginPath(); g.moveTo(c.x, c.y); for (let i = 1; i <= 6; i++) g.lineTo(c.x + bk * i * 24, c.y + rr(-f.h * .35, f.h * .35)); g.stroke(); } g.restore(); }
+        else if (L.ds === 'sheath' || L.ds === 'spiral') { const n = lowQ ? 1 : 2, r = f.h * (L.ds === 'spiral' ? .62 : .42); for (let i = 0; i < n; i++) { const an = now * 16 + i * 3 + rr(0, 1); addP(L, c.x + Math.cos(an) * r, c.y + Math.sin(an) * r * .9, bk * 70, -30, .35, sz * .8); } }
+        else if (L.ds === 'phase' && !m.st) { m.st = true; burstAt(L, c.x, c.y, 10, 200, sz); }
+      }
+      m.acc += dt * (k === 'leap' ? 30 : 50) * q;
+      while (m.acc >= 1) { m.acc--; addP(L, c.x + bk * f.w * .3 + rr(-8, 8), c.y + rr(-f.h * .3, f.h * .3), bk * rr(30, 110), rr(-70, 10), rr(.4, .75), sz * rr(.7, 1.1)); }
+      if (L.gr && k !== 'leap' && Math.abs(f.x - m.gx) > 34) { m.gx = f.x; MF.mk.push({ x: f.x, y: gy, k: L.gr, c: L.aura, t: 0, life: 2.6 }); }
+    }
+    if (k !== 'leap' && a.hit && !a.miss && !m.hit) { m.hit = true; ringAt(oc.x, oc.y, L.aura, 80, .4, 6, false); burstAt(L, oc.x, oc.y, 12, 320, sz * .9); }
+    if (k === 'leap' && a.landed && !m.land) { m.land = true; landAt(L, f, gy); }
+  }
+  function mfDraw(g, dt) {
+    for (let i = MF.mk.length - 1; i >= 0; i--) {
+      const mk = MF.mk[i]; mk.t += dt; const u = mk.t / mk.life; if (u >= 1) { MF.mk.splice(i, 1); continue; } const al = u < .6 ? 1 : 1 - (u - .6) / .4, w = mk.big ? 46 : 26;
+      g.save(); g.globalAlpha = al;
+      if (mk.k === 'scorch') { g.fillStyle = 'rgba(40,18,8,.6)'; g.beginPath(); g.ellipse(mk.x, mk.y + 2, w, 6, 0, 0, 6.283); g.fill(); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,120,30,.55)'; g.beginPath(); g.ellipse(mk.x, mk.y + 1, w * .6, 3, 0, 0, 6.283); g.fill(); }
+      else if (mk.k === 'puddle') { g.fillStyle = rgba(mk.c, .5); g.beginPath(); g.ellipse(mk.x, mk.y + 2, w, 6, 0, 0, 6.283); g.fill(); g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.ellipse(mk.x - 6, mk.y, w * .4, 2, 0, 0, 6.283); g.fill(); }
+      else if (mk.k === 'frost') { g.fillStyle = 'rgba(210,246,255,.8)'; g.beginPath(); g.ellipse(mk.x, mk.y + 2, w, 5, 0, 0, 6.283); g.fill(); g.fillStyle = '#fff'; g.fillRect(mk.x - 9, mk.y - 3, 3, 3); g.fillRect(mk.x + 8, mk.y - 5, 3, 3); }
+      else if (mk.k === 'mud') { g.fillStyle = 'rgba(88,64,32,.75)'; g.beginPath(); g.ellipse(mk.x, mk.y + 2, w, 6, 0, 0, 6.283); g.fill(); }
+      else if (mk.k === 'zap') { g.globalCompositeOperation = 'lighter'; g.strokeStyle = mk.c; g.lineWidth = 2; g.beginPath(); g.moveTo(mk.x - w, mk.y + 2); for (let j = 1; j <= 6; j++) g.lineTo(mk.x - w + j * w / 3, mk.y + 2 + (j % 2 ? -4 : 4)); g.stroke(); }
+      g.restore();
+    }
+    for (let i = MF.fx.length - 1; i >= 0; i--) {
+      const e = MF.fx[i]; e.t += dt; const u = e.t / e.life; if (u >= 1) { MF.fx.splice(i, 1); continue; }
+      g.save();
+      if (e.k === 'spikes') { const rise = clamp(e.t / .15, 0, 1), fade = 1 - clamp((u - .6) / .4, 0, 1); g.globalAlpha = fade; for (let j = -3; j <= 3; j++) { const h = (52 - Math.abs(j) * 9) * rise, x = e.x + j * 24; g.fillStyle = e.c; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(x - 9, e.y + 2); g.lineTo(x, e.y + 2 - h); g.lineTo(x + 9, e.y + 2); g.closePath(); g.fill(); g.stroke(); } }
+      else if (e.k === 'bolts') { g.globalCompositeOperation = 'lighter'; g.globalAlpha = (1 - u) * (Math.floor(e.t * 40) % 2 ? .7 : 1); g.lineJoin = 'round'; for (let j = -1; j <= 1; j++) for (let p = 0; p < 2; p++) { g.strokeStyle = p ? '#fff' : e.c; g.lineWidth = p ? 2 : 6; g.beginPath(); let x = e.x + j * 44, y = e.y - 300; g.moveTo(x, y); for (let s = 1; s <= 8; s++) { x = e.x + j * 44 + (s % 2 ? 1 : -1) * rr(4, 14) * (1 - s / 9); y = e.y - 300 + s * 37.5; g.lineTo(x, y); } g.stroke(); } }
+      g.restore();
+    }
+    for (let i = MF.rg.length - 1; i >= 0; i--) {
+      const r = MF.rg[i]; r.t += dt; const u = r.t / r.life; if (u >= 1) { MF.rg.splice(i, 1); continue; } const e = 1 - Math.pow(1 - u, 3);
+      g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = 1 - u; g.strokeStyle = r.col; g.lineWidth = r.w * (1 - u) + 1; g.beginPath(); g.ellipse(r.x, r.y, 14 + e * r.R, r.flat ? (14 + e * r.R) * .22 : 14 + e * r.R, 0, 0, 6.283); g.stroke(); g.restore();
+    }
+    for (let i = MF.p.length - 1; i >= 0; i--) {
+      const p = MF.p[i]; p.t += dt; if (p.t >= p.life) { MF.p.splice(i, 1); continue; }
+      p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= Math.pow(.2, dt); p.rot += p.vr * dt; const u = p.t / p.life;
+      g.save(); g.globalAlpha = Math.min(1, (1 - u) * 1.6); if (p.add) g.globalCompositeOperation = 'lighter'; spr(g, p.sp, p.x, p.y, p.size * (1 - u * .35), p.rot); g.restore();
+    }
+  }
+  const _fd = V.fxDraw;
+  V.fxDraw = g => {
+    _fd(g); const nowMs = performance.now(), dt = Math.min(.05, (nowMs - MF.last) / 1000); MF.last = nowMs;
+    if (!P || !E || !V.S.mfx || fxLow) { if (MF.p.length || MF.rg.length || MF.mk.length || MF.fx.length) MF.p.length = MF.rg.length = MF.mk.length = MF.fx.length = 0; return; }
+    if (state === 'fight' || state === 'ko') for (const f of [P, E]) mfAct(g, f, dt);
+    mfDraw(g, dt);
+  };
+  V.setMfx = on => { V.S.mfx = !!on; };
   V.statusDrawOn = true;
 })();
