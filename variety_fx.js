@@ -105,7 +105,7 @@
   const MF = FX.mf = { p: [], rg: [], mk: [], fx: [], last: performance.now() }, MS = new WeakMap(); V.S.mfx = true;
   const LK = {
     normal: { s: ['impact'], add: 0, aura: '#e8e4d0', body: 'plain', gr: null, ds: 'streak', li: 'ring' },
-    fire: { s: ['flareball', 'fireball'], add: 1, aura: '#ff8a2a', body: 'plain', gr: 'scorch', ds: 'sheath', li: 'burst' },
+    fire: { s: ['flareball', 'fireball'], add: 1, aura: '#ff8a2a', body: 'plain', gr: 'scorch', ds: 'sheath', li: 'burst', shape: 'flame', rise: 120, fc: ['rgba(255,70,10,.85)', 'rgba(255,160,40,.9)', 'rgba(255,245,170,1)'] },
     water: { s: ['waterwisp'], add: 0, aura: '#4aa8ff', body: 'bubbles', gr: 'puddle', ds: 'streak', li: 'splash' },
     electric: { s: ['electroball'], add: 1, aura: '#ffe01a', body: 'plain', gr: 'zap', ds: 'zig', li: 'bolts' },
     grass: { s: ['leaf1', 'leaf2', 'petal'], add: 0, aura: '#5ed85a', body: 'plain', gr: null, ds: 'spiral', li: 'burst' },
@@ -117,15 +117,16 @@
     psychic: { s: ['mistball'], add: 1, aura: '#ff6adf', body: 'rings', gr: null, ds: 'phase', li: 'ring' },
     bug: { s: ['shine', 'greenmetal1'], add: 0, aura: '#a8c820', body: 'plain', gr: null, ds: 'zig', li: 'burst' },
     rock: { s: ['rock1', 'rock2', 'rock3'], add: 0, aura: '#b8a070', body: 'boulder', gr: null, ds: 'sheath', li: 'rocks' },
-    ghost: { s: ['wisp', 'shadowball'], add: 1, aura: '#9a70e0', body: 'plain', gr: null, ds: 'phase', li: 'burst' },
-    dragon: { s: ['bluefireball'], add: 1, aura: '#7a6af0', body: 'rings', gr: null, ds: 'sheath', li: 'ring' },
+    ghost: { s: ['wisp', 'shadowball'], add: 1, aura: '#9a70e0', body: 'ghost', gr: null, ds: 'phase', li: 'burst' },
+    dragon: { s: ['bluefireball'], add: 1, aura: '#7a6af0', body: 'rings', gr: null, ds: 'sheath', li: 'ring', shape: 'flame', rise: 80, fc: ['rgba(50,60,255,.85)', 'rgba(110,150,255,.9)', 'rgba(235,240,255,1)'] },
     dark: { s: ['blackwisp'], add: 0, aura: '#6a5a7a', body: 'plain', gr: null, ds: 'phase', li: 'burst' },
     steel: { s: ['shine', 'greenmetal1'], add: 0, aura: '#aab8cc', body: 'metal', gr: null, ds: 'streak', li: 'rocks' },
     fairy: { s: ['shine'], add: 1, aura: '#ff9ad0', body: 'plain', gr: null, ds: 'spiral', li: 'burst' },
   };
   const rr = (a, b) => a + Math.random() * (b - a), pk = a => a[Math.floor(Math.random() * a.length)];
   const lookOf = (f, a) => { const ty = window.__mfxType || (a.ty && a.ty !== 'normal' ? a.ty : f.kit.types[0]) || 'normal'; return [LK[ty] || LK.normal, ty]; };
-  const addP = (L, x, y, vx, vy, life, size, o) => { if (MF.p.length > 110) return; o = o || {}; MF.p.push({ x, y, vx, vy, life, t: 0, size, sp: o.sp || pk(L.s), rot: rr(0, 6.283), vr: rr(-5, 5), add: o.add !== undefined ? o.add : L.add, g: o.g || 0 }); };
+  const addP = (L, x, y, vx, vy, life, size, o) => { if (MF.p.length > 110) return; o = o || {}; MF.p.push({ x, y, vx, vy: vy - (L.rise || 0) * (o.noRise ? 0 : rr(.4, 1)), life, t: 0, size, sp: o.sp || pk(L.s), rot: rr(0, 6.283), vr: rr(-5, 5), add: o.add !== undefined ? o.add : L.add, g: o.g || 0, shape: L.shape, fc: L.fc, ph: rr(0, 6.283) }); };
+  const flameAt = (g, x, y, s, fc, ph) => { const w = s * (.55 + .12 * Math.sin(ph * 14)), h = s * 1.5; g.save(); g.globalCompositeOperation = 'lighter'; g.translate(x, y); for (const [k, col] of [[1, fc[0]], [.62, fc[1]], [.3, fc[2]]]) { g.fillStyle = col; g.beginPath(); g.moveTo(0, -h * k); g.quadraticCurveTo(w * k * 1.1, -h * k * .15, 0, h * k * .45); g.quadraticCurveTo(-w * k * 1.1, -h * k * .15, 0, -h * k); g.fill(); } g.restore(); };
   const ringAt = (x, y, col, R, life, w, flat) => MF.rg.push({ x, y, col, R, life, t: 0, w, flat });
   const burstAt = (L, x, y, n, spd, size) => { n = Math.ceil(n * (lowQ ? .5 : 1)); for (let i = 0; i < n; i++) { const an = rr(0, 6.283), v = rr(spd * .4, spd); addP(L, x, y, Math.cos(an) * v, Math.sin(an) * v - spd * .25, rr(.45, .8), size * rr(.7, 1.2), { g: 260 }); } };
   const rgba = (hex, a) => `rgba(${hexRgb(hex).join(',')},${a})`;
@@ -144,6 +145,9 @@
     let m = MS.get(a); if (!m) { m = { acc: 0, hit: false, land: false, gx: f.x, rg: 0, st: false }; MS.set(a, m); }
     const [L] = lookOf(f, a), c = center(f), oc = center(other(f)), gy = GROUND + laneY(f) + 2, q = lowQ ? .5 : 1, bk = -f.face, sz = clamp(f.h * .38, 22, 46);
     const on = k === 'spin' ? !!a.spinOn : k === 'dash' ? (a.t > .1 && a.t < .4 && Math.abs(f.vx) > 500) : (!!a.jumped && !a.landed);
+    let al = 1; // psychic, ghost and dark dashes blink out and back; a ghost spin turns see-through
+    if (k === 'dash' && L.ds === 'phase') { const t = a.t; al = t < .1 ? 1 : t < .16 ? 1 - (t - .1) / .06 * .88 : t < .38 ? .12 : t < .5 ? .12 + (t - .38) / .12 * .88 : 1; } else if (k === 'spin' && L.body === 'ghost' && a.spinOn) al = .5;
+    if (al < 1) { f.el.style.opacity = al; if (f.wc) f.wc.style.opacity = al; f._mfF = 2; }
     if (on) {
       glowAt(g, c.x, c.y, f.h * .8, L.aura, .5);
       if (k === 'spin') {
@@ -158,8 +162,8 @@
         else if (L.ds === 'sheath' || L.ds === 'spiral') { const n = lowQ ? 1 : 2, r = f.h * (L.ds === 'spiral' ? .62 : .42); for (let i = 0; i < n; i++) { const an = now * 16 + i * 3 + rr(0, 1); addP(L, c.x + Math.cos(an) * r, c.y + Math.sin(an) * r * .9, bk * 70, -30, .35, sz * .8); } }
         else if (L.ds === 'phase' && !m.st) { m.st = true; burstAt(L, c.x, c.y, 10, 200, sz); }
       }
-      m.acc += dt * (k === 'leap' ? 30 : 50) * q;
-      while (m.acc >= 1) { m.acc--; addP(L, c.x + bk * f.w * .3 + rr(-8, 8), c.y + rr(-f.h * .3, f.h * .3), bk * rr(30, 110), rr(-70, 10), rr(.4, .75), sz * rr(.7, 1.1)); }
+      m.acc += dt * (k === 'leap' ? 46 : 78) * q;
+      while (m.acc >= 1) { m.acc--; addP(L, c.x + bk * f.w * .3 + rr(-8, 8), c.y + rr(-f.h * .3, f.h * .3), bk * rr(30, 110), rr(-70, 10), rr(.45, .8), sz * rr(.85, 1.3)); }
       if (L.gr && k !== 'leap' && Math.abs(f.x - m.gx) > 34) { m.gx = f.x; MF.mk.push({ x: f.x, y: gy, k: L.gr, c: L.aura, t: 0, life: 2.6 }); }
     }
     if (k !== 'leap' && a.hit && !a.miss && !m.hit) { m.hit = true; ringAt(oc.x, oc.y, L.aura, 80, .4, 6, false); burstAt(L, oc.x, oc.y, 12, 320, sz * .9); }
@@ -169,7 +173,7 @@
     for (let i = MF.mk.length - 1; i >= 0; i--) {
       const mk = MF.mk[i]; mk.t += dt; const u = mk.t / mk.life; if (u >= 1) { MF.mk.splice(i, 1); continue; } const al = u < .6 ? 1 : 1 - (u - .6) / .4, w = mk.big ? 46 : 26;
       g.save(); g.globalAlpha = al;
-      if (mk.k === 'scorch') { g.fillStyle = 'rgba(40,18,8,.6)'; g.beginPath(); g.ellipse(mk.x, mk.y + 2, w, 6, 0, 0, 6.283); g.fill(); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,120,30,.55)'; g.beginPath(); g.ellipse(mk.x, mk.y + 1, w * .6, 3, 0, 0, 6.283); g.fill(); }
+      if (mk.k === 'scorch') { g.fillStyle = 'rgba(40,18,8,.6)'; g.beginPath(); g.ellipse(mk.x, mk.y + 2, w, 6, 0, 0, 6.283); g.fill(); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,120,30,.55)'; g.beginPath(); g.ellipse(mk.x, mk.y + 1, w * .6, 3, 0, 0, 6.283); g.fill(); g.globalAlpha = al * (1 - u / .8 > 0 ? 1 - u / .8 : 0); for (let j = -1; j <= 1; j += lowQ ? 2 : 1) flameAt(g, mk.x + j * w * .55, mk.y, 11 + (j ? 0 : 5), LK.fire.fc, mk.t + j); }
       else if (mk.k === 'puddle') { g.fillStyle = rgba(mk.c, .5); g.beginPath(); g.ellipse(mk.x, mk.y + 2, w, 6, 0, 0, 6.283); g.fill(); g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.ellipse(mk.x - 6, mk.y, w * .4, 2, 0, 0, 6.283); g.fill(); }
       else if (mk.k === 'frost') { g.fillStyle = 'rgba(210,246,255,.8)'; g.beginPath(); g.ellipse(mk.x, mk.y + 2, w, 5, 0, 0, 6.283); g.fill(); g.fillStyle = '#fff'; g.fillRect(mk.x - 9, mk.y - 3, 3, 3); g.fillRect(mk.x + 8, mk.y - 5, 3, 3); }
       else if (mk.k === 'mud') { g.fillStyle = 'rgba(88,64,32,.75)'; g.beginPath(); g.ellipse(mk.x, mk.y + 2, w, 6, 0, 0, 6.283); g.fill(); }
@@ -190,14 +194,17 @@
     for (let i = MF.p.length - 1; i >= 0; i--) {
       const p = MF.p[i]; p.t += dt; if (p.t >= p.life) { MF.p.splice(i, 1); continue; }
       p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= Math.pow(.2, dt); p.rot += p.vr * dt; const u = p.t / p.life;
-      g.save(); g.globalAlpha = Math.min(1, (1 - u) * 1.6); if (p.add) g.globalCompositeOperation = 'lighter'; spr(g, p.sp, p.x, p.y, p.size * (1 - u * .35), p.rot); g.restore();
+      g.save(); g.globalAlpha = Math.min(1, (1 - u) * 1.6); if (p.shape === 'flame') flameAt(g, p.x, p.y, p.size * (1 - u * .55) * .75, p.fc, p.ph + p.t); else { if (p.add) g.globalCompositeOperation = 'lighter'; spr(g, p.sp, p.x, p.y, p.size * (1 - u * .35), p.rot); } g.restore();
     }
   }
+  const unfade = f => { if (!f || !f._mfF) return; f._mfF = 0; if (f.el) f.el.style.opacity = f._op === undefined || f._op < 0 ? 1 : f._op; if (f.wc) f.wc.style.opacity = ''; f._op = -1; };
   const _fd = V.fxDraw;
   V.fxDraw = g => {
     _fd(g); const nowMs = performance.now(), dt = Math.min(.05, (nowMs - MF.last) / 1000); MF.last = nowMs;
-    if (!P || !E || !V.S.mfx || fxLow) { if (MF.p.length || MF.rg.length || MF.mk.length || MF.fx.length) MF.p.length = MF.rg.length = MF.mk.length = MF.fx.length = 0; return; }
+    if (!P || !E || !V.S.mfx || fxLow) { unfade(P); unfade(E); if (MF.p.length || MF.rg.length || MF.mk.length || MF.fx.length) MF.p.length = MF.rg.length = MF.mk.length = MF.fx.length = 0; return; }
+    for (const f of [P, E]) if (f._mfF) f._mfF = 1;
     if (state === 'fight' || state === 'ko') for (const f of [P, E]) mfAct(g, f, dt);
+    for (const f of [P, E]) if (f._mfF === 1) unfade(f);
     mfDraw(g, dt);
   };
   V.setMfx = on => { V.S.mfx = !!on; };
