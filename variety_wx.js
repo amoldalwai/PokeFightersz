@@ -6,33 +6,32 @@
     snow: { name: 'SNOW', icon: 'weather-snowy-heavy', up: ['ice'], down: [], col: '#e8f4ff' },
     fog: { name: 'FOG', icon: 'blur', up: ['ghost', 'dark'], down: [], col: '#c8d0dc' },
     thunder: { name: 'THUNDERSTORM', icon: 'weather-lightning', up: ['electric'], down: ['fire'], col: '#ffe54a' },
-    cyclone: { name: 'CYCLONE', icon: 'weather-tornado', up: ['flying', 'dragon'], down: [], col: '#9fd0c8' },
   });
   const add = (id, ...w) => { const l = THEME_WEATHER[id]; if (l) l.push(...w.filter(x => !l.includes(x))); else THEME_WEATHER[id] = ['clear', ...w]; };
   add('ice', 'snow'); add('frozenlake', 'snow'); add('forest', 'fog'); add('ruins', 'fog', 'thunder'); add('night', 'fog', 'thunder'); add('shrine', 'fog'); add('glade', 'fog');
-  add('storm', 'thunder'); add('canyon', 'cyclone'); add('desert', 'cyclone'); add('cliffs', 'cyclone', 'fog'); add('redcanyon', 'cyclone'); add('plaza', 'thunder'); add('city', 'thunder'); add('champion', 'thunder'); add('stadium', 'thunder');
+  add('storm', 'thunder'); add('cliffs', 'fog'); add('plaza', 'thunder'); add('city', 'thunder'); add('champion', 'thunder'); add('stadium', 'thunder');
 
   // ---- twelve new arenas, placed after Red Canyon Gate and before the Wasteland
   const NEW_MAPS = [
-    ['clockwork', 'Clockwork Citadel', '#c9a47a', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'dust'], ['spiritruins', 'Spirit Ruins', '#5a5aa0', ['clear', 'fog', 'thunder', 'rain'], 'fly'],
+    ['clockwork', 'Clockwork Citadel', '#c9a47a', ['clear', 'sun', 'rain', 'thunder'], 'dust'], ['spiritruins', 'Spirit Ruins', '#5a5aa0', ['clear', 'fog', 'thunder', 'rain'], 'fly'],
     ['dinofalls', 'Dino Falls', '#c9a47a', ['clear', 'sun', 'rain', 'fog', 'thunder'], 'leaf'], ['cosmic', 'Cosmic Crystals', '#6a64a8', ['clear', 'thunder', 'snow'], 'fly'],
-    ['bamboo', 'Bamboo Grove', '#8cc84a', ['clear', 'sun', 'rain', 'fog', 'cyclone'], 'leaf'], ['lakeside', 'Lakeside Clearing', '#d9a768', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'dust'],
-    ['moonlake', 'Moonlit Lake', '#5d6a9a', ['clear', 'fog', 'rain', 'thunder'], 'fly'], ['sunsetruins', 'Sunset Ruins', '#d99a62', ['clear', 'sun', 'sand', 'cyclone', 'rain'], 'dust'],
-    ['skyisles', 'Sky Islands', '#8cd048', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'leaf'], ['sunken', 'Sunken Temple', '#7aa2c0', ['clear'], undefined],
-    ['starshrine', 'Starlit Shrine', '#7a74b8', ['clear', 'fog', 'thunder', 'snow'], 'fly'], ['suntemple', 'Sun Temple', '#e8b878', ['clear', 'sun', 'sand', 'cyclone'], 'dust'],
+    ['bamboo', 'Bamboo Grove', '#8cc84a', ['clear', 'sun', 'rain', 'fog'], 'leaf'], ['lakeside', 'Lakeside Clearing', '#d9a768', ['clear', 'sun', 'rain', 'thunder'], 'dust'],
+    ['moonlake', 'Moonlit Lake', '#5d6a9a', ['clear', 'fog', 'rain', 'thunder'], 'fly'], ['sunsetruins', 'Sunset Ruins', '#d99a62', ['clear', 'sun', 'sand', 'rain'], 'dust'],
+    ['skyisles', 'Sky Islands', '#8cd048', ['clear', 'sun', 'rain', 'thunder'], 'leaf'], ['sunken', 'Sunken Temple', '#7aa2c0', ['clear'], undefined],
+    ['starshrine', 'Starlit Shrine', '#7a74b8', ['clear', 'fog', 'thunder', 'snow'], 'fly'], ['suntemple', 'Sun Temple', '#e8b878', ['clear', 'sun', 'sand'], 'dust'],
     // twenty-four more, from the 2x2 sheets
-    ['greekruins', 'Greek Ruins', '#ceafa2', ['clear', 'sun', 'rain', 'thunder', 'fog'], 'leaf'], ['pyramids', 'Pyramid Plains', '#e3b588', ['clear', 'sun', 'sand', 'cyclone'], 'dust'],
+    ['greekruins', 'Greek Ruins', '#ceafa2', ['clear', 'sun', 'rain', 'thunder', 'fog'], 'leaf'], ['pyramids', 'Pyramid Plains', '#e3b588', ['clear', 'sun', 'sand'], 'dust'],
     ['toriishrine', 'Torii Shrine', '#caaca0', ['clear', 'sun', 'rain', 'fog', 'thunder'], 'leaf'], ['skyarch', 'Crystal Sky Arch', '#c5aaa8', ['clear', 'sun', 'rain', 'fog', 'thunder'], 'fly'],
-    ['ballcolosseum', 'Pokéball Colosseum', '#77a2e0', ['clear'], undefined], ['castlegate', 'Castle Gate', '#dfb996', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'dust'],
-    ['harbordeck', 'Harbor Deck', '#db9861', ['clear', 'sun', 'rain', 'thunder', 'cyclone', 'fog'], undefined], ['techbase', 'Tech Base', '#5f78b2', ['clear', 'rain', 'thunder'], undefined],
+    ['ballcolosseum', 'Pokéball Colosseum', '#77a2e0', ['clear'], undefined], ['castlegate', 'Castle Gate', '#dfb996', ['clear', 'sun', 'rain', 'thunder'], 'dust'],
+    ['harbordeck', 'Harbor Deck', '#db9861', ['clear', 'sun', 'rain', 'thunder', 'fog'], undefined], ['techbase', 'Tech Base', '#5f78b2', ['clear', 'rain', 'thunder'], undefined],
     ['skyline', 'Skyline Plaza', '#8b9fdf', ['clear', 'sun', 'rain', 'thunder', 'fog'], undefined], ['dojo', 'Cherry Dojo', '#dca778', ['clear', 'sun', 'rain', 'fog'], 'leaf'],
-    ['desertarches', 'Desert Arches', '#eebb81', ['clear', 'sun', 'sand', 'cyclone'], 'dust'], ['crystalfalls', 'Crystal Falls', '#7286d2', ['clear', 'fog'], 'fly'],
-    ['pipeworks', 'Pipe Works', '#8c91b6', ['clear', 'rain', 'fog'], undefined], ['ringgate', 'Ring Gate Isles', '#aba4b0', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'fly'],
+    ['desertarches', 'Desert Arches', '#eebb81', ['clear', 'sun', 'sand'], 'dust'], ['crystalfalls', 'Crystal Falls', '#7286d2', ['clear', 'fog'], 'fly'],
+    ['pipeworks', 'Pipe Works', '#8c91b6', ['clear', 'rain', 'fog'], undefined], ['ringgate', 'Ring Gate Isles', '#aba4b0', ['clear', 'sun', 'rain', 'thunder'], 'fly'],
     ['grandarena', 'Grand Arena', '#7796d4', ['clear', 'thunder'], undefined], ['dockyard', 'Dockyard Crane', '#d39664', ['clear', 'sun', 'rain', 'thunder', 'fog'], undefined],
     ['coolingtowers', 'Cooling Towers', '#a49ba8', ['clear', 'rain', 'fog', 'thunder'], undefined], ['station', 'Central Station', '#c9ae9a', ['clear', 'rain', 'fog'], undefined],
     ['refinery', 'Refinery', '#ab9c9c', ['clear', 'sun', 'rain', 'fog'], undefined], ['robotfactory', 'Robot Factory', '#8095c3', ['clear'], undefined],
-    ['construction', 'Construction Yard', '#ada7bb', ['clear', 'sun', 'rain', 'sand', 'cyclone'], 'dust'], ['researchlab', 'Research Lab', '#8e99be', ['clear'], undefined],
-    ['subway', 'Subway Tunnel', '#909bc2', ['clear'], undefined], ['launchpad', 'Launch Pad', '#8a94bf', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], undefined],
+    ['construction', 'Construction Yard', '#ada7bb', ['clear', 'sun', 'rain', 'sand'], 'dust'], ['researchlab', 'Research Lab', '#8e99be', ['clear'], undefined],
+    ['subway', 'Subway Tunnel', '#909bc2', ['clear'], undefined], ['launchpad', 'Launch Pad', '#8a94bf', ['clear', 'sun', 'rain', 'thunder'], undefined],
   ];
   { const fresh = []; for (const [id, name, gc, wx, amb] of NEW_MAPS) { fresh.push({ id, name, file: id + '.jpg' }); GROUND_COL[id] = gc; THEME_WEATHER[id] = wx; if (amb) AMBIENT[id] = amb; } const at = THEMES.findIndex(t => t.id === 'desert'); THEMES.splice(at < 0 ? THEMES.length : at, 0, ...fresh); } // they sit between Red Canyon Gate and the Wasteland
   for (const id of ['bamboo', 'skyisles', 'dinofalls']) TUFT_MAPS.add(id);
@@ -74,11 +73,6 @@
       for (let i = 0; i < Q(10); i++) { const span = 960 + 700, x = (((h(i, 1) * span + t * (6 + h(i, 2) * 10) * (i % 2 ? 1 : -1) - camX * .08 * (1 + i % 3)) % span) + span) % span - 350; blob(x, 270 + h(i, 3) * 170, 240 + h(i, 4) * 200, 60 + h(i, 5) * 60, .42 + .08 * Math.sin(t * .5 + i)); }
       const fg = g.createLinearGradient(0, 480 * .72, 0, 480); fg.addColorStop(0, 'rgba(236,241,249,0)'); fg.addColorStop(1, 'rgba(236,241,249,.14)'); g.fillStyle = fg; g.fillRect(0, 480 * .72, 960, 480 * .28);
       g.restore();
-    } else if (id === 'cyclone') {
-      g.save(); dim(g, 'rgba(70,80,70,.22)'); const fx = 960 * .5 + Math.sin(t * .35) * 320, base = 396;
-      g.globalAlpha = .55; for (let i = 0; i < 22; i++) { const u = i / 21, y = base - u * 380, w = 16 + u * 150, x = fx + Math.sin(t * 2.2 + u * 5) * (14 + u * 26); g.fillStyle = i % 2 ? '#5f6a60' : '#778078'; g.beginPath(); g.ellipse(x, y, w, 12 + u * 6, 0, 0, 6.283); g.fill(); }
-      g.globalAlpha = .8; g.fillStyle = '#c9d6c0'; for (let i = 0; i < Q(40); i++) { const u = (h(i, 1) * 3 + t * .35) % 1, a = t * (3 + h(i, 2) * 3) + i, r = 18 + u * 150, x = fx + Math.cos(a) * r, y = base - u * 370 + Math.sin(a) * 10; g.beginPath(); g.ellipse(x, y, 5, 2, a, 0, 6.283); g.fill(); }
-      g.restore(); streaks(g, t, 40, 6, 80, 1100, 'rgba(230,235,220,.4)', 1.5, 21);
     } else if (id === 'sun') {
       g.save(); g.globalCompositeOperation = 'lighter'; const gr = g.createRadialGradient(960 * .9, -20, 10, 960 * .9, -20, 520); gr.addColorStop(0, 'rgba(255,240,170,.5)'); gr.addColorStop(.5, 'rgba(255,200,90,.14)'); gr.addColorStop(1, 'rgba(255,200,90,0)'); g.fillStyle = gr; g.fillRect(0, 0, 960, 480);
       for (let i = 0; i < 6; i++) { const a = 1.9 + i * .17 + Math.sin(t * .4 + i) * .03; g.fillStyle = `rgba(255,235,160,${.05 + .025 * Math.sin(t + i * 2)})`; g.beginPath(); g.moveTo(960 * .9, -20); g.lineTo(960 * .9 + Math.cos(a - .04) * 900, -20 + Math.sin(a - .04) * 900); g.lineTo(960 * .9 + Math.cos(a + .04) * 900, -20 + Math.sin(a + .04) * 900); g.fill(); }
@@ -92,8 +86,8 @@
     g.restore();
   };
 
-  // ---- sim side: thunderstorm bolts, cyclone wind, rock slides and lightning strikes
-  const TINT = { thunder: 'rgba(8,10,30,.42)', snow: 'rgba(205,228,255,.12)', fog: 'rgba(222,228,240,.08)', cyclone: 'rgba(80,92,72,.28)' };
+  // ---- sim side: thunderstorm bolts, rock slides and lightning strikes
+  const TINT = { thunder: 'rgba(8,10,30,.42)', snow: 'rgba(205,228,255,.12)', fog: 'rgba(222,228,240,.08)' };
   const _ut = updateTint;
   updateTint = function () { _ut(); const c = weather && TINT[weather.id]; if (c) { const el = $('tint'), cur = el.style.backgroundImage; el.style.backgroundImage = (cur && cur !== 'none' ? cur + ',' : '') + `linear-gradient(${c},${c})`; } };
   const T = { rs: 0, lt: 0, th: 0, wid: '' };
@@ -121,12 +115,11 @@
     // lightning strike: bolts fall on both fighters one after another
     T.lt -= dt; if (T.lt <= 0) { T.lt = rnd(60, 90); doBolt(); }
     if (weather && weather.id === 'thunder' && !HAZARD[curTheme.id]) { T.th -= dt; if (T.th <= 0) { T.th = rnd(12, 18); const tg = Math.random() < .5 ? P : E; strikeAt('bolt', 'electric', tg.x + rnd(-130, 130), 45, 70, .95); } } else T.th = Math.max(T.th, 2);
-    if (weather && weather.id === 'cyclone') { const w = Math.sign(Math.sin(now * .5)) * 75 * dt; for (const f of [P, E]) if (!f.dead && f.hitT <= 0 && f.z + f.lift < 60) f.x = clamp(f.x + w * (f.kit.types.includes('flying') ? .3 : 1), WALL_L, WALL_R); }
   };
   V.moveResetWx = () => { T.rs = rnd(70, 100); T.lt = rnd(45, 70); T.th = 2; };
 
   // ---- weather choice: AUTO lets the sky change during the fight, anything else is fixed for the whole match
-  const WX_OPTS = [['auto', 'Weather: Auto'], ['clear', 'Weather: Clear'], ['sun', 'Weather: Sun'], ['rain', 'Weather: Rain'], ['thunder', 'Weather: Thunderstorm'], ['snow', 'Weather: Snow'], ['fog', 'Weather: Fog'], ['cyclone', 'Weather: Cyclone'], ['sand', 'Weather: Sandstorm'], ['hail', 'Weather: Hail']];
+  const WX_OPTS = [['auto', 'Weather: Auto'], ['clear', 'Weather: Clear'], ['sun', 'Weather: Sun'], ['rain', 'Weather: Rain'], ['thunder', 'Weather: Thunderstorm'], ['snow', 'Weather: Snow'], ['fog', 'Weather: Fog'], ['sand', 'Weather: Sandstorm'], ['hail', 'Weather: Hail']];
   let sel = 'auto'; try { const v = localStorage.getItem('pf_wx'); if (WX_OPTS.some(o => o[0] === v)) sel = v; } catch (e) { }
   V.S.wxMatch = 'auto';
   // dynamic events (rock slides, lightning, timed events, weather shifts, hazard waves, extra pickups) can be switched off for a match
