@@ -216,7 +216,36 @@
     for (const x of V.S.ents) if (x.owner !== f && x.kind !== 'wall' && x.dmg && x.vx !== undefined && !x.dead && Math.abs(x.x - e.x) < 26 && x.y > GROUND - e.h - 40) { x.dead = true; e.hp--; spark(x.x, x.y, '#fff', 8); }
     if (e.hp <= 0) { boom(e.x, GROUND - 60, 60, cols(e.ty)[1], 6); return false; }
   }
-  function dWall(g, e) {
+  const WALLK = { ground: 'earth', rock: 'stone', ice: 'ice', steel: 'steel' };
+  const WALLP = { earth: ['#8a6a3a', '#6a4a22', '#a88650', '#3e2a12'], stone: ['#9a9aa6', '#74747f', '#b6b6c2', '#44444c'] };
+  function dWall(g, e) { // the wall looks like what its name says: earth, stone, ice and iron get their own material, everything else stays an energy slab
+    const kind = WALLK[e.ty]; if (!kind) { dWallEnergy(g, e); return; }
+    const k = clamp(e.t / .2, 0, 1), h = e.h * k, gy = GROUND + laneY(e.owner), cx = e.x, fade = e.life - e.t < .6 ? (Math.floor(now * 10) % 2 ? .4 : 1) : 1;
+    g.save(); g.globalAlpha = fade;
+    if (kind === 'earth' || kind === 'stone') {
+      const pal = WALLP[kind], rows = 6, bh = h / rows;
+      for (let i = 0; i < rows; i++) {
+        const y = gy - (i + 1) * bh, w = 46 - i * 2.5 + (i * 37) % 7, off = (i * 53) % 9 - 4;
+        g.fillStyle = pal[(i + (kind === 'earth' ? 0 : 1)) % 3]; g.beginPath(); g.moveTo(cx - w / 2 + off, y + bh); g.lineTo(cx - w / 2 + off + 3, y + 2); g.lineTo(cx - w / 4 + off, y - 2); g.lineTo(cx + w / 3 + off, y + 1); g.lineTo(cx + w / 2 + off, y + 3); g.lineTo(cx + w / 2 + off - 2, y + bh); g.closePath(); g.fill();
+        g.strokeStyle = pal[3]; g.lineWidth = 1.5; g.stroke(); g.strokeStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.moveTo(cx + off - 6, y + 3); g.lineTo(cx + off - 2, y + bh * .55); g.lineTo(cx + off - 8, y + bh - 2); g.stroke();
+      }
+      if (e.t < .8) { g.globalAlpha = fade * (1 - e.t / .8) * .5; g.fillStyle = pal[2]; for (let i = 0; i < 5; i++) { g.beginPath(); g.ellipse(cx - 40 + i * 20, gy - 2, 14 + e.t * 20, 6 + e.t * 6, 0, 0, 6.283); g.fill(); } }
+    } else if (kind === 'ice') {
+      for (const [dx, s, w] of [[-18, .8, 10], [0, 1.1, 13], [18, .75, 10], [-9, .55, 8], [10, .6, 8]]) {
+        const hh = h * s; g.fillStyle = 'rgba(150,225,255,.82)'; g.beginPath(); g.moveTo(cx + dx - w, gy); g.lineTo(cx + dx - w * .5, gy - hh * .8); g.lineTo(cx + dx, gy - hh); g.lineTo(cx + dx + w * .6, gy - hh * .75); g.lineTo(cx + dx + w, gy); g.closePath(); g.fill();
+        g.strokeStyle = '#e8fbff'; g.lineWidth = 2; g.stroke(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.moveTo(cx + dx - w * .3, gy - 4); g.lineTo(cx + dx - w * .2, gy - hh * .7); g.stroke();
+      }
+      g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(120,200,255,.18)'; g.fillRect(cx - 34, gy - h, 68, h);
+    } else { // steel: a riveted plate
+      const w = 40, x = cx - w / 2; g.fillStyle = '#8a94a6'; g.fillRect(x, gy - h, w, h);
+      const gr = g.createLinearGradient(x, 0, x + w, 0); gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(.3, 'rgba(255,255,255,0)'); gr.addColorStop(.8, 'rgba(0,0,0,.25)'); g.fillStyle = gr; g.fillRect(x, gy - h, w, h);
+      g.strokeStyle = '#3c4452'; g.lineWidth = 2; g.strokeRect(x, gy - h, w, h); for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(x, gy - h * i / 4); g.lineTo(x + w, gy - h * i / 4); g.stroke(); }
+      g.fillStyle = '#dfe6f2'; for (let i = 0; i < 4; i++) for (const sx of [x + 6, x + w - 6]) { g.beginPath(); g.arc(sx, gy - h * (i + .5) / 4, 2.2, 0, 6.283); g.fill(); }
+    }
+    g.restore();
+    g.save(); g.fillStyle = '#fff'; for (let i = 0; i < e.hp; i++) { g.beginPath(); g.arc(cx - 8 + i * 8, gy - h - 16, 3, 0, 6.283); g.fill(); } g.restore();
+  }
+  function dWallEnergy(g, e) {
     const c = cols(e.ty), k = clamp(e.t / .2, 0, 1), h = e.h * k, gy = GROUND + laneY(e.owner), fade = e.life - e.t < .6 ? (Math.floor(now * 10) % 2 ? .4 : 1) : 1;
     g.save(); g.globalAlpha = .85 * fade; const gr = g.createLinearGradient(e.x - 14, 0, e.x + 14, 0); gr.addColorStop(0, c[0]); gr.addColorStop(.5, '#fff'); gr.addColorStop(1, c[1]); g.fillStyle = gr; g.beginPath(); g.moveTo(e.x - 14, gy); g.lineTo(e.x - 10, gy - h); g.lineTo(e.x + 10, gy - h - 8 * k); g.lineTo(e.x + 14, gy); g.closePath(); g.fill();
     g.strokeStyle = c[1]; g.lineWidth = 2; g.stroke(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .3 * fade; g.fillStyle = c[1]; g.fillRect(e.x - 20, gy - h, 40, h); g.restore();
@@ -340,9 +369,9 @@
     seeker: { fire: 'Seeking Flame', ghost: 'Wisp Seeker', fairy: 'Moon Seeker', _: 'Seeker Orb' }, split: { bug: 'Needle Split', ice: 'Shard Split', grass: 'Seed Split', _: 'Split Shot' },
     gravity: { ghost: 'Soul Well', poison: 'Toxic Sink', _: 'Gravity Well' }, mark: { psychic: 'Future Mark', ghost: 'Curse Mark', dark: 'Hunter Mark', ice: 'Frost Mark', _: 'Target Mark' },
     mine: { poison: 'Toxic Mine', ground: 'Land Mine', steel: 'Steel Mine', rock: 'Rock Mine', bug: 'Web Mine', grass: 'Spore Mine', _: 'Hidden Mine' },
-    orbit: { electric: 'Static Orbit', dragon: 'Dragon Orbit', fairy: 'Fairy Orbit', steel: 'Steel Orbit', _: 'Orbit Shield' }, decoy: { normal: 'Double Team', ghost: 'Shadow Clone', psychic: 'Mirror Image', dark: 'Shadow Clone', fairy: 'Glitter Clone', _: 'Decoy' },
+    orbit: { electric: 'Static Orbit', dragon: 'Dragon Orbit', fairy: 'Fairy Orbit', steel: 'Steel Orbit', _: 'Orbit Shield' }, decoy: { normal: 'Phantom Clone', ghost: 'Shadow Clone', psychic: 'Mirror Image', dark: 'Shadow Clone', fairy: 'Glitter Clone', _: 'Decoy' },
     pushpull: { flying: 'Gale Force', fighting: 'Shockwave Push', fairy: 'Charm Pull', normal: 'Roar Wave', _: 'Push and Pull' }, wall: { ice: 'Ice Wall', rock: 'Stone Wall', ground: 'Earth Wall', steel: 'Iron Wall', _: 'Energy Wall' },
-    chain: { _: 'Chain Bolt' }, bomb: { fire: 'Fire Bomb', poison: 'Sludge Bomb', rock: 'Rock Bomb', dragon: 'Draco Bomb', _: 'Delayed Bomb' },
+    chain: { _: 'Chain Bolt' }, bomb: { fire: 'Fire Bomb', poison: 'Toxic Bomb', rock: 'Rock Bomb', dragon: 'Draco Bomb', _: 'Delayed Bomb' },
     tether: { grass: 'Leech Tether', poison: 'Venom Tether', bug: 'Silk Tether', dark: 'Dark Tether', _: 'Life Tether' }, charge: { fighting: 'Focus Blast', dragon: 'Dragon Charge', normal: 'Power Orb', _: 'Charge Orb' },
     trail: { fire: 'Fire Trail', poison: 'Toxic Trail', ice: 'Ice Slick', water: 'Water Trail', electric: 'Spark Trail', _: 'Trail Dash' },
   };

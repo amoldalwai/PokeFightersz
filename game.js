@@ -90,7 +90,7 @@ const POOL = {
   poison: [['poison', 'Poison Gas'], ['volley', 'Poison Needles']], ground: [['dig', 'Dig'], ['quake', 'Earthquake'], ['rain', 'Rock Slide']],
   rock: [['rain', 'Rock Slide'], ['quake', 'Earthquake'], ['cannon', 'Rock Cannon']], flying: [['swoop', 'Sky Dive'], ['tornado', 'Whirlwind'], ['slash', 'Wing Attack']],
   psychic: [['teleport', 'Teleport'], ['cannon', 'Psy Orb'], ['sleep', 'Hypnosis']], ghost: [['sleep', 'Hypnosis'], ['volley', 'Shadow Balls'], ['poison', 'Toxic Haze']],
-  bug: [['para', 'String Shot'], ['volley', 'Pin Missile'], ['slash', 'Twineedle']], dragon: [['blast', 'Dragon Breath'], ['cannon', 'Dragon Pulse'], ['tornado', 'Twister']],
+  bug: [['para', 'String Shot'], ['volley', 'Pin Missile'], ['slash', 'Needle Slash']], dragon: [['blast', 'Dragon Breath'], ['cannon', 'Dragon Pulse'], ['tornado', 'Twister']],
   normal: [['dash', 'Quick Attack'], ['slash', 'Slash'], ['volley', 'Swift']],
 };
 // stamina cost of each special before the move's power adjusts it
@@ -103,13 +103,13 @@ Object.assign(POOL, { dark: [['dash', 'Faint Attack'], ['slash', 'Night Slash'],
 AFFINITY.slash.push('steel', 'dark'); AFFINITY.dash.push('dark'); AFFINITY.leap.push('steel'); AFFINITY.cannon.push('steel', 'fairy', 'dark'); AFFINITY.sleep.push('dark', 'fairy'); AFFINITY.debuff = ['dark', 'fairy']; AFFINITY.shield = ['steel']; AFFINITY.combo.push('dark');
 const SIG = { grass: ['roots', 'bloom', 'whirl', 'spin'], rock: ['boulder', 'spin', 'spikes'], ground: ['spikes', 'spin', 'boulder'], fire: ['spin', 'whirl'], water: ['spin', 'whirl'], electric: ['spin', 'whirl'], ice: ['spikes', 'spin', 'whirl'], fighting: ['spin', 'whirl'], poison: ['roots', 'spikes', 'whirl'], bug: ['whirl', 'spin', 'roots'], normal: ['spin', 'whirl'], flying: ['whirl', 'spin'], psychic: ['whirl', 'spin'], ghost: ['spin', 'whirl'], dragon: ['whirl', 'spin'] };
 const SIG_NAME = {
-  spin: { rock: 'Rollout', ground: 'Mud Roll', fire: 'Flame Wheel', water: 'Aqua Jet', electric: 'Spark Wheel', grass: 'Leaf Spin', ice: 'Ice Ball', fighting: 'Hurricane Kick', bug: 'Silver Spin', poison: 'Toxic Roll', ghost: 'Shadow Roll', dragon: 'Dragon Rush', flying: 'Aerial Spin', psychic: 'Psy Spin', normal: 'Rollout' },
-  whirl: { grass: 'Razor Whirl', fire: 'Fire Tornado', water: 'Whirlpool Spin', electric: 'Static Orbit', flying: 'Feather Storm', bug: 'Silver Wind', dragon: 'Twister', psychic: 'Psy Ring', ice: 'Snow Cyclone', poison: 'Toxic Cyclone', fighting: 'Whirl Kick', ghost: 'Spirit Orbit', normal: 'Hyper Spin' },
+  spin: { rock: 'Rollout', ground: 'Mud Roll', fire: 'Ember Roll', water: 'Water Roll', electric: 'Spark Wheel', grass: 'Leaf Spin', ice: 'Ice Ball', fighting: 'Hurricane Kick', bug: 'Silver Spin', poison: 'Toxic Roll', ghost: 'Shadow Roll', dragon: 'Dragon Roll', flying: 'Aerial Spin', psychic: 'Psy Spin', normal: 'Rollout' },
+  whirl: { grass: 'Razor Whirl', fire: 'Fire Tornado', water: 'Whirlpool Spin', electric: 'Volt Cyclone', flying: 'Feather Storm', bug: 'Swarm Cyclone', dragon: 'Dragon Cyclone', psychic: 'Psy Ring', ice: 'Snow Cyclone', poison: 'Toxic Cyclone', fighting: 'Whirl Kick', ghost: 'Spirit Orbit', normal: 'Hyper Spin' },
   roots: { grass: 'Root Snare', poison: 'Poison Ivy', bug: 'Web Trap', normal: 'Root Snare' }, bloom: { grass: 'Leaf Cyclone', normal: 'Leaf Cyclone' },
   boulder: { rock: 'Rock Roll', ground: 'Boulder Roll', normal: 'Rock Roll' }, spikes: { rock: 'Stone Edge', ground: 'Bone Spikes', ice: 'Ice Crystals', poison: 'Toxic Spikes', normal: 'Stone Edge' },
 };
 Object.assign(SIG, { dark: ['spin', 'whirl'], steel: ['spikes', 'spin', 'boulder'], fairy: ['whirl', 'spin'] });
-Object.assign(SIG_NAME.spin, { dark: 'Pursuit Spin', steel: 'Gyro Ball', fairy: 'Twinkle Spin' }); Object.assign(SIG_NAME.whirl, { dark: 'Night Whirl', steel: 'Metal Cyclone', fairy: 'Fairy Wind' }); Object.assign(SIG_NAME.spikes, { steel: 'Iron Spikes' }); Object.assign(SIG_NAME.boulder, { steel: 'Iron Roll' });
+Object.assign(SIG_NAME.spin, { dark: 'Pursuit Spin', steel: 'Steel Spin', fairy: 'Twinkle Spin' }); Object.assign(SIG_NAME.whirl, { dark: 'Night Whirl', steel: 'Metal Cyclone', fairy: 'Fairy Cyclone' }); Object.assign(SIG_NAME.spikes, { steel: 'Iron Spikes' }); Object.assign(SIG_NAME.boulder, { steel: 'Iron Roll' });
 function buildKit(p) {
   if (kitCache[p.id]) return kitCache[p.id];
   const types = p.types, t0 = types[0], L = new Set(p.moves), mv = n => MOVEDEX[n] || {};
@@ -127,13 +127,13 @@ function buildKit(p) {
   if (!melee) { melee = 'tackle'; best = 35; }
   const cand = {};
   for (const n of p.moves) {
-    const k = SPECIALS[n]; if (!k || n === rn || n === melee) continue;
+    const k0 = SPECIALS[n]; if (!k0 || n === rn || n === melee) continue; const tm = TM[slugOf(nm(n))], k = tm ? tm.key : k0; // a real move that has a scripted version of the same name plays that one, so one name is one animation
     const m = mv(n), sc = (BASE_SCORE[k] || 1) + ((AFFINITY[k] || []).some(t => types.includes(t)) ? 3 : 0) + (types.includes(m.type) ? 2 : 0) + (m.power || 0) / 50 + ((p.id * 7 + n.length * 3) % 5) / 5;
     if (!cand[k] || cand[k].sc < sc) cand[k] = { key: k, name: nm(n), raw: n, type: m.type || t0, sc, pw: m.power, acc: m.acc };
   }
   const pool = Object.values(cand).sort((a, b) => b.sc - a.sc).slice(0, 6);
   const add = s => { if (pool.length < 4 && !pool.some(x => x.key === s.key)) pool.push(s); };
-  for (const t of types.concat('normal')) { const tp = POOL[t]; if (tp) for (let i = 0; i < tp.length; i++) { const d = tp[(p.id + i) % tp.length]; add({ key: d[0], name: d[1], type: t }); } }
+  for (const t of types.concat('normal')) { const tp = POOL[t]; if (tp) for (let i = 0; i < tp.length; i++) { const d = tp[(p.id + i) % tp.length]; add({ key: (TM[slugOf(d[1])] || {}).key || d[0], name: d[1], type: t }); } }
   if (pool.length < 3) add({ key: 'buff', name: 'Power Surge', type: 'normal' });
   { // signature specials: each Pokémon gets the newer movement attacks that suit its type (rolls, spins, roots, boulders, spikes), so no two feel the same
     const sigs = SIG[t0] || SIG.normal, addSig = (key, at) => { if (!pool.some(x => x.key === key)) pool.splice(Math.min(at, pool.length), 0, { key, name: (SIG_NAME[key] || {})[t0] || (SIG_NAME[key] || {}).normal || nm(key), type: t0, sc: 99 }); };
@@ -144,6 +144,7 @@ function buildKit(p) {
     if (tl) { addTM(tl[p.id % tl.length], 1); addTM(tl[(p.id + 2) % tl.length], 99); addTM(tl[(p.id + 4) % tl.length], 99); }
     if (types[1] && TM_BY_TYPE[types[1]]) addTM(TM_BY_TYPE[types[1]][p.id % TM_BY_TYPE[types[1]].length], 99);
   }
+  { const seenN = new Set([nm(rn), nm(melee)]); for (let i = 0; i < pool.length; i++) { if (seenN.has(pool[i].name)) pool.splice(i--, 1); else seenN.add(pool[i].name); } } // the same name never shows twice in one list
   for (const s of pool) { s.sta = Math.min(85, Math.round(STA[s.key] * clamp(.8 + (s.pw || 70) / 250, .85, 1.2) * 2)); if (POWER_KEYS.has(s.key)) s.sta = Math.min(90, Math.round(s.sta * 1.25)); s.acc = fixAcc(s.acc); s.icon = s.key === 'ring' || (s.key === 'blast' && s.type !== 'fire') ? TYPE_ICON[s.type] : ARCH_ICON[s.key]; }
   const specials = pool.slice(0, 3), used = new Set(pool.map(s => s.name).concat(nm(rn), nm(melee)));
   let beamName = null; for (const n of (BEAM_NAMES[t0] || BEAM_NAMES.normal)) if (L.has(n) && !used.has(nm(n))) { beamName = nm(n); break; }
