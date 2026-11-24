@@ -1538,7 +1538,7 @@ function updateFighter(f, o, inp, dt) {
   if (f.spinT > 0) { f.spinT -= dt; const u = clamp(1 - f.spinT / f.spinLen, 0, 1); f.spinDeg = (1 - (1 - u) ** 2) * 1080; f.act = null; f.charging = false; f.vx = 0; f.kvx = 0; f.vz = 0; f.hitT = Math.max(f.hitT, .1); f.z = (f.spinZ0 || 0) * (1 - u) + Math.sin(u * Math.PI) * 95; f.x = clamp(f.x + Math.cos(u * 14) * 60 * dt, WALL_L, WALL_R); } // caught in a whirlwind: lifted, spun three times, dropped
   shockTick(f, dt);
   if (f.flyBack) { const F = f.flyBack; if (f.hitT > 0 || f.act || f.dead) f.flyBack = null; else { F.t += dt; const s = sstep(F.t / F.dur); f.x = lerp(F.x0, F.x1, s); f.lift = lerp(F.l0, F.l1, s); f.aimT = .1; f.vx = 0; ghost(f); if (F.t >= F.dur) { f.flyBack = null; f.aimT = 0; } } } // a flyer returns home by flying
-  const wantLift = f.hover && f.air && !f.under ? f.liftBase + ALT_H[f.alt] + f.grabLift + Math.sin(now * 3 + f.side) * 6 - (f.shockT > 0 && f.shockV === 1 ? 16 : 0) : 0;
+  const wantLift = f.hover && f.air && !f.under && !(f.noFlyT > 0) ? f.liftBase + ALT_H[f.alt] + f.grabLift + Math.sin(now * 3 + f.side) * 6 - (f.shockT > 0 && f.shockV === 1 ? 16 : 0) : 0;
   if (f.aimT > 0) { f.aimT -= dt; f.lv = 0; } else if (LIFE) { f.lv += (-90 * (f.lift - wantLift) - 12 * f.lv) * dt; f.lift += f.lv * dt; if (f.lift < 0) { f.lift = 0; if (f.lv < 0) f.lv = 0; } } else f.lift += (wantLift - f.lift) * Math.min(1, dt * 6); // altitude follows a spring: a little overshoot, then it settles
   if (f.ability.cure && statusy(f) && Math.random() < dt * f.ability.cure) cureStatus(f);
   if (f.poisonT > 0) { f.poisonT -= dt; f.hp -= f.maxhp * .011 * dt; if (f.hp <= 0) { f.hp = 0; ko(f, o); return; } }
@@ -2186,11 +2186,12 @@ function drawWall(g, x) { // a fence at the edge of the arena, with the out-of-b
   for (let i = 0; i <= 10; i++) { const u = i / 10; g.moveTo(x + (bx - x) * u, top + (bt - top) * u); g.lineTo(x + (bx - x) * Math.min(1, u + .12), bot - (22 * Math.min(1, u + .12))); g.moveTo(x + (bx - x) * u, bot - 22 * u); g.lineTo(x + (bx - x) * Math.min(1, u + .12), top + (bt - top) * Math.min(1, u + .12)); }
   g.stroke();
   g.strokeStyle = '#8f98a8'; g.lineWidth = 5; g.beginPath(); for (const t of [0, .5, 1]) { const y0 = top + (bot - top) * t, y1 = bt + (bot - 22 - bt) * t; g.moveTo(x, y0); g.lineTo(bx, y1); } g.stroke();
+  if (VAR.wallFence) VAR.wallFence(g, x, out, top, bot, bx, bt); // the fence lights up while the pole charges
   g.fillStyle = '#5b6372'; g.fillRect(bx - 5, bt, 10, bot - 22 - bt); // back post
   const hz = 26; g.fillStyle = '#ffd34d'; g.fillRect(x - 11, top, 22, bot - top); g.fillStyle = '#23252b'; g.beginPath(); // front post with hazard stripes
   for (let y = top; y < bot; y += hz) { g.moveTo(x - 11, y); g.lineTo(x + 11, y + hz / 2); g.lineTo(x + 11, y + hz); g.lineTo(x - 11, y + hz / 2); } g.fill();
   g.strokeStyle = '#23252b'; g.lineWidth = 3; g.strokeRect(x - 11, top, 22, bot - top);
-  g.fillStyle = '#ff4a3a'; circ(g, x, top - 8, 9); g.fillStyle = `rgba(255,120,90,${.25 + .15 * Math.sin(now * 4)})`; circ(g, x, top - 8, 22);
+  if (VAR.wallPost) VAR.wallPost(g, x, out, top, bot); else { g.fillStyle = '#ff4a3a'; circ(g, x, top - 8, 9); g.fillStyle = `rgba(255,120,90,${.25 + .15 * Math.sin(now * 4)})`; circ(g, x, top - 8, 22); }
   g.restore();
 }
 function ghostTint(f, w, h, col) { // the fighter's current frame painted in one flat colour, reused by every afterimage of this draw
