@@ -51,9 +51,28 @@
       if (key) { el.style.setProperty('--c', dn ? '#ff8a7a' : w.col); el.innerHTML = ico(w.icon) + (up ? '+20%' : '\u221220%'); }
     });
   };
+  // lane pill under each name card: BACK / CENTER / FRONT, plus a dot that is green while both fighters share a lane (direct hits only connect then)
+  const lnEl = [null, null], lnKey = ['', ''], lnLast = [null, null], LN = { '-1': 'BACK', 0: 'CENTER', 1: 'FRONT' };
+  document.querySelectorAll('#hud .side').forEach((s, i) => { if (i > 1) return; const el = document.createElement('div'); el.className = 'lnp'; el.innerHTML = '<span class="g"><i></i><i></i><i></i></span><span class="t"></span><span class="rc"></span>'; s.appendChild(el); lnEl[i] = el; });
+  const lnStyle = document.createElement('style'); lnStyle.textContent = '.lnp{display:none;position:absolute;top:100%;margin-top:3px;align-items:center;gap:6px;height:20px;padding:0 9px 0 7px;border-radius:11px;background:#0a2263;border:1px solid rgba(150,190,255,.65);color:#fff;font:800 11px/1 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;letter-spacing:.9px;box-shadow:0 2px 6px rgba(0,0,0,.5);white-space:nowrap;z-index:3}.lnp.on{display:flex}#hud .side.l .lnp{left:6px}#hud .side.r .lnp{right:6px;flex-direction:row-reverse;padding:0 7px 0 9px}'
+    + '.lnp .g{display:flex;flex-direction:column;align-items:center;gap:2px}.lnp .g i{display:block;height:2px;border-radius:1px;background:rgba(255,255,255,.28)}.lnp .g i:nth-child(1){width:8px}.lnp .g i:nth-child(2){width:11px}.lnp .g i:nth-child(3){width:14px}'
+    + '.lnp[data-l="-1"] .g i:nth-child(1),.lnp[data-l="0"] .g i:nth-child(2),.lnp[data-l="1"] .g i:nth-child(3){background:#fff;box-shadow:0 0 4px #fff}.lnp .rc{width:7px;height:7px;border-radius:50%;background:#52e08a;box-shadow:0 0 5px #52e08a}.lnp.no .rc{background:#ff6a6a;box-shadow:0 0 5px #ff6a6a}'
+    + '.lnp.pop{animation:lnpop .35s ease-out}@keyframes lnpop{0%{transform:scale(1)}35%{transform:scale(1.18);background:#1e47b8}100%{transform:scale(1)}}';
+  document.head.appendChild(lnStyle);
+  const updLn = () => {
+    const on = state === 'fight' && !demo && !lab, same = Math.abs(P.lp - E.lp) < .6;
+    [P, E].forEach((f, i) => {
+      const el = lnEl[i]; if (!el) return; el.classList.toggle('on', on); if (!on) { lnLast[i] = null; return; }
+      const ln = f.lane | 0, key = ln + (same ? 'y' : 'n'); if (key === lnKey[i]) return; lnKey[i] = key;
+      el.dataset.l = ln; el.children[1].textContent = LN[ln]; el.classList.toggle('no', !same);
+      if (lnLast[i] !== null && lnLast[i] !== ln) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+      lnLast[i] = ln;
+    });
+  };
   V.extraDraw = () => {
     if (_ed) _ed();
     if (P && E) updWx();
+    if (P && E) updLn();
     const f = state === 'fight' && !demo && !lab ? meF() : null, hp = f && !f.dead ? f.hp / f.maxhp : 1, cls = hp < .1 ? 'on crit' : hp < .25 ? 'on' : '';
     if (lh.className !== cls) { lh.className = cls; lh.style.opacity = cls ? '' : '0'; }
   };
