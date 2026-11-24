@@ -20,6 +20,19 @@
     ['moonlake', 'Moonlit Lake', '#5d6a9a', ['clear', 'fog', 'rain', 'thunder'], 'fly'], ['sunsetruins', 'Sunset Ruins', '#d99a62', ['clear', 'sun', 'sand', 'cyclone', 'rain'], 'dust'],
     ['skyisles', 'Sky Islands', '#8cd048', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'leaf'], ['sunken', 'Sunken Temple', '#7aa2c0', ['clear'], undefined],
     ['starshrine', 'Starlit Shrine', '#7a74b8', ['clear', 'fog', 'thunder', 'snow'], 'fly'], ['suntemple', 'Sun Temple', '#e8b878', ['clear', 'sun', 'sand', 'cyclone'], 'dust'],
+    // twenty-four more, from the 2x2 sheets
+    ['greekruins', 'Greek Ruins', '#ceafa2', ['clear', 'sun', 'rain', 'thunder', 'fog'], 'leaf'], ['pyramids', 'Pyramid Plains', '#e3b588', ['clear', 'sun', 'sand', 'cyclone'], 'dust'],
+    ['toriishrine', 'Torii Shrine', '#caaca0', ['clear', 'sun', 'rain', 'fog', 'thunder'], 'leaf'], ['skyarch', 'Crystal Sky Arch', '#c5aaa8', ['clear', 'sun', 'rain', 'fog', 'thunder'], 'fly'],
+    ['ballcolosseum', 'Pokéball Colosseum', '#77a2e0', ['clear'], undefined], ['castlegate', 'Castle Gate', '#dfb996', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'dust'],
+    ['harbordeck', 'Harbor Deck', '#db9861', ['clear', 'sun', 'rain', 'thunder', 'cyclone', 'fog'], undefined], ['techbase', 'Tech Base', '#5f78b2', ['clear', 'rain', 'thunder'], undefined],
+    ['skyline', 'Skyline Plaza', '#8b9fdf', ['clear', 'sun', 'rain', 'thunder', 'fog'], undefined], ['dojo', 'Cherry Dojo', '#dca778', ['clear', 'sun', 'rain', 'fog'], 'leaf'],
+    ['desertarches', 'Desert Arches', '#eebb81', ['clear', 'sun', 'sand', 'cyclone'], 'dust'], ['crystalfalls', 'Crystal Falls', '#7286d2', ['clear', 'fog'], 'fly'],
+    ['pipeworks', 'Pipe Works', '#8c91b6', ['clear', 'rain', 'fog'], undefined], ['ringgate', 'Ring Gate Isles', '#aba4b0', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], 'fly'],
+    ['grandarena', 'Grand Arena', '#7796d4', ['clear', 'thunder'], undefined], ['dockyard', 'Dockyard Crane', '#d39664', ['clear', 'sun', 'rain', 'thunder', 'fog'], undefined],
+    ['coolingtowers', 'Cooling Towers', '#a49ba8', ['clear', 'rain', 'fog', 'thunder'], undefined], ['station', 'Central Station', '#c9ae9a', ['clear', 'rain', 'fog'], undefined],
+    ['refinery', 'Refinery', '#ab9c9c', ['clear', 'sun', 'rain', 'fog'], undefined], ['robotfactory', 'Robot Factory', '#8095c3', ['clear'], undefined],
+    ['construction', 'Construction Yard', '#ada7bb', ['clear', 'sun', 'rain', 'sand', 'cyclone'], 'dust'], ['researchlab', 'Research Lab', '#8e99be', ['clear'], undefined],
+    ['subway', 'Subway Tunnel', '#909bc2', ['clear'], undefined], ['launchpad', 'Launch Pad', '#8a94bf', ['clear', 'sun', 'rain', 'thunder', 'cyclone'], undefined],
   ];
   { const fresh = []; for (const [id, name, gc, wx, amb] of NEW_MAPS) { fresh.push({ id, name, file: id + '.jpg' }); GROUND_COL[id] = gc; THEME_WEATHER[id] = wx; if (amb) AMBIENT[id] = amb; } const at = THEMES.findIndex(t => t.id === 'desert'); THEMES.splice(at < 0 ? THEMES.length : at, 0, ...fresh); } // they sit between Red Canyon Gate and the Wasteland
   for (const id of ['bamboo', 'skyisles', 'dinofalls']) TUFT_MAPS.add(id);
