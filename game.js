@@ -2672,11 +2672,13 @@ function drawCine() {
 }
 
 // ---------------------------------------------------------------- loop
+let hudHid = false; // menus and results hide the whole HUD, so nothing in it keeps animating behind them
 function frame(ts) {
   const idle = !NETG.on && (state === 'menu' || state === 'over' || state === 'pause'), capMs = idle ? 100 : fpsCap === 30 ? 1000 / 30 : fpsCap === 60 ? 1000 / 60 : 0; // menus and the pause screen show a frozen picture: no need to redraw it
-  if (capMs && ts - lastRun < capMs - 2) { requestAnimationFrame(frame); return; }
+  const hideHud = state === 'menu' || state === 'over'; if (hideHud !== hudHid) { hudHid = hideHud; document.body.classList.toggle('noHud', hideHud); }
+  if (capMs && ts - lastRun < capMs - 2) { if (idle) setTimeout(() => requestAnimationFrame(frame), capMs - (ts - lastRun)); else requestAnimationFrame(frame); return; }
   lastRun = ts; const raw = ts - last; last = ts;
-  if (idle) { if (SPV) SPV.stopAll(); if (NETG.on) NETG.frame(raw, step); requestAnimationFrame(frame); return; }
+  if (idle) { if (SPV) SPV.stopAll(); if (NETG.on) NETG.frame(raw, step); setTimeout(() => requestAnimationFrame(frame), capMs - 10); return; } // a still screen only wakes 10 times a second instead of every display refresh
   if (NETG.on) { NETG.frame(raw, step); if (SPV) { SPV.tick(); if (state !== 'fight') SPV.stopAll(); } if (cine) drawCine(); draw(); requestAnimationFrame(frame); return; }
   const rdt = Math.max(0, Math.min(fpsCap === 30 ? .06 : .033, raw / 1000 || 0)); now = ts / 1000;
   if (state === 'fight' && raw > 0) { fAvg += (Math.min(raw, 60) - fAvg) * .03; if (!lowQ && ++fCnt > 150 && fAvg > (fpsCap === 30 ? 44 : 26)) { lowQ = true; bgDirty = true; } } // slow device: drop the optional effects
