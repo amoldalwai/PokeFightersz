@@ -121,7 +121,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none
 .bigbtn.dark{background:linear-gradient(#3a4260,#222842);box-shadow:0 6px 0 #0d1020;font-size:20px}
 .bigbtn:active,.go:active{transform:translateY(3px)}
 /* title screen */
-#title{background:radial-gradient(circle at 50% 38%,#34499f 0,#0a0f2a 72%);overflow:hidden;justify-content:flex-start;padding-top:20px;box-sizing:border-box}
+#title{background:radial-gradient(circle at 50% 38%,#34499f 0,#0a0f2a 72%);overflow:hidden;isolation:isolate;justify-content:flex-start;padding-top:20px;box-sizing:border-box}
 #title .sun{position:absolute;left:50%;top:34%;width:1500px;height:1500px;margin:-750px 0 0 -750px;background:repeating-conic-gradient(rgba(255,255,255,.08) 0 6deg,transparent 6deg 12deg);animation:spin 50s steps(300) infinite;pointer-events:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 .logo{position:relative;font-size:66px;line-height:1;font-weight:bold;font-style:italic;letter-spacing:4px;background:linear-gradient(#fff6b0,#ffb300 55%,#e05a00);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-stroke:3px #1a1a40;filter:drop-shadow(5px 5px 0 #000) drop-shadow(0 0 18px rgba(255,170,0,.6))}

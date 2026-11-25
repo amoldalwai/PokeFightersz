@@ -378,15 +378,17 @@
   const mk = (key, type) => ({ key, name: NAMES[key][type] || NAMES[key]._, type, sc: 98, pw: 70, sta: Math.round(STA[key] * 2.16), acc: fixAcc(), icon: ARCH_ICON[key] });
   const _bk = buildKit;
   buildKit = function (p) {
-    const had = kitCache[p.id], kit = _bk(p); if (had || kit.vx) return kit; kit.vx = 1;
+    const kit = _bk(p); if (kit.vx) return kit; kit.vx = 1;
     const t0 = kit.types[0], t1 = kit.types[1] || t0, pool = kit.pool, l0 = VX[t0] || VX.normal, l1 = VX[t1] || l0;
     pool.splice(Math.min(2, pool.length), 0, mk(l0[p.id % 4], t0));
     const k2 = l1[(p.id + 1) % 4]; if (p.id % 2 === 0 && !pool.some(s => s.key === k2)) pool.push(mk(k2, t1));
     kit.specials = pool.slice(0, 3); return kit;
   };
-  try { // one-time: saved move choices keep pointing at the same moves now that one new move sits in slot 3
-    if (!localStorage.getItem('pf_vx1')) { for (const id in loadouts) loadouts[id] = loadouts[id].map(i => i >= 2 ? i + 1 : i); localStorage.setItem('pf_loadouts', JSON.stringify(loadouts)); localStorage.setItem('pf_vx1', '1'); }
-  } catch (e) { }
+  for (const id of Object.keys(kitCache)) {
+    const kit = kitCache[id], defaults = kit.pool.slice(0, 3);
+    buildKit(dexById(+id));
+    kit.defaultSpecIndices = defaults.map(s => kit.pool.indexOf(s));
+  }
 
   // two charges: the first cast of these only costs a short cooldown, the second pays the full one
   V.coolFor = (f, i, A) => { if (!A.twice) return A.cool; const t = vr(f).tw; if (t[i] && now - t[i] < 4) { t[i] = 0; return A.cool; } t[i] = now; return .5; };

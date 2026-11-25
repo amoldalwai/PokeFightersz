@@ -501,18 +501,32 @@ const ANIM_OF = { strike: ['Charge'], blast: ['Charge', 'Shoot'], cannon: ['Char
 
 // flying and ghost types (and a few floaters) hover above the ground instead of standing on it
 // which three of a Pokémon's specials the player takes into a fight (chosen in the menu, remembered per Pokémon)
-let loadouts = {}; try { loadouts = JSON.parse(localStorage.getItem('pf_loadouts') || '{}'); } catch (e) { }
+let loadouts = {};
 let aiPick = {}; // the AI's three specials are rolled at random per Pokémon; the menu shows the set the next fight will use, and a new roll follows each fight start
+const defaultSpecIndices = kit => kit.defaultSpecIndices || kit.pool.slice(0, 3).map((_, i) => i);
 function specsFor(p, isAI) {
-  const pool = buildKit(p).pool, pick = !isAI && loadouts[p.id];
+  const kit = buildKit(p), pool = kit.pool, pick = !isAI && loadouts[p.id];
   if (pick && pick.length === Math.min(3, pool.length) && pick.every(i => pool[i])) return pick.map(i => pool[i]);
   if (isAI && pool.length > 3) {
     let r = aiPick[p.id]; if (!r || !r.every(i => pool[i])) { const ix = pool.map((_, i) => i); for (let i = ix.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ix[i], ix[j]] = [ix[j], ix[i]]; } r = aiPick[p.id] = ix.slice(0, 3); }
     return r.map(i => pool[i]);
   }
-  return pool.slice(0, 3);
+  return defaultSpecIndices(kit).map(i => pool[i]);
 }
 const FLOATERS = new Set(['mew', 'mewtwo', 'koffing', 'weezing', 'magnemite', 'magneton', 'unown', 'porygon2', 'celebi', 'baltoy', 'claydol', 'lunatone', 'solrock', 'chimecho', 'beldum', 'metang', 'metagross', 'castform', 'deoxys', 'latias', 'latios', 'jirachi']);
+function visiblePoseMetrics(img, info) {
+  if (!img || !img.naturalWidth || !img.naturalHeight) return null;
+  const width = info ? info.w : img.naturalWidth, height = info ? info.h : img.naturalHeight;
+  const canvas = document.createElement('canvas'); canvas.width = img.naturalWidth; canvas.height = height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  try {
+    context.drawImage(img, 0, 0); const pixels = context.getImageData(0, 0, canvas.width, height).data;
+    const bounds = Array.from({ length: Math.floor(canvas.width / width) }, () => ({ top: height, bottom: -1, area: 0 }));
+    for (let y = 0; y < height; y++) for (let x = 0; x < canvas.width; x++) if (pixels[(y * canvas.width + x) * 4 + 3] > 16) { const bound = bounds[Math.floor(x / width)]; bound.top = Math.min(bound.top, y); bound.bottom = y; bound.area++; }
+    const frames = bounds.filter(bound => bound.bottom >= bound.top), heights = frames.map(bound => bound.bottom - bound.top + 1).sort((a, b) => a - b), areas = frames.map(bound => bound.area).sort((a, b) => a - b);
+    return frames.length ? { height: heights[Math.floor(heights.length / 2)] / height, area: areas[Math.floor(areas.length / 2)] / (width * height) } : null;
+  } catch (e) { return null; }
+}
 function makeFighter(p, side, isAI, hpMul, set) {
   const kit = buildKit(p), pm = set.pmd, anim = !pm && ANIM2D && set.anim || null;
   let nh, nw, scale, dh = clamp((70 + 85 * Math.sqrt(p.h)) * .92, 100, 190), boxes, pmd = null, w;
@@ -522,7 +536,8 @@ function makeFighter(p, side, isAI, hpMul, set) {
   } else {
     const im = set.imgs.front; nh = im.naturalHeight || 40; nw = im.naturalWidth || 40; scale = dh / nh; if (nw * scale > 290) { scale = 290 / nw; dh = nh * scale; }
     boxes = { front: { w: nw * scale, h: dh } }; w = nw * scale;
-    for (const k in set.imgs) if (k !== 'front') { const m = set.imgs[k], mh = m.naturalHeight || 40, mw = m.naturalWidth || 40; let h = dh * POSE_K[k], s = h / mh; if (mw * s > 300) { s = 300 / mw; h = mh * s; } boxes[k] = { w: mw * s, h }; }
+    const frontSheet = anim && anim.front, frontVisible = spriteStyle === 'bw' ? visiblePoseMetrics(frontSheet ? frontSheet.img : im, frontSheet && frontSheet.info) : null;
+    for (const k in set.imgs) if (k !== 'front') { const m = set.imgs[k], mh = m.naturalHeight || 40, mw = m.naturalWidth || 40, sheet = anim && anim[k], visible = frontVisible && k !== 'hgb' && k !== 'frb' ? visiblePoseMetrics(sheet ? sheet.img : m, sheet && sheet.info) : null; let h = dh * POSE_K[k], s = h / mh; if (mw * s > 300) { s = 300 / mw; h = mh * s; } if (visible) { const hr = visible.height * h / (frontVisible.height * dh), ar = visible.area * mw * s * h / (frontVisible.area * w * dh), adjustment = clamp(Math.exp(-(Math.log(hr) + 2 * Math.log(ar)) / 5), .85, 1.15); h *= adjustment; s = Math.min(h / mh, 300 / mw); h = mh * s; } boxes[k] = { w: mw * s, h }; }
   }
   const hover = p.types.includes('flying') || p.types.includes('ghost') || FLOATERS.has(p.name);
   return {
@@ -2030,11 +2045,35 @@ function drawQuakeWave(g, w) {
   g.restore();
 }
 function svOverlay(g, f) { // sprite looks for the wind-up of the move being cast
-  const a = f.act, m = muzzle(f); if (a.name === 'beam') { if (!a.fired) SPV.beamCharge(g, m, a.t, f.kit.beam.type, f.face); return; } if (a.name !== 'sp' || a.done) return;
+  const a = f.act, m = muzzle(f); if (a.name === 'beam') { if (!a.fired && f.kit.beam.name !== 'Hyper Beam') SPV.beamCharge(g, m, a.t, f.kit.beam.type, f.face); return; } if (a.name !== 'sp' || a.done) return;
   if (a.key === 'blast') SPV.chargeBall(g, m, clamp(a.t / .25, 0, 1), a.ty); else if (a.key === 'minibeam') SPV.chargeBall(g, m, clamp(a.t / .4, 0, 1), a.ty); else if (a.key === 'selfdestruct') SPV.sdCharge(g, f.x, center(f).y, a.t / .65, a.ty); else if (a.key === 'strike') SPV.strikeCharge(g, a.mark, a.t, a.ty);
+}
+function drawHyperBeamCharge(g, f) {
+  const t = f.act.t, k = clamp(t / .9, 0, 1), ease = 1 - (1 - k) * (1 - k), m = muzzle(f), target = center(other(f)), col = colsOf(f.kit.beam.type), scale = clamp(f.h / 150, .65, 1.3), tau = Math.PI * 2;
+  const ring = (x, y, radius, width, color, alpha) => { g.save(); g.globalAlpha = alpha; g.strokeStyle = color; g.lineWidth = width * scale; g.beginPath(); g.arc(x, y, Math.max(1, radius * scale), 0, tau); g.stroke(); g.restore(); };
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 4; i++) { const p = (t * 1.7 + i / 4) % 1; ring(m.x, m.y, 120 * (1 - p), 3 + 3 * p, col[1], p * .8 * (1 - k * .4)); }
+  for (let i = 0; i < 18; i++) { const seed = Math.sin(i * 127.1 + 311.7) * 43758.5453, seed2 = Math.sin(i * 127.1 + 623.4) * 43758.5453, angle = i * 2.4 + (seed - Math.floor(seed)) * 3, p = (t * 1.4 + seed2 - Math.floor(seed2)) % 1, distance = 140 * (1 - p) * scale; g.globalAlpha = p; g.fillStyle = i % 3 ? col[0] : col[1]; circ(g, m.x + Math.cos(angle) * distance, m.y + Math.sin(angle) * distance * .7, (2.5 + 2 * p) * scale); }
+  g.globalAlpha = .35 + .5 * k;
+  const radius = (6 + 34 * ease) * scale, glow = g.createRadialGradient(m.x, m.y, 0, m.x, m.y, radius * 3.2); glow.addColorStop(0, '#ffffff'); glow.addColorStop(.4, col[1]); glow.addColorStop(1, col[1] + '00'); g.fillStyle = glow; circ(g, m.x, m.y, radius * 3.2);
+  g.globalAlpha = 1; g.fillStyle = '#ffffff'; circ(g, m.x, m.y, radius * .62);
+  ring(m.x, m.y, 52, 3, 'rgba(255,255,255,.25)', 1);
+  g.strokeStyle = col[0]; g.lineWidth = 6 * scale; g.lineCap = 'round'; g.beginPath(); g.arc(m.x, m.y, 52 * scale, -Math.PI / 2, -Math.PI / 2 + tau * k); g.stroke();
+  const lockRadius = lerp(150, 58, ease) * scale, lockColor = k >= .98 ? '#ffffff' : col[0];
+  g.save(); g.translate(target.x, target.y); g.rotate(t * 1.6); ring(0, 0, lockRadius / scale, 4, lockColor, .35 + .6 * k);
+  g.strokeStyle = lockColor; g.lineWidth = 4 * scale; for (let i = 0; i < 4; i++) { g.rotate(Math.PI / 2); g.beginPath(); g.moveTo(lockRadius - 12 * scale, 0); g.lineTo(lockRadius + 14 * scale, 0); g.stroke(); } g.restore();
+  g.strokeStyle = lockColor; g.lineWidth = 2 * scale; g.globalAlpha = .35 + .4 * k; g.beginPath(); g.moveTo(target.x - 16 * scale, target.y); g.lineTo(target.x + 16 * scale, target.y); g.moveTo(target.x, target.y - 16 * scale); g.lineTo(target.x, target.y + 16 * scale); g.stroke();
+  if (k > .62) {
+    const q = (k - .62) / .38, dx = target.x - m.x, dy = target.y - m.y, distance = Math.hypot(dx, dy), angle = Math.atan2(dy, dx), size = lerp(130, 74, 1 - (1 - q) * (1 - q)) * scale;
+    g.save(); g.translate(m.x, m.y); g.rotate(angle); g.strokeStyle = col[0]; g.lineWidth = 3 * scale;
+    for (let i = 0; i < 6; i++) { const x = 70 * scale + (t * 260 * scale + i * 100 * scale) % Math.max(1, distance - 70 * scale); if (x >= distance) continue; g.globalAlpha = q * (1 - x / distance) * .9; g.beginPath(); g.moveTo(x - 10 * scale, -12 * scale); g.lineTo(x, 0); g.lineTo(x - 10 * scale, 12 * scale); g.stroke(); } g.restore();
+    g.globalAlpha = q; g.strokeStyle = col[0]; g.lineWidth = 4 * scale; for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { g.beginPath(); g.moveTo(target.x + sx * size, target.y + sy * (size - 26 * scale)); g.lineTo(target.x + sx * size, target.y + sy * size); g.lineTo(target.x + sx * (size - 26 * scale), target.y + sy * size); g.stroke(); }
+  }
+  g.restore();
 }
 function drawAlert(g, f) {
   if (f.alertT <= 0 || f.dead) return;
+  if (f.act && f.act.name === 'beam' && !f.act.fired && f.kit.beam.name === 'Hyper Beam') { drawHyperBeamCharge(g, f); return; }
   const k = f.alertT / .5, y = GROUND + laneY(f) - f.z - f.lift - f.h - 34, pulse = 1 + .2 * Math.sin(now * 40);
   if (f.alertLen) { // the warning strip points the way the shot will go
     const m = muzzle(f), an = f.alertAim ? aimA(m, other(f)) : 0, th = Math.atan2(Math.sin(an), f.face * Math.cos(an)), pw = 1 + .08 * Math.sin(now * 30);
@@ -2257,8 +2296,8 @@ function draw() {
   for (const f of [P, E]) {
     if (!lowQ) drawGhosts(fxf, f, true);
     if (f.act && f.act.sv) svOverlay(fxf, f);
-    if (f.act && f.act.name === 'beam' && !f.act.fired && typeof TFX !== 'undefined') { const m = muzzle(f); TFX.beam(f.kit.beam.type, fxf, .78 * clamp(f.act.t / .9, 0, 1), { mx: m.x, my: m.y, th: f.face > 0 ? 0 : Math.PI, S: tfxS(f), len: Math.abs(center(other(f)).x - m.x), gy: GROUND + laneY(f) }); }
-    else if (f.act && f.act.name === 'beam' && !f.act.fired) {
+    if (f.act && f.act.name === 'beam' && !f.act.fired && f.kit.beam.name !== 'Hyper Beam' && typeof TFX !== 'undefined') { const m = muzzle(f); TFX.beam(f.kit.beam.type, fxf, .78 * clamp(f.act.t / .9, 0, 1), { mx: m.x, my: m.y, th: f.face > 0 ? 0 : Math.PI, S: tfxS(f), len: Math.abs(center(other(f)).x - m.x), gy: GROUND + laneY(f) }); }
+    else if (f.act && f.act.name === 'beam' && !f.act.fired && f.kit.beam.name !== 'Hyper Beam') {
       const m = muzzle(f), k = clamp(f.act.t / .9, 0, 1), r = 10 + 40 * k, g = fxf, c = f.kit.beam.cols;
       g.save(); g.globalCompositeOperation = 'lighter';
       const rg = g.createRadialGradient(m.x + f.face * 10, m.y, 1, m.x + f.face * 10, m.y, r * 1.5); rg.addColorStop(0, '#fff'); rg.addColorStop(.35, c[1]); rg.addColorStop(1, c[2] + '00');
@@ -3040,7 +3079,7 @@ function fitSprite(im) { // whole-number pixel scaling so small Pok\u00e9mon fil
 }
 function openMoves() {
   const p = dexById(selYou), k = buildKit(p), need = Math.min(3, k.pool.length), tc = TYPE_HEX[p.types[0]] || '#3a4a7a';
-  let sel = loadouts[p.id] && loadouts[p.id].length === need ? [...loadouts[p.id]] : k.pool.slice(0, need).map((_, i) => i);
+  let sel = loadouts[p.id] && loadouts[p.id].length === need ? [...loadouts[p.id]] : defaultSpecIndices(k);
   const pane = $('movesPane'); pane.style.setProperty('--a', tc); pane.style.setProperty('--b', '#4dec82'); $('mpBg').style.backgroundImage = menuBgUrl(); $('mpBox').style.setProperty('--tc', tc);
   $('mpImg').dataset.t = 120; $('mpImg').onload = () => fitSprite($('mpImg')); $('mpImg').src = spriteUrl(p);
   $('mpName').innerHTML = `<small>#${String(p.id).padStart(3, '0')}</small>${nm(p.name)}`; $('mpTypes').innerHTML = tags(p.types);
@@ -3054,25 +3093,26 @@ function openMoves() {
   };
   draw(); $('mpList').scrollTop = 0; pane.classList.add('on');
   $('mpBack').onclick = () => { pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); };
-  $('mpDone').onclick = () => { if (sel.length === need) { loadouts[p.id] = sel; try { localStorage.setItem('pf_loadouts', JSON.stringify(loadouts)); } catch (e) { } } pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); };
+  $('mpDone').onclick = () => { if (sel.length === need) loadouts[p.id] = sel; pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); };
 }
 // ---- move preview dialog: the eye button on a move opens a small window that runs this same game in ?preview mode (see the end of this file)
 const EYE = '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zm0 12.5a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>';
 let pvReady = false, pvTimer = 0;
 const pvSend = m => { const w = $('pvFrame').contentWindow; if (w) w.postMessage(Object.assign({ pf: 'pv' }, m), '*'); };
+const pvMoveId = s => JSON.stringify([s.key, s.type, s.name, s.raw || '']);
 function pvBtn(busy) { const b = $('pvPlay'); b.disabled = busy; b.innerHTML = busy ? 'PLAYING\u2026' : '\u25b6 PLAY'; clearTimeout(pvTimer); if (busy) pvTimer = setTimeout(() => pvBtn(false), 7000); }
 function openPreview(p, i) {
   const s = buildKit(p).pool[i], fr = $('pvFrame'), c = TYPE_HEX[s.type] || '#888';
   $('pvTitle').innerHTML = `${nm(p.name).toUpperCase()} \u00b7 <span style="color:${c}">${s.name.toUpperCase()}</span>`;
   $('pvInfo').innerHTML = `<span class="tag" style="background:${c}">${s.type.toUpperCase()}</span>${DESC[s.key]}`;
-  $('pvModal').classList.add('on'); pvBtn(false);
-  if (!pvReady) { $('pvLoad').style.display = ''; fr.src = `index.html?preview=1&p=${p.id}&mv=${i}`; } else pvSend({ id: p.id, mv: i });
+  $('pvModal').classList.add('on'); pvBtn(false); $('pvLoad').textContent = 'LOADING\u2026';
+  if (!pvReady) { $('pvLoad').style.display = ''; fr.src = `index.html?preview=1&p=${p.id}&mv=${i}&move=${encodeURIComponent(pvMoveId(s))}`; } else { $('pvLoad').style.display = 'none'; pvSend({ id: p.id, mv: i, move: pvMoveId(s) }); }
 }
 function closePreview() { $('pvModal').classList.remove('on'); pvBtn(false); pvSend({ cmd: 'pause' }); }
 $('pvClose').onclick = closePreview; $('pvPlay').onclick = () => { pvBtn(true); pvSend({ cmd: 'play' }); };
 addEventListener('message', e => {
   if (e.source !== $('pvFrame').contentWindow || !e.data) return;
-  if (e.data.pf === 'pool') { pvReady = true; $('pvLoad').style.display = 'none'; } else if (e.data.pf === 'done') pvBtn(false);
+  if (e.data.pf === 'pool') { pvReady = true; $('pvLoad').style.display = 'none'; } else if (e.data.pf === 'done') pvBtn(false); else if (e.data.pf === 'error') { pvBtn(false); $('pvPlay').disabled = true; $('pvLoad').textContent = 'MOVE UNAVAILABLE'; $('pvLoad').style.display = ''; }
 });
 let screenName = 'title', themeIdx = 0;
 function showScreen(n) {
@@ -3178,7 +3218,7 @@ const labAbility = p => labAb === 'own' ? abilityFor(p.types, p.id) : (LAB_ABILS
 const FX_DESC = { boost: 'Own-type moves hit 50% harder (always on while practising)', contact: 'Contact hits can inflict a status', armor: 'Takes less damage', nocrit: 'Cannot be hit critically', atk: 'Hits harder', focus: 'Cannot flinch or be confused', immune: 'Immune to a status', guts: 'Hits 20% harder while it has a status', multi: 'Half damage while at full HP', resist: 'Resists some types', scale: 'Takes less damage while it has a status', dust: 'Shrugs off move side-effects', cure: 'Cures its own statuses over time', regen: 'Recovers stamina faster', intim: 'Weakens the foe as the fight starts', levi: 'Ground moves miss it', trace: 'Copies the foe\'s ability', pressure: 'Drains foe stamina when they use specials', sync: 'Passes poison, burn and slow back', absorb: 'Absorbs one type to heal', wx: 'Faster in its favourite weather', crit: 'Better critical-hit chance', serene: 'Status effects twice as likely', early: 'Wakes from sleep sooner', gale: 'Dashes cost half the stamina', trap: 'The foe cannot dash', nodebuff: 'Immune to weakening', sturdy: 'Survives a knockout blow from high HP' };
 function refreshLab() {
   const p = dexById(labId), k = buildKit(p), need = Math.min(3, k.pool.length);
-  if (!labSel || labSel.length !== need) labSel = loadouts[p.id] && loadouts[p.id].length === need ? [...loadouts[p.id]] : k.pool.slice(0, need).map((_, i) => i);
+  if (!labSel || labSel.length !== need) labSel = loadouts[p.id] && loadouts[p.id].length === need ? [...loadouts[p.id]] : defaultSpecIndices(k);
   $('labImg').src = spriteUrl(p); $('labCard').style.setProperty('--tc', TYPE_HEX[p.types[0]]);
   $('labName').innerHTML = `<small>#${String(p.id).padStart(3, '0')}</small>${nm(p.name)}`; $('labTypes').innerHTML = tags(p.types);
   $('labFixed').innerHTML = [k.melee, k.ranged, k.beam].map(m => `<div class="mi" title="${m.name}">${ico(m.icon)}</div>`).join('');
@@ -3198,7 +3238,7 @@ function buildLab() {
   $('labPick').onclick = () => openPicker('lab');
   $('labBack').onclick = () => showScreen('title');
   $('labGo').onclick = () => {
-    const p = dexById(labId); if (labSel.length === Math.min(3, buildKit(p).pool.length)) { loadouts[p.id] = [...labSel]; try { localStorage.setItem('pf_loadouts', JSON.stringify(loadouts)); } catch (e) { } }
+    const p = dexById(labId); if (labSel.length === Math.min(3, buildKit(p).pool.length)) loadouts[p.id] = [...labSel];
     audio(); startMatch({ lab: true });
   };
   $('tLab').onclick = () => { audio(); labId = selYou; labAb = 'own'; labSel = null; showScreen('labPane'); refreshLab(); };
@@ -3365,15 +3405,16 @@ if (q.has('preview')) {
   const raf0 = window.requestAnimationFrame.bind(window); let held = null; // a closed dialog stops the loop completely
   window.requestAnimationFrame = fn => { if (pv.paused) { held = fn; return 0; } return raf0(fn); };
   const pvPost = m => { if (window.parent !== window) window.parent.postMessage(m, '*'); };
-  const pvSet = mv => { const k = P.kit; pv.mv = FIXED[mv] ? mv : Math.max(0, Math.min(k.pool.length - 1, mv | 0)); if (!FIXED[pv.mv]) P.specs[0] = k.pool[pv.mv]; };
-  async function pvLoad(id, mv) {
+  const pvSet = (mv, move) => { const k = P.kit; pv.mv = FIXED[mv] ? mv : move != null ? k.pool.findIndex(s => pvMoveId(s) === move) : Math.max(0, Math.min(k.pool.length - 1, mv | 0)); if (!FIXED[pv.mv]) P.specs[0] = k.pool[pv.mv]; return pv.mv !== -1; };
+  async function pvLoad(id, mv, move) {
     pv.id = id; labId = id; labSel = null; labAb = 'own'; curTheme = { id: 'plain', name: 'Plain' }; curBg = pc; props = []; bgDirty = true;
     await startMatch({ lab: true });
-    curBg = pc; bgDirty = true; weather = null; tod = 'day'; updateTint(); introT = 1.85; pvSet(mv); pv.next = now + .6; pv.was = false;
+    curBg = pc; bgDirty = true; weather = null; rainFx = false; tod = 'day'; updateTint(); introT = 1.85; const valid = pvSet(mv, move); pv.next = now + .6; pv.was = false;
     const k = P.kit; if (window.parent !== window) window.parent.postMessage({ pf: 'pool', id, name: P.p.name, pool: k.pool.map((s, i) => ({ i, name: s.name, type: s.type, key: s.key, sta: s.sta, desc: DESC[s.key] || '' })), fixed: [k.melee, k.ranged, k.beam].map((m, i) => ({ mv: ['melee', 'ranged', 'beam'][i], name: m.name, type: m.type })) }, '*');
+    if (!valid) pvPost({ pf: 'error' });
   }
   window.playerInput = () => {
-    const i = {}; if (!P || state !== 'fight') return i;
+    const i = {}; if (!P || state !== 'fight' || pv.mv === -1) return i;
     for (const c in P.cool) P.cool[c] = 0; P.cineCool = 9; P.noCine = true; floaters.length = 0; punch = clamp(400 / Math.max(60, P.h), 1.5, 2.6) - camZ; // always ready, no cinematic or damage numbers, zoomed in on the Pokémon
     if (P.act || P.hitT > 0 || cine) { pv.was = true; return i; }
     if (pv.was) { pv.was = false; pv.next = now + 1.1; pvPost({ pf: 'done' }); }
@@ -3387,9 +3428,9 @@ if (q.has('preview')) {
     if (pv.paused) { pv.paused = false; if (held) { raf0(held); held = null; } }
     if (d.cmd === 'play') { pv.want = true; return; }
     const id = +d.id, mv = FIXED[d.mv] ? d.mv : Math.trunc(+d.mv) || 0; if (!(id >= 1 && id <= 386)) return;
-    if (P && id === pv.id) { resetField(); P.act = null; pvSet(mv); pv.next = now + .4; pv.was = false; pv.want = false; } else pvLoad(id, mv);
+    if (P && id === pv.id) { resetField(); P.act = null; if (!pvSet(mv, d.move)) pvPost({ pf: 'error' }); pv.next = now + .4; pv.was = false; pv.want = false; } else pvLoad(id, mv, d.move);
   });
-  pvLoad(selYou, q.has('mv') && FIXED[q.get('mv')] ? q.get('mv') : Math.trunc(+q.get('mv')) || 0);
+  document.addEventListener('DOMContentLoaded', () => pvLoad(selYou, q.has('mv') && FIXED[q.get('mv')] ? q.get('mv') : Math.trunc(+q.get('mv')) || 0, q.get('move')), { once: true });
 }
 if (q.get('open') === 'moves') { showScreen('menu'); openMoves(); } else if (q.get('open') === 'lab') $('tLab').click(); // test shortcuts
 window.__game = { get P() { return P; }, get E() { return E; }, get state() { return state; }, kit: buildKit, startMatch };

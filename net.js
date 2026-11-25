@@ -47,8 +47,8 @@
   function stat(t, bad) { const e = $('nStat'); e.textContent = t || ''; e.classList.toggle('bad', !!bad); }
   function toast(t) { const e = $('nToast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 3500); }
   function specIdx(id) {
-    const p = dexById(id), pool = buildKit(p).pool, pick = loadouts[id];
-    return pick && pick.length === Math.min(3, pool.length) && pick.every(i => pool[i]) ? pick.slice() : pool.slice(0, 3).map((_, i) => i);
+    const p = dexById(id), kit = buildKit(p), pool = kit.pool, pick = loadouts[id];
+    return pick && pick.length === Math.min(3, pool.length) && pick.every(i => pool[i]) ? pick.slice() : defaultSpecIndices(kit);
   }
   const sendPick = () => { const m = { t: 'pick', pk: selYou, spec: specIdx(selYou) }, k = JSON.stringify(m); if (k === N.lastPick) return; N.lastPick = k; send(m); }; // refresh() runs on every received message, so repeating a send here would bounce between the phones forever
   function card(id, p, who, name, spec) {
