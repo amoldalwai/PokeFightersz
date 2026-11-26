@@ -4,6 +4,7 @@
 // Sprites: Black/White animated sprites from the Pokémon Database. Arenas: Pokémon Showdown battle backgrounds.
 // the stage is 960x480; the world is drawn on a 1300x650 view scaled down to fit it (see #wbase), which zooms everything out
 const CW = 960, CH = 480, W = 1300, H = 650, GROUND = 594, WORLD_W = 6400, MAXSEP = 1150;
+const RANGE = { ult: 700, shot: 550, mini: 550, move: 600 }; // how far each kind of attack reaches (px): beyond it a shot or beam fades and a targeted move lands short
 const $ = id => document.getElementById(id);
 const stage = $('stage');
 function fit() { stage.style.transform = `scale(${Math.min(innerWidth / CW, innerHeight / CH)})`; }
@@ -140,7 +141,7 @@ function buildKit(p) {
     addSig(sigs[p.id % sigs.length], 1); if (p.id % 2 === 0 && sigs.length > 1) addSig(sigs[(p.id + 1) % sigs.length], 2);
   }
   { // each type's own scripted specials: three of its five for this Pokémon (one up front), plus one from a second type
-    const tl = TM_BY_TYPE[t0], addTM = (key, at) => { if (key && !pool.some(x => x.key === key)) pool.splice(Math.min(at, pool.length), 0, { key, name: TM[key].name, type: TM[key].type, sc: 99, pw: 70 }); };
+    const tl = TM_BY_TYPE[t0], addTM = (key, at) => { if (key && !pool.some(x => x.key === key)) pool.splice(Math.min(at, pool.length), 0, { key, name: TM[key].name, type: TM[key].type, sc: 99, pw: 70, sig: TM[key].sig }); };
     if (tl) { addTM(tl[p.id % tl.length], 1); addTM(tl[(p.id + 2) % tl.length], 99); addTM(tl[(p.id + 4) % tl.length], 99); }
     if (types[1] && TM_BY_TYPE[types[1]]) addTM(TM_BY_TYPE[types[1]][p.id % TM_BY_TYPE[types[1]].length], 99);
   }
@@ -396,7 +397,7 @@ function drawBg(camX) {
 
 // ---------------------------------------------------------------- state
 const keys = {}, pulse = {}, held = {}, joy = { l: false, r: false, d: false };
-const DIFF = { Easy: { think: .75, block: .22, ult: .1, dmg: .7, hp: .9, speed: .8 }, Normal: { think: .5, block: .45, ult: .2, dmg: 1, hp: 1.05, speed: 1 }, Hard: { think: .3, block: .7, ult: .35, dmg: 1.2, hp: 1.3, speed: 1.15 } };
+const DIFF = { Easy: { think: .75, block: .22, ult: .1, dmg: .7, hp: .9, speed: .8, react: .4, slip: .2 }, Normal: { think: .5, block: .45, ult: .2, dmg: 1, hp: 1.05, speed: 1, react: .22, slip: .06 }, Hard: { think: .3, block: .7, ult: .35, dmg: 1.2, hp: 1.3, speed: 1.15, react: .1, slip: 0 } };
 DIFF.Easy.ans = .5; DIFF.Easy.lag = [.5, .8]; DIFF.Normal.ans = .7; DIFF.Normal.lag = [.3, .6]; DIFF.Hard.ans = .7; DIFF.Hard.lag = [.1, .4]; // chance the AI answers your beam with its own, and how long it takes to react
 let state = 'menu', selYou = 1, selRival = 6, selDiff = 'Normal', activeSlot = 'you';
 let P, E, projectiles, vines, beams, waves, rocks, zones, strikes, booms, cracks, sparks, floaters, rings, puffs, pillars = [];
@@ -404,6 +405,7 @@ let shake = 0, freeze = 0, now = 0, matchTime = 99, introT = 0, overT = 0, winne
 const DASH_STA = 14;
 let hazards = [], pickups = [], impacts = [], clashes = [], clashT = 0, tod = 'day', stats = { dealt: 0, taken: 0, combo: 0, parry: 0 }, hzT = 5, pkT = 12, pkDone = false, practice = false, lab = false, labId = 25, labAb = 'own', labSel = null, labFlip = 0, dummyMode = 0, cur = null, rounds = { a: 0, b: 0, n: 1 }, bestOf = 3, inputLog = [];
 try { const v = +localStorage.getItem('pf_rounds'); if (v === 1 || v === 3) bestOf = v; } catch (e) { }
+let aiLoss = 0, aceChallenge = null; try { aiLoss = +localStorage.getItem('pf_loss') || 0; } catch (e) { } // aiLoss: lost offline fights in a row, which softens the AI a little after the second
 const fxb = $('fxb').getContext('2d'), fxf = $('fxf').getContext('2d');
 const q = new URLSearchParams(location.search), demoUrl = q.has('demo'); let demo = demoUrl; // demo: both fighters are AI (?demo=1, or the Watch AI Fight button)
 const dexById = id => POKEDEX[id - 1];
@@ -551,17 +553,19 @@ function makeFighter(p, side, isAI, hpMul, set) {
 }
 async function startMatch(opts) {
   tourOn = !!(opts && opts.tour); demo = demoUrl || !!(opts && opts.watch); document.body.classList.toggle('watch', demo && !demoUrl);
+  if (tourOn && tour && !tour.over && tour.scout && tour.scout.r === tour.round) aiPick[tour.scout.id] = tour.scout.ix; // the opponent uses exactly the moves that were scouted on the bracket screen
+  VAR.S.fixedStyle = tourOn && tour && !tour.over && tour.scout && tour.scout.r === tour.round ? tour.scout.st : aceChallenge ? CUP_STYLE[aceChallenge] : null; VAR.S.lockStyle = !!(tourOn && tour && tour.round === 3 || aceChallenge); // scouted and leader styles are fixed
   const ol = opts && opts.online; if (ol) { demo = false; spriteStyle = ol.sprite; bestOf = ol.bestOf; lowQ = false; themeIdx = ol.theme; setTheme(THEMES[themeIdx]); }
   MUS.battle = ['battleA', 'battleB', 'battleC'][(selYou * 7 + selRival * 3 + (typeof themeIdx === 'number' ? themeIdx : 0)) % 3];
   const d = DIFF[selDiff]; lab = !!(opts && opts.lab); practice = lab || !!(opts && opts.practice); document.body.classList.toggle('lab', lab); dummyMode = 0; $('dummyBtn').textContent = 'DUMMY: IDLE';
-  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane', 'netPane']) $(id).classList.remove('on'); $('title').classList.remove('on'); $('opts').classList.remove('on');
+  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane', 'cupPane', 'netPane']) $(id).classList.remove('on'); $('title').classList.remove('on'); $('opts').classList.remove('on');
   const pa = dexById(ol ? ol.pa : lab ? labId : selYou), pb = ol ? dexById(ol.pb) : lab ? pa : dexById(selRival);
   const [sa, sb] = await Promise.all([loadSet(pa), loadSet(pb)]);
   NETG.rngOn(ol && ol.seed);
   P = makeFighter(pa, -1, false, 1, sa); E = makeFighter(pb, 1, !ol, ol ? 1 : d.hp * tourHp(), sb); aiPick = {};
   if (ol) { P.specs = ol.spP.map(i => P.kit.pool[i]); E.specs = ol.spE.map(i => E.kit.pool[i]); }
   if (lab) { P.ability = labAbility(pa); E.ability = { name: '' }; E.maxhp = E.hp = E.hpTrail = 1e7; } // practise: the target is an invisible, unbreakable dummy
-  cur = { pa, pb, sa, sb }; rounds = { a: 0, b: 0, n: 1 }; stats = { dealt: 0, taken: 0, combo: 0, parry: 0 }; prepFighters(); if (SPV) { const wt = []; for (const f of [P, E]) { for (const s of f.specs) if (s) wt.push(s.type); wt.push(f.kit.ranged.type, f.kit.beam.type); } SPV.warm(wt); }
+  cur = { pa, pb, sa, sb }; rounds = { a: 0, b: 0, n: 1 }; stats = { dealt: 0, taken: 0, combo: 0, parry: 0, t: 0 }; prepFighters(); if (SPV) { const wt = []; for (const f of [P, E]) { for (const s of f.specs) if (s) wt.push(s.type); wt.push(f.kit.ranged.type, f.kit.beam.type); } SPV.warm(wt); }
   $('faceA').src = `assets/pose/hg/${pa.name}.png`; $('faceB').src = `assets/pose/hg/${pb.name}.png`; // still portraits: no animated frames to pay for
   $('nameA').innerHTML = nm(pa.name).toUpperCase() + `<small>${P.ability.name}</small>`; $('nameB').innerHTML = nm(pb.name).toUpperCase() + `<small>${E.ability.name}</small>`;
   resetField(); introT = practice ? 0 : -3.2; vsWait = !practice && !demo && !ol; VAR.cinStart();
@@ -617,7 +621,7 @@ function updateHazards(dt) {
     p.t += dt; p.y = Math.min(GROUND - 18, p.y + (120 + p.t * 900) * dt);
     if (p.y < GROUND - 40) continue;
     for (const f of [P, E]) if (!f.dead && p.life > 0 && Math.abs(f.x - p.x) < f.w * .5 + 24 && f.z + f.lift < 90) {
-      p.life = 0; sfx('pick'); spark(p.x, p.y, p.kind === 'berry' ? '#ff5a6a' : '#5ad6ff', 12);
+      p.life = 0; sfx('pick'); spark(p.x, p.y, (VAR.PICK[p.kind] || {}).c || '#5ad6ff', 8);
       if (VAR.collect(f, p)) { } else if (p.kind === 'berry') { f.hp = Math.min(f.maxhp, f.hp + f.maxhp * .15); floatText(f.x, GROUND - f.h - 14, '+HP', '#7dff9a', 28); } else { f.sta = Math.min(100, f.sta + 45); f.ki = Math.min(100, f.ki + 25); floatText(f.x, GROUND - f.h - 14, '+STAMINA', '#5ad6ff', 24); }
     }
   }
@@ -769,18 +773,18 @@ function spark(x, y, col, n = 10, speed = 320) {
   for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, s = speed * (.4 + Math.random() * .8); sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0, life: .3 + Math.random() * .25, col, size: 2 + Math.random() * 3 }); }
   rings.push({ x, y, t: 0, col });
 }
-const floatText = (x, y, text, col, size = 28) => floaters.push({ x, y, t: 0, text, col, size });
+const floatText = (x, y, text, col, size = 28, life = .9) => floaters.push({ x, y, t: 0, text, col, size, life });
 let supT = 0, supCol = '#ff7a3a', impactT = 0, impX = 480, impY = 240, koLineT = 0, koLineCol = '#fff', koLineX = 480, koLineY = 240, rageG = null;
 function speak(f, delay = 0) { // a short line in a speech bubble: about itself or about the foe's type, never the same line twice running
-  if (lab || !f || !f.kit) return; const foe = other(f), own = Math.random() < .55 || !foe || !foe.kit, ty = own ? f.kit.types[0] : foe.kit.types[0], L = (own ? TAUNTS.own : TAUNTS.about)[ty] || TAUNTS.own.normal; let s, g = 0;
-  do s = L[Math.floor(Math.random() * L.length)]; while (s === f.say && ++g < 6); f.say = s; f.sayT = now + delay; f.sayAt = now;
+  if (lab || !f || !f.kit) return; const foe = other(f), own = NETG.vr() < .55 || !foe || !foe.kit, ty = own ? f.kit.types[0] : foe.kit.types[0], L = (own ? TAUNTS.own : TAUNTS.about)[ty] || TAUNTS.own.normal; let s, g = 0;
+  do s = L[Math.floor(NETG.vr() * L.length)]; while (s === f.say && ++g < 6); f.say = s; f.sayT = now + delay; f.sayAt = now;
 }
 function tauntTick() { // each fighter pipes up every 8-14 s, and once when it drops low on health
   if (lab || state !== 'fight') return;
   for (const f of [P, E]) {
-    if (!f || f.dead || f.hp <= 0) continue; if (f.tauntT === undefined) f.tauntT = now + rnd(5, 9);
-    if (now >= f.tauntT && !(f.hitT > 0 && f.hitBig)) { speak(f); f.tauntT = now + rnd(8, 14); }
-    if (!f.lowSaid && f.hp < f.maxhp * .25) { f.lowSaid = true; if (now - (f.sayAt || -9) > 3) { speak(f, .2); f.tauntT = now + rnd(8, 14); } }
+    if (!f || f.dead || f.hp <= 0) continue; if (f.tauntT === undefined) f.tauntT = now + (5 + NETG.vr() * 4);
+    if (now >= f.tauntT && !(f.hitT > 0 && f.hitBig)) { speak(f); f.tauntT = now + (8 + NETG.vr() * 6); }
+    if (!f.lowSaid && f.hp < f.maxhp * .25) { f.lowSaid = true; if (now - (f.sayAt || -9) > 3) { speak(f, .2); f.tauntT = now + (8 + NETG.vr() * 6); } }
   }
 }
 function rrect(g, x, y, w, h, r) { g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
@@ -998,7 +1002,7 @@ function damage(att, def, amount, knock, pt, big, ty) {
     if (!big) kickF(def, .18 * (.5 + pw), -.13 * (.5 + pw), -def.face * 8 * (.5 + pw), -def.face * 10 * (.5 + pw)); if (big || crit) def.chromaT = .16; if (att.act && att.act.name === 'melee') kickF(att, -.05, .04, 0, att.face * 6);
     spark(pt.x, pt.y, '#fff', big ? 16 : 10); typeHit(pt.x, pt.y, ty || 'normal', eff > 1 ? 24 : eff < 1 ? 4 : big ? 16 : 9); hitSfx(ty, now - (att.cbT ?? -9) < 1.3 ? att.cbN + 1 : 1); if (eff > 1) sfx('chime'); shake = Math.max(shake, big ? 14 : 6);
     freeze = Math.max(freeze, (big ? .07 : .04) + .05 * pw + (eff > 1 ? .03 : 0) + (crit ? .03 : 0)); punch = Math.max(punch, .012 + .04 * pw + (big ? .015 : 0) + (crit ? .025 : 0));
-  if (big && att && !att.dead && now - (att.sayAt || -9) > 6 && Math.random() < .4) speak(att, .3); // a big hit sometimes earns a taunt
+  if (big && att && !att.dead && now - (att.sayAt || -9) > 6 && NETG.vr() < .4) speak(att, .3); // a big hit sometimes earns a taunt
     if (eff > 1) { flashCol = rgbOf(tc[1]); flashT = Math.max(flashT, .07); } else if (eff < 1) puff(pt.x, pt.y, 5, 'rgba(160,170,180,.6)', 50);
     if (big || crit || eff > 1) impacts.push({ x: pt.x, y: pt.y, t: 0, n: big ? 14 : 9, col: tc[0], rot: rnd(0, 6.28) }); // radiating impact lines
     juiceHit(att, def, pt, pw, big, crit, ty, tc);
@@ -1060,7 +1064,9 @@ function aimLunge(f, o, dt, spd = 4000) { // a flyer's rush climbs or dives towa
 // every special move is one of these archetypes: what it does, what it costs and when the AI should use it
 const D = (f, v) => v * f.kit.spaM;
 const ROCK_TY = { ice: 'ice', fire: 'fire', rock: 'rock' };
-const ALERT_LEN = { wave: 760, quake: 600, minibeam: 560, geyser: 700, cannon: 700, blast: 800, volley: 620, combo: 300, strike: 0, boulder: 700, spin: 560, spikes: 700 };
+const ALERT_LEN = { wave: 600, quake: 600, minibeam: 550, geyser: 600, cannon: 600, blast: 600, volley: 600, combo: 300, strike: 0, boulder: 600, spin: 560, spikes: 600 };
+const reachOf = A => Math.min(A.range ? A.range[1] : RANGE.move, RANGE.move);
+const aimFoe = (f, o, A) => { const dx = o.x - f.x, r = reachOf(A); if (Math.abs(dx) <= r) return o; const p = Object.create(o); p.x = f.x + Math.sign(dx) * r; return p; }; // a foe beyond a move's reach is aimed at the farthest point it can reach, so the move lands short
 const METRO = ['strike', 'blast', 'wave', 'quake', 'rain', 'blizzard', 'geyser', 'cannon', 'volley', 'combo', 'leap', 'minibeam', 'slash', 'drain', 'ring', 'sleep', 'para', 'poison', 'tornado'];
 const METRO_TY = ['fire', 'water', 'electric', 'psychic', 'ice', 'rock', 'normal', 'grass', 'fighting', 'ghost', 'dragon'];
 const DEBUFF_KIND = { 'string-shot': 'web', 'sand-attack': 'sand', 'smokescreen': 'smoke', 'flash': 'flashy', 'screech': 'psy', 'supersonic': 'psy', 'confuse-ray': 'shadow' };
@@ -1167,7 +1173,7 @@ const ARCH = {
     start(f, o, a) { sfx('charge'); if (a.sv) SPV.snd('ss2', () => f.act === a && !a.done); },
     tick(f, o, a) {
       f.vx = 0; f.charging = true; shake = Math.max(shake, 4); if (Math.random() < .5) hitFx(f.x + rnd(-f.w / 2, f.w / 2), GROUND - rnd(0, f.h), 'flareball', .8);
-      if (!a.done && a.t >= .65) { a.done = true; boom(f.x, GROUND - f.h / 2, 250, '#ff7a1a', 32); if (a.sv) { svBoom(f.x, GROUND - f.h / 2, a.ty, 1.6, 'boom2'); SPV.flash(.8); } else { for (let i = 0; i < 7; i++) hitFx(f.x + rnd(-130, 130), GROUND - rnd(20, 150), i % 2 ? 'fireball' : 'flareball', 2); hitFx(f.x, GROUND - f.h / 2, 'shine', 3); } aoe(f, f.x, GROUND - f.h / 2, 250, D(f, 150), 700, true, null, a.ty); f.hp = Math.max(1, f.hp - f.maxhp * .25); floatText(f.x, GROUND - f.h, 'BOOM', '#ff9a3a'); }
+      if (!a.done && a.t >= .65) { a.done = true; boom(f.x, GROUND - f.h / 2, 250, '#ff7a1a', 32); if (a.sv) { svBoom(f.x, GROUND - f.h / 2, a.ty, 1.6, 'boom2'); SPV.flash(.8); } else { for (let i = 0; i < 7; i++) hitFx(f.x + (NETG.vr() * 260 - 130), GROUND - (20 + NETG.vr() * 130), i % 2 ? 'fireball' : 'flareball', 2); hitFx(f.x, GROUND - f.h / 2, 'shine', 3); }  aoe(f, f.x, GROUND - f.h / 2, 250, D(f, 150), 700, true, null, a.ty); f.hp = Math.max(1, f.hp - f.maxhp * .25); floatText(f.x, GROUND - f.h, 'BOOM', '#ff9a3a'); }
     } },
   heal: { cost: 24, cool: 8, range: [0, 9999], dur: 1.3, when: f => f.hp < f.maxhp * .65,
     start(f, o, a) { sfx('heal'); }, tick(f, o, a, dt) { f.vx = 0; f.charging = true; f.hp = Math.min(f.maxhp, f.hp + f.maxhp * .2 / 1.3 * dt); if (Math.random() < .5) sparks.push({ x: f.x + rnd(-f.w / 2, f.w / 2), y: GROUND - rnd(0, f.h), vx: 0, vy: -90, t: 0, life: .7, col: '#7dff9a', size: 4 }); } },
@@ -1321,8 +1327,8 @@ function startAct(f, name) {
     spend(f, sp.sta); f.ki -= A.cost; f.cool['s' + i] = VAR.coolFor ? VAR.coolFor(f, i, A) : A.cool; if (o.ability.pressure) f.sta = Math.max(0, f.sta - 5); f.act = { name: 'sp', key: sp.key, t: 0, ty: sp.type, sp, miss: rollMiss(sp.acc), sv: SPV ? SPV.pick(f, sp.key, sp.type) : 0 };
     if (A.cost >= 16 && f.cineCool <= 0) { f.cineCool = 5; startCine(f, sp.type, sp.name); }
     moveBanner(f, sp.name, sp.type, sp.icon);
-    A.start && A.start(f, o, f.act); f.alertT = .5; f.alertLen = ALERT_LEN[sp.key] || 0; f.alertAim = AIM_KEYS.has(sp.key);
-  } else if (name === 'beam') { if (f.ki < 50 || f.z > 0 || f.cool.beam > 0 || !canSpend(f, k.beam.sta)) return; spend(f, k.beam.sta); f.ki -= 50; f.cool.beam = 7; f.act = { name, t: 0, fired: false, sv: SPV ? SPV.pick(f, 'beam', k.beam.type) : 0 }; sfx('charge'); if (f.act.sv) { const ba = f.act; SPV.snd('bcharge', () => f.act === ba && !ba.fired); } if (!f.noCine) startCine(f, k.beam.type, k.beam.name); f.alertT = .9; f.alertLen = 1100; f.alertAim = true; }
+    A.start && A.start(f, aimFoe(f, o, A), f.act); if (!f.isAI && Math.abs(o.x - f.x) > reachOf(A)) floatText(f.x, GROUND - f.h - 14, 'TOO FAR', '#ffb347', 22); f.alertT = .5; f.alertLen = ALERT_LEN[sp.key] || 0; f.alertAim = AIM_KEYS.has(sp.key);
+  } else if (name === 'beam') { if (f.ki < 50 || f.z > 0 || f.cool.beam > 0 || !canSpend(f, k.beam.sta)) return; spend(f, k.beam.sta); f.ki -= 50; f.cool.beam = 7; f.act = { name, t: 0, fired: false, sv: SPV ? SPV.pick(f, 'beam', k.beam.type) : 0 }; sfx('charge'); if (f.act.sv) { const ba = f.act; SPV.snd('bcharge', () => f.act === ba && !ba.fired); } if (!f.noCine) startCine(f, k.beam.type, k.beam.name); f.alertT = .9; f.alertLen = RANGE.ult; f.alertAim = true; }
   if (f.act) VAR.onAct(f, f.act); const ac = f.act; if (ac && (ac.name === 'melee' || ac.name === 'grab' || (ac.name === 'sp' && (CONTACT_SP.has(ac.key) || (TM[ac.key] && TM[ac.key].rush))))) flyIn(f, o);
 }
 const CONTACT_SP = new Set(['combo', 'dash', 'leap', 'spin']);
@@ -1445,14 +1451,14 @@ function actTick(f, o, dt) {
       const aim = 0; // shots are aimed at the target when they leave the muzzle (see updateWorld)
       for (let i = 0; i < r.n; i++) {
         const ang = aim + (r.n === 1 ? 0 : (i - (r.n - 1) / 2) * .17);
-        projectiles.push({ owner: f, x: m.x, y: m.y, vx: Math.cos(ang) * r.speed * f.face, vy: Math.sin(ang) * r.speed, r: r.r, dmg: r.dmg, kind: r.kind, cols: r.cols, life: 2.2, rot: 0, trail: [], ty: r.type, miss: a.miss, sv: sv === 'sprite' ? 'shot' : 0 });
+        projectiles.push({ owner: f, x: m.x, y: m.y, vx: Math.cos(ang) * r.speed * f.face, vy: Math.sin(ang) * r.speed, r: r.r, dmg: r.dmg, kind: r.kind, cols: r.cols, life: 2.2, rot: 0, trail: [], ty: r.type, miss: a.miss, cap: RANGE.shot, sv: sv === 'sprite' ? 'shot' : 0 });
       }
       }
       if (sv === 'sprite') { SPV.snd('kiblast'); SPV.muzzle(m.x, m.y, r.type); } else sfx(r.kind === 'leaf' ? 'leaf' : 'shot');
     }
     if (a.t >= .4) endAct(f);
   } else if (a.name === 'sp') {
-    const A = ARCH[a.key]; A.tick && A.tick(f, o, a, dt);
+    const A = ARCH[a.key]; A.tick && A.tick(f, aimFoe(f, o, A), a, dt);
     if (f.act === a && a.t >= A.dur) endAct(f);
   } else if (a.name === 'beam') {
     f.vx = 0; f.charging = true; if (f.bhold) a.t = Math.min(a.t, 1.3); // held in the beam clash
@@ -1462,6 +1468,10 @@ function actTick(f, o, dt) {
 }
 
 // ---------------------------------------------------------------- AI (also drives the player in ?demo mode)
+function ultP(o, base) { // the AI saves its ult for openings: a hurt, staggered or cornered target that has no shield up
+  const room = Math.min(o.x - WALL_L, WALL_R - o.x);
+  return Math.min(.85, base * (1 + (o.hp < o.maxhp * .35 ? .8 : 0) + (o.hitT > 0 ? .5 : 0) + (room < 300 ? .5 : 0)) * (o.shieldT > 0 ? .5 : 1));
+}
 function aiInput(f, o, dt) {
   if (practice && f.isAI && dummyMode < 2) return dummyMode === 1 ? { guard: true } : {}; // practice dummy: stands still or just guards
   if (f.isAI) { // remember what the player keeps doing
@@ -1469,7 +1479,8 @@ function aiInput(f, o, dt) {
     h.fightT += dt; if (o.guarding) h.guardT += dt;
     if (o.act && o.act !== h.seen) { h.seen = o.act; const n = o.act.name, kind = n === 'melee' || n === 'grab' ? 'melee' : n === 'ranged' || (n === 'sp' && PROJ_KEYS.has(o.act.key)) ? 'ranged' : 'other'; if (kind !== 'other') h[kind]++; h.total++; if (kind === h.last) h.rep++; else { h.last = kind; h.rep = 1; } }
   }
-  const a = f.ai, inp = {}, Df = DIFF[selDiff], k = f.kit;
+  const a = f.ai, inp = {}, Df0 = DIFF[selDiff], mercy = f.isAI ? Math.min(3, Math.max(0, aiLoss - 1)) : 0, k = f.kit;
+  const Df = mercy ? { ...Df0, think: Df0.think * (1 + .12 * mercy), block: Df0.block * (1 - .1 * mercy), ult: Df0.ult * (1 - .1 * mercy) } : Df0;
   const dx = o.x - f.x, d = Math.abs(dx), toward = dx > 0 ? 'r' : 'l', away = dx > 0 ? 'l' : 'r';
   if (a.pulse) { inp[a.pulse] = true; a.pulse = null; }
   if (f.act && f.act.name === 'melee' && f.act.landed && f.act.n < 2 && Math.random() < dt * (selDiff === 'Hard' ? 9 : selDiff === 'Normal' ? 5 : 2.5)) { inp.melee = true; return inp; }
@@ -1482,27 +1493,31 @@ function aiInput(f, o, dt) {
     if (a.plan.t <= 0) a.plan = null;
     return inp;
   }
-  const threat = projectiles.find(p => p.owner !== f && !p.nodmg && !p.wait && Math.sign(f.x - p.x) === Math.sign(p.vx) && Math.abs(f.x - p.x) < 320 && Math.abs(p.y - (GROUND + laneY(f) - f.z - f.lift - f.h / 2)) < f.h * .8 + 30);
+  const threatRaw = projectiles.find(p => p.owner !== f && !p.nodmg && !p.wait && Math.sign(f.x - p.x) === Math.sign(p.vx) && Math.abs(f.x - p.x) < 320 && Math.abs(p.y - (GROUND + laneY(f) - f.z - f.lift - f.h / 2)) < f.h * .8 + 30);
+  a.seen = threatRaw ? (a.seen || 0) + dt : 0; const threat = threatRaw && a.seen >= Df.react ? threatRaw : null; // a human-like delay before it reacts to a shot
   if (threat && f.laneCool <= 0 && f.sta >= 10 && Math.abs((threat.lane === undefined ? o.lp : threat.lane) - f.lp) < .6 && Math.random() < Df.block * dt * 7) { // sidestep out of the shot's lane
     const tl = threat.lane === undefined ? o.lp : threat.lane, want = tl > .3 ? -1 : 1; inp[want < f.lane ? 'laneBack' : want > f.lane ? 'laneFront' : (f.lane > 0 ? 'laneBack' : 'laneFront')] = true; return inp;
   }
   if (threat && Math.random() < Df.block * dt * 6) { a.plan = { type: Math.random() < .6 ? 'guard' : 'jump', t: .4 + Math.random() * .3, duck: Math.random() < .5 }; return inp; }
   a.t -= dt;
+  if (a.sx != null) { const sp = VAR.S.ents.find(e => e.springs); if (!sp || f.hp >= f.maxhp * .97 || Math.abs(a.sx - f.x) < sp.r * .5) a.sx = null; else { inp[a.sx > f.x ? 'r' : 'l'] = true; return inp; } } // walk into the Healing Springs
   if (a.goto != null) { if (!pickups.length || Math.abs(a.goto - f.x) < 24) a.goto = null; else { inp[a.goto > f.x ? 'r' : 'l'] = true; return inp; } } // walk to a pickup
   if (a.t <= 0) {
     a.t = Df.think * (.7 + Math.random() * .6); a.mode = 'idle';
     const pk = pickups.find(p => p.y > GROUND - 120 && Math.abs(p.x - f.x) < 650 && VAR.wants(f, p));
     if (pk && d > 160 && Math.random() < .7) { a.goto = pk.x; a.t = .3; return inp; }
+    const spg = VAR.S.ents.find(e => e.springs);
+    if (spg && f.hp < f.maxhp * .8 && Math.abs(spg.x - f.x) > spg.r * .7 && d > 220 && Math.random() < .75) { a.sx = spg.x; a.t = .3; return inp; } // hurt and the springs are up: go heal
     const reach = f.w * .35 + k.melee.reach, opts = [], ew = ty => clamp(1 + (effect(ty, o.kit.types) - 1) * .7, .35, 2.2);
     const inLane = Math.abs(f.lp - o.lp) < .6;
-    if (f.ki >= 50 && f.sta >= k.beam.sta && f.cool.beam <= 0 && d > 150 && inLane && Math.random() < Df.ult) { a.pulse = 'beam'; a.t = 2.2; return inp; }
+    if (f.ki >= 50 && f.sta >= k.beam.sta && f.cool.beam <= 0 && d > 150 && d <= RANGE.ult - 60 && inLane && Math.random() < ultP(o, Df.ult)) { a.pulse = 'beam'; a.t = 2.2; return inp; }
     if (d < reach + 20 && f.sta >= k.melee.sta && inLane) opts.push(['melee', 3 * ew(k.melee.type)]);
     if (d < reach + 10 && inLane && o.guarding && f.sta >= 14) opts.push(['grab', 4]);
     if (isFly(f) && d < 320 && inLane && f.sta >= 14 && !o.dead) opts.push(['grab', 2.5]);
     if (!inLane && d < 500 && f.sta >= 8 && f.laneCool <= 0) opts.push(['align', 4]);
     if (inLane && d < 420 && f.sta >= 45 && f.laneCool <= 0) opts.push(['sidestep', .7]);
-    if (f.cool.ranged <= 0 && f.ki >= k.ranged.cost && f.sta >= k.ranged.sta && d > 150 && inLane) opts.push(['ranged', 3 * ew(k.ranged.type)]);
-    f.specs.forEach((s, i) => { const A = ARCH[s.key]; if (inLane && f.cool['s' + i] <= 0 && f.ki >= A.cost && f.sta >= s.sta && d >= A.range[0] && d <= A.range[1] && (!A.when || A.when(f, o)) && (s.key !== 'selfdestruct' || Math.random() < .15)) opts.push([['special', 'special2', 'special3'][i], 2.6 * ew(s.type)]); });
+    if (f.cool.ranged <= 0 && f.ki >= k.ranged.cost && f.sta >= k.ranged.sta && d > 150 && d <= RANGE.shot - 40 && inLane) opts.push(['ranged', 3 * ew(k.ranged.type)]);
+    f.specs.forEach((s, i) => { const A = ARCH[s.key]; if (inLane && f.cool['s' + i] <= 0 && f.ki >= A.cost && f.sta >= s.sta && d >= A.range[0] && d <= reachOf(A) - 30 && (!A.when || A.when(f, o)) && (s.key !== 'selfdestruct' || Math.random() < .15)) opts.push([['special', 'special2', 'special3'][i], 2.6 * ew(s.type)]); });
     opts.push(['approach', d > 300 ? 3 : 1], ['retreat', d < reach ? 1.5 : .4], ['guard', d < reach ? 1 : 0], ['jump', .8], ['charge', f.ki < 45 && d > 400 ? 2 : 0], ['rest', f.sta < 28 ? 5 : f.ki >= 50 && f.cool.beam <= 0 && f.sta < k.beam.sta && d > 300 ? 3 : 0], ['dash', f.sta >= DASH_STA + 10 && f.dashCool <= 0 ? (d > 420 ? 1.2 : .5) : 0]);
     const pw = PERSONA_W[a.persona] || {}, hb = a.habit, L = selDiff === 'Hard' ? 1 : selDiff === 'Normal' ? .6 : .25, lw = {};
     if (hb && hb.total >= 4) {
@@ -1516,9 +1531,11 @@ function aiInput(f, o, dt) {
     if (f.hover) { if (!f.air) { if (Math.random() < .5) { f.air = true; f.alt = 0; puff(f.x, GROUND, 10, 'rgba(235,235,225,.5)', 110); } } else if (Math.random() < .4) { f.alt = d < 220 ? 0 : Math.floor(Math.random() * 3); if (f.alt === 0 && d < 200 && Math.random() < .3) f.air = false; } } // flying AI takes off and lands now and then
     let tot = 0; for (const x of opts) tot += x[1]; let r = Math.random() * tot, pick = 'approach';
     for (const x of opts) { r -= x[1]; if (r <= 0) { pick = x[0]; break; } }
-    if (pick === 'approach') a.mode = 'approach'; else if (pick === 'retreat') { a.mode = 'retreat'; a.t = .5; }
-    else if (pick === 'rest') { a.mode = 'retreat'; a.t = .7; }
-    else if (pick === 'dash') { a.pulse = 'dash'; a.mode = d > 300 ? 'approach' : 'retreat'; a.t = .3; }
+    if (Df.slip && Math.random() < Df.slip) { const live = opts.filter(x => x[1] > 0); pick = live[Math.floor(Math.random() * live.length)][0]; } // lower levels sometimes just do something else
+    const back = (o.x > f.x ? f.x - WALL_L : WALL_R - f.x) < 260 ? 'idle' : 'retreat'; // no backing into the wall behind it
+    if (pick === 'approach') a.mode = 'approach'; else if (pick === 'retreat') { a.mode = back; a.t = .5; }
+    else if (pick === 'rest') { a.mode = back; a.t = .7; }
+    else if (pick === 'dash') { a.pulse = 'dash'; a.mode = d > 300 ? 'approach' : back; a.t = .3; }
     else if (pick === 'align') { a.pulse = o.lane > f.lane ? 'laneFront' : o.lane < f.lane ? 'laneBack' : (f.lane > 0 ? 'laneBack' : 'laneFront'); a.t = .35; }
     else if (pick === 'sidestep') { a.pulse = f.lane > 0 ? 'laneBack' : f.lane < 0 ? 'laneFront' : (Math.random() < .5 ? 'laneBack' : 'laneFront'); a.t = .5; }
     else if (pick === 'guard') a.plan = { type: 'guard', t: .5 }; else if (pick === 'jump') a.plan = { type: 'jump', t: .4 }; else if (pick === 'charge') a.plan = { type: 'charge', t: 1.1 };
@@ -1562,7 +1579,7 @@ function updateFighter(f, o, inp, dt) {
   const abOn = f.ability.boost && (f.hp < f.maxhp / 3 || (lab && f === P)) ? 1 : 0; // Blaze, Torrent, Overgrow and Swarm wake up when the Pokémon is hurt (always on while practising)
   if (abOn && !f.abilOn && state === 'fight') { floatText(f.x, GROUND - f.z - f.lift - f.h - 30, f.ability.name.toUpperCase() + '!', colsOf(f.kit.types[0])[1], 28); flashCol = rgbOf(colsOf(f.kit.types[0])[1]); flashT = .1; sfx('charge'); }
   f.abilOn = abOn;
-  const ground = f.z <= 0, spd = f.kit.speed * (f.isAI ? DIFF[selDiff].speed : 1) * (f.slowT > 0 ? .45 : 1) * (f.debT > 0 ? .82 : 1) * (f.shockT > 0 && f.shockV === 2 ? .5 : 1) * (f.ability.wx && weather && weather.id === f.ability.wx ? 1.3 : 1);
+  const ground = f.z <= 0, spd = f.kit.speed * (f.isAI ? DIFF[selDiff].speed : 1) * (f.slowT > 0 ? .45 : 1) * (f.debT > 0 ? .82 : 1) * (f.shockT > 0 && f.shockV === 2 ? .5 : 1) * (f.ability.wx && weather && weather.id === f.ability.wx ? 1.3 : 1) * (VAR.speedMul ? VAR.speedMul(f) : 1);
   const stunned = f.hitT > 0 || f.sleepT > 0 || f.freezeT > 0 || (f.shockT > 0 && f.shockV === 1);
   let duckNow = false;
   if (f.stuckT > 0) { f.stuckT -= dt; f.kvx = 0; f.vz = 0; f.hitT = Math.max(f.hitT, .2); if (f.stuckT <= 0) f.kvx = -(f.jDir || 1) * 90; }
@@ -1756,6 +1773,7 @@ function updateWorld(dt) {
     }
     if (!p.pat) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; p.rot += dt * 18; p.trail.push({ x: p.x, y: p.y }); if (p.trail.length > 8) p.trail.shift(); }
     if (p.home && !p.miss) { const tt = other(p.owner); p.vy = clamp(p.vy + clamp((GROUND - tt.z - tt.lift - tt.h * .5) - p.y, -60, 60) * 14 * dt, -900, 900); }
+    if (!p.pat) { if (p.ox === undefined) { p.ox = p.x; if (p.dist && p.dist > (p.cap || RANGE.move)) p.dist = p.cap || RANGE.move; } if (Math.abs(p.x - p.ox) > (p.cap || RANGE.move)) { p.life = 0; spark(p.x, p.y, (p.cols && p.cols[1]) || '#fff', 6); } } // a shot fades once it has flown its full range
     if (p.dist) { p.dist -= Math.abs(p.vx) * dt; if (p.dist <= 0) { p.life = 0; if (p.explode) { boom(p.x, p.y, p.explode.r, p.explode.col, 18); if (p.sv) svBoom(p.x, p.y, p.ty, .9, 'boom'); aoe(p.owner, p.x, p.y, p.explode.r, p.explode.dmg, 460, true, null, p.ty); } } }
     const t = other(p.owner);
     if (p.lane === undefined) p.lane = p.owner.lp;
@@ -1783,7 +1801,7 @@ function updateWorld(dt) {
     bm.t += dt; bm.tick -= dt; const f = bm.owner, o = other(f);
     if (f.dead) { bm.t = 99; continue; }
     const m = muzzle(f); bm.x = m.x; bm.y = m.y;
-    const BL = bm.len || 1500, hw = bm.w * .5, th = bm.ang || 0, ux = f.face * Math.cos(th), uy = Math.sin(th); // the beam leaves at the angle it was fired and stops on its target
+    const BL = Math.min(bm.len || 1500, bm.cap || (bm.norm ? RANGE.ult : RANGE.mini)), hw = bm.w * .5, th = bm.ang || 0, ux = f.face * Math.cos(th), uy = Math.sin(th); // the beam leaves at the angle it was fired and stops on its target
     let hitS = -1; if (!o.dead && Math.abs(f.lp - o.lp) < .6) for (let s = 0; s <= BL; s += 24) if (circleRect(bm.x + ux * s, bm.y + uy * s, hw, body(o))) { hitS = s; break; }
     bm.th = Math.atan2(uy, ux); bm.hit = hitS >= 0; bm.endS = bm.hit ? hitS + o.w * .1 : BL; bm.endX = bm.x + ux * bm.endS; bm.endY = bm.y + uy * bm.endS;
     if (bm.tick <= 0 && bm.hit && !bm.nodmg) { bm.tick = .16; damage(f, o, bm.dmg || f.kit.beam.dmg, f.face * 220, { x: bm.endX, y: bm.endY }, false, bm.ty || f.kit.beam.type); }
@@ -1852,7 +1870,7 @@ function updateWorld(dt) {
   for (const m of impacts) m.t += dt; impacts = impacts.filter(m => m.t < .22);
   for (const c of clashes) c.t += dt; clashes = clashes.filter(c => c.t < .6);
   for (const u of popups) u.t += dt; popups = popups.filter(u => u.t < .4);
-  for (const t of floaters) t.t += dt; floaters = floaters.filter(t => t.t < .9);
+  for (const t of floaters) t.t += dt; floaters = floaters.filter(t => t.t < t.life);
   flashT = Math.max(0, flashT - dt);
 }
 const vineLen = v => { const r = v.reach, t = v.t; return t < .06 ? 0 : t < .26 ? r * easeOut((t - .06) / .2) : t < .36 ? r : r * (1 - easeOut((t - .36) / .24)); };
@@ -1883,7 +1901,7 @@ function drawAura(g, f, k, cols = f.kit.aura) { // soft halo: a breathing glow r
 // battle effect sprites from Pokémon Showdown (tools/build_pmd.py downloads them)
 const FX = {};
 for (const n of 'fireball flareball electroball shadowball mistball waterwisp poisonwisp wisp energyball blackwisp mudwisp icicle rocks rock1 rock2 rock3 leaf1 leaf2 petal feather fist foot bone lightning shell shine sword web impact greenmetal1 bluefireball'.split(' ')) { const im = new Image(); im.src = `assets/fx/${n}.png`; FX[n] = im; }
-if (typeof TFX !== 'undefined') TFX.init(FX);
+if (typeof TFX !== 'undefined') TFX.init(FX); if (typeof SIGFX !== 'undefined') SIGFX.init(FX);
 if (typeof SHOTFX !== 'undefined') SHOTFX.init({ spr, FX, TYPE_COL });
 const SPV = typeof SPFX !== 'undefined' ? SPFX : null; if (SPV) SPV.init({ FX, muted: () => muted, low: () => lowQ, G: () => GROUND, laneY, vol: () => VOL.fx });
 const tfxS = f => clamp(f.h / 62, 1.4, 3);
@@ -2286,7 +2304,7 @@ function draw() {
   // warnings where a lightning strike will land
   for (const f of [P, E]) if (f.act && ((f.act.key === 'strike' && !f.act.done) || (f.act.key === 'swoop' && f.act.phase === 1))) { const m = f.act.mark; fxf.strokeStyle = `rgba(255,224,26,${.5 + .4 * Math.sin(now * 30)})`; fxf.lineWidth = 4; fxf.beginPath(); fxf.ellipse(m, GROUND + 4, 120, 22, 0, 0, 6.283); fxf.stroke(); }
   for (const z of hazards) drawHazard(fxf, z);
-  tmDraw('f', fxf);
+  tmDraw('f', fxf); copyDraw(fxf);
   for (const p of pickups) drawPickup(fxf, p);
   for (const r of rocks) drawRock(fxf, r);
   for (const p of pillars) drawPillar(fxf, p);
@@ -2318,7 +2336,7 @@ function draw() {
   for (const r of rings) { fxf.strokeStyle = r.col; fxf.globalAlpha = 1 - r.t / .3; fxf.lineWidth = 4; fxf.beginPath(); fxf.arc(r.x, r.y, 10 + r.t * 220, 0, 6.283); fxf.stroke(); fxf.globalAlpha = 1; }
   for (const s of sparks) { fxf.globalAlpha = 1 - s.t / s.life; if (s.col === '#fff' || s.col === '#ffd34d') { fxf.save(); fxf.globalCompositeOperation = 'lighter'; spr(fxf, 'shine', s.x, s.y, s.size * 4, s.t * 6); fxf.restore(); } else { fxf.fillStyle = s.col; fxf.fillRect(s.x - s.size / 2, s.y - s.size / 2, s.size, s.size); } } fxf.globalAlpha = 1;
   fxf.textAlign = 'center';
-  for (const t of floaters) { fxf.globalAlpha = 1 - t.t / .9; const y = t.y - t.t * 70, u = Math.min(1, t.t / .2), sc = .45 + .55 * (1 + 2.6 * Math.pow(u - 1, 3) + 1.6 * Math.pow(u - 1, 2)); fxf.font = `bold ${Math.round(t.size * sc)}px "Courier New",monospace`; fxf.lineJoin = 'round'; fxf.lineWidth = Math.max(5, t.size * .2); fxf.strokeStyle = '#000'; fxf.strokeText(t.text, t.x, y); fxf.fillStyle = t.col; fxf.fillText(t.text, t.x, y); } fxf.globalAlpha = 1;
+  for (const t of floaters) { fxf.globalAlpha = t.life > 1 ? Math.min(1, (t.life - t.t) / .6) : 1 - t.t / t.life; const y = t.y - t.t * (t.life > 1 ? 40 : 70), u = Math.min(1, t.t / .2), sc = .45 + .55 * (1 + 2.6 * Math.pow(u - 1, 3) + 1.6 * Math.pow(u - 1, 2)); fxf.font = `bold ${Math.round(t.size * sc)}px "Courier New",monospace`; fxf.lineJoin = 'round'; fxf.lineWidth = Math.max(5, t.size * .2); fxf.strokeStyle = '#000'; fxf.strokeText(t.text, t.x, y); fxf.fillStyle = t.col; fxf.fillText(t.text, t.x, y); } fxf.globalAlpha = 1;
   if (NETG.on) for (const [f, i] of [[P, 0], [E, 1]]) { // the players' names float over their Pokémon
     const n = NETG.names[i]; if (!n || f.dead) continue; const y = GROUND + laneY(f) - f.z - f.lift - f.h - 8;
     fxf.save(); fxf.font = '900 13px system-ui,sans-serif'; fxf.textAlign = 'center'; const tw = fxf.measureText(n).width + 20; fxf.globalAlpha = .92; fxf.fillStyle = i ? '#ffb066' : '#9fe8ff'; fxf.beginPath(); rrect(fxf, f.x - tw / 2, y - 18, tw, 19, 9.5); fxf.fill(); fxf.fillStyle = '#06210f'; fxf.fillText(n, f.x, y - 4); fxf.restore();
@@ -2353,7 +2371,7 @@ function draw() {
     fxf.save(); fxf.globalAlpha = .24 + .12 * Math.sin(now * 8); fxf.fillStyle = rageG; fxf.fillRect(0, 0, W, H); fxf.restore();
   }
   if (SPV) SPV.screen(fxf, W, H);
-  for (const f of [P, E]) renderFighter(f);
+  for (const f of [P, E]) renderFighter(f); copyHide();
   if (lab) E.el.style.display = 'none';
   const sep = Math.abs(P.x - E.x), ko = state === 'ko' && winner && overT < 1.8, loser = winner === P ? E : P; // push in when the fighters are close; on a KO, close in on the loser
   const hiAlt = Math.max(P.z + P.lift, E.z + E.lift);
@@ -2742,7 +2760,7 @@ function step(rdt) { // one slice of game time; online it runs at a fixed rate o
     if (freeze > 0) freeze -= dt;
     else {
       if (state === 'fight') {
-        matchTime -= dt; if (practice) { matchTime = 99; if (E.hp < E.maxhp * .3) E.hp = E.maxhp; if (P.hp < P.maxhp * .3) P.hp = P.maxhp; }
+        matchTime -= dt; stats.t = (stats.t || 0) + dt; if (practice) { matchTime = 99; if (E.hp < E.maxhp * .3) E.hp = E.maxhp; if (P.hp < P.maxhp * .3) P.hp = P.maxhp; }
         if (lab) { P.sta = 100; P.ki = 100; P.staDelay = 0; } // practise moves: infinite stamina and ki
         if (!lab) { aiBeamAnswer(E, P); if (demo) aiBeamAnswer(P, E); }
         const iP = NETG.on ? NETG.inP : demo ? aiInput(P, E, dt) : playerInput(), iE = NETG.on ? NETG.inE : aiInput(E, P, dt);
@@ -2756,6 +2774,29 @@ function step(rdt) { // one slice of game time; online it runs at a fixed rate o
     }
   }
 }
+const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const moveLabel = (f, key) => { const s = f.specs.find(x => x && x.key === key); if (s) return s.name; const m = key === 'melee' || key === 'grab' ? f.kit.melee : key === 'ranged' ? f.kit.ranged : key === 'beam' ? f.kit.beam : null; return m && m.name ? m.name : nm(String(key)); };
+const STYLE_TIP = { sniper: 'They keep their distance. Dash in, or answer with long-range specials.', zoner: 'They fight from range. Dash in, sidestep their shots with Q or E, and punish them up close.', trapper: 'They set traps. Watch the floor and change lanes to avoid them.', rusher: 'They charge in. Guard as they arrive, or hold them off with shots.', berserker: 'They never stop attacking. Block, parry and punish while they recover.', counter: 'They counter your attacks. Mix up your moves and grab them when they guard.', turtle: 'They defend and heal. Grab through the guard and keep the pressure on.', trickster: 'They dodge and teleport. Use wide moves and wait for them to land.' };
+function resultTip(me, foe) { // one short hint after a loss, picked from what happened
+  const mc = (stats.mc && stats.mc.P) || { melee: 0, ranged: 0, special: 0 }, n = mc.melee + mc.ranged + mc.special, mv = Object.values(stats.mv || {}), top = mv.length ? Math.max(...mv) : 0;
+  const mine = tourEdge(me.p, foe.p), theirs = tourEdge(foe.p, me.p), sk = VAR.S.style && VAR.S.style[foe.side];
+  if (theirs >= 2 && theirs > mine) return `The type matchup was against you: their attacks hit \u00d7${Math.round(theirs * 100) / 100}. Try a fighter that resists them.`;
+  if (n >= 8 && top / n > .45) return 'You leaned on one move too often. Repeats get a STALE penalty; four different attacks within 7 seconds give +20% damage.';
+  if (sk && STYLE_TIP[sk]) return STYLE_TIP[sk];
+  if (!stats.parry) return 'You never parried. Guard just as a hit lands to parry it and open them up.';
+  return 'Check the move list: swap in specials that suit this opponent, and mind the range of each move.';
+}
+function fillResult(me, win, ratio, grade, pts) { // the details panel on the result screen: damage split, moves used, opponent style, mastery and a tip
+  const el = $('oinfo'); if (demo) { el.innerHTML = ''; return; }
+  const foe = other(me), sk = !NETG.on && VAR.S.style && VAR.S.style[foe.side], mc = stats.mc || {}, z = { melee: 0, ranged: 0, special: 0 };
+  const dp = Math.round(stats.dealt / Math.max(1, stats.dealt + stats.taken) * 100);
+  const split = `<div class="osp"><span class="g">YOU ${dp}%</span><span class="sp"><i class="d" style="flex:${dp}"></i><i class="t" style="flex:${100 - dp}"></i></span><span class="r">${100 - dp}% FOE</span></div>`;
+  const chips = [];
+  if (sk && VAR.STYLES[sk]) chips.push(`<div class="oc wide"><b>${VAR.STYLES[sk].n}</b><small>${STYLE_HINT[sk]}</small></div>`);
+  if (!NETG.on) for (const [k, lv] of stats.lv || []) chips.push(`<div class="oc gold"><b>${moveLabel(me, k)}</b><small>MASTERY LV ${lv}</small></div>`);
+  const bar = (c, who) => `<div class="orow"><b>${who}</b><span class="mb"><i class="m" style="flex:${c.melee}"></i><i class="r" style="flex:${c.ranged}"></i><i class="s" style="flex:${c.special}"></i></span><small><span style="color:#ffb36b">${c.melee} melee</span> \u00b7 <span style="color:#7fdcff">${c.ranged} shots</span> \u00b7 <span style="color:#c9a4ff">${c.special} specials</span></small></div>`;
+  el.innerHTML = split + '<div class="osec">MOVES USED</div>' + bar(mc.P || z, nm(me.p.name).toUpperCase()) + bar(mc.E || z, nm(foe.p.name).toUpperCase()) + (chips.length ? `<div class="ocs">${chips.join('')}</div>` : '') + (!win && !NETG.on ? `<div class="otip">Tip: ${resultTip(me, foe)}</div>` : '');
+}
 function endMatch() { VAR.matchEnd();
   state = 'over'; const me = meF(), win = winner === me; jingle(win);
   $('winImg').src = spriteUrl(winner.p); $('over').classList.toggle('lose', !win && !demo);
@@ -2765,7 +2806,12 @@ function endMatch() { VAR.matchEnd();
   const ratio = stats.dealt / Math.max(1, stats.taken), grade = win ? (ratio >= 3 ? 'S' : ratio >= 1.8 ? 'A' : 'B') : (ratio >= .8 ? 'C' : 'D');
   const pts = win && !practice && !demo && !NETG.on ? Math.round(({ Easy: 20, Normal: 40, Hard: 80 }[selDiff] || 40) * (bestOf > 1 ? 1.5 : 1)) : 0; // points for the app's ball shop
   if (pts) { try { if (window.PF && window.PF.award) window.PF.award(pts); } catch (e) { } }
-  $('ostats').innerHTML = [['DAMAGE', stats.dealt], ['TAKEN', stats.taken], ['BEST COMBO', stats.combo], ['PARRIES', stats.parry]].map(([l, v]) => `<div class="os"><b>${Math.round(v)}</b><small>${l}</small></div>`).join('') + `<div class="os rate"><b>${grade}</b><small>RATING</small></div>` + (pts ? `<div class="os" style="border-color:#ffd34d"><b style="color:#ffd34d">+${pts}</b><small>POINTS</small></div>` : '');
+  if (!practice && !demo && !NETG.on && !lab) { aiLoss = win ? 0 : Math.min(5, aiLoss + 1); try { localStorage.setItem('pf_loss', String(aiLoss)); } catch (e) { } }
+  const need = win ? (ratio < 1.8 ? ['A', 1.8] : ratio < 3 ? ['S', 3] : null) : (ratio < .8 ? ['C', .8] : null), hpPct = Math.round(Math.max(0, me.hp) / me.maxhp * 100);
+  const tile = (v, l, c) => `<div class="os ${c}"><b>${v}</b><small>${l}</small></div>`;
+  $('ostats').innerHTML = tile(Math.round(stats.dealt), 'DAMAGE DEALT', 'g') + tile(Math.round(stats.taken), 'DAMAGE TAKEN', 'r') + tile(stats.combo, 'BEST COMBO', 'o') + tile(stats.parry, 'PARRIES', 'c') + (demo ? '' : tile(fmtT(stats.t || 0), 'FIGHT TIME', '') + tile(hpPct + '%', 'HP LEFT', hpPct >= 50 ? 'g' : hpPct >= 20 ? 'o' : 'r'));
+  $('ovGrade').innerHTML = `<div class="gr g${grade}">${grade}</div><div class="gt"><b>RATING</b><small>${ratio >= 99 ? '99+' : ratio.toFixed(1)}\u00d7 damage ratio${need ? `<br>${need[0]} at \u00d7${need[1]}` : ''}</small></div>` + (pts ? `<div class="gp"><b>+${pts}</b><small>POINTS \u00b7 ${selDiff.toUpperCase()}${bestOf > 1 ? ' \u00d71.5' : ''}</small></div>` : '');
+  fillResult(me, win, ratio, grade, pts);
   if (tourOn) tourEnd(win); else { $('againBtn').textContent = demo ? 'WATCH AGAIN' : 'REMATCH'; $('menuBtn').style.display = ''; }
   $('over').classList.add('on');
 }
@@ -2809,9 +2855,10 @@ function matchup(you, rival) {
 }
 const STAT_COL = { hp: '#5fe07a', atk: '#ff8a4a', spa: '#6aa8ff', spe: '#ffd34d' };
 const DESC = { strike: 'Lightning from the sky', blast: 'Exploding fireball', dig: 'Tunnel under, burst out', quake: 'Ground-shaking stomp', teleport: 'Vanish and strike', dash: 'Fast charging hit', wave: 'Big crashing wave', rain: 'Rocks or ice fall from above', blizzard: 'Freezing storm', ring: 'Trapping vortex', tornado: 'Knock-up gust', sleep: 'Spores: foe sleeps 3 s', poison: 'Spores: poison over time', para: 'Spores: paralyzes', selfdestruct: 'Huge blast, costs life', heal: 'Restores HP', buff: 'Power up for 10s', vine: 'Long whip lash', geyser: 'Eruptions toward the foe', cannon: 'Heavy slow shot', slash: 'Crescent blades', volley: 'Fan of homing shots', swoop: 'Fly up, dive down', combo: 'Rush and hit 4 times', leap: 'Jump and slam', minibeam: 'Short beam', drain: 'Steals HP', debuff: 'Weakens the foe', shield: 'Halves damage taken', counter: 'Reflects the next hit', metronome: 'A random move', spin: 'Roll through the foe', whirl: 'Spin and shred nearby', boulder: 'Bowling-ball boulder', roots: 'Roots tangle and slow', spikes: 'Line of erupting spikes', bloom: 'Spin leap, leaf fan' };
-// ---------------------------------------------------------------- type moves: 126 scripted specials (7 per type). The pixel-art visuals live in data/typefx.js; the rules are scripted here.
+// ---------------------------------------------------------------- type moves: 162 scripted specials (9 per type: 7 regular + 2 signature). The pixel-art visuals live in data/typefx.js (and data/sigfx.js for the signature moves); the rules are scripted here.
 // Times are in "mockup seconds" (the timeline of the artwork) and are scaled by ts; hits land where the foe stood when the move started unless {live:1}.
 const TM = {}, TM_BY_TYPE = {}; let tfx = [], tzones = [], weatherBase = null, wxClock = 0;
+const copies = new Map(); // Copycat: fighter -> { t: seconds left, id: Pokédex number it looks like }. The look is cosmetic; only the timer and the power-up affect the fight
 const slugOf = s => s.toLowerCase().replace(/[^a-z]/g, '');
 function T(type, name, desc, o) {
   const key = slugOf(name), c = { key, name, type, desc, ts: 1.35, h: [], ...o }; TM[key] = c; (TM_BY_TYPE[type] = TM_BY_TYPE[type] || []).push(key);
@@ -2872,6 +2919,7 @@ function tmSelf(f, c, [, kind, v, v2]) {
   else if (kind === 'counter') { f.counterT = v; floatText(f.x, top, 'READY', '#ffd34d', 24); sfx('charge'); }
   else if (kind === 'cure') f.sleepT = f.poisonT = f.burnT = f.confT = f.slowT = f.freezeT = 0;
   else if (kind === 'wx') setWeather(v, v2);
+  else if (kind === 'copy') { f.buffT = Math.max(f.buffT, v); copies.set(f, { t: v, id: 1 + Math.floor(NETG.vr() * 386) }); floatText(f.x, top, 'COPYCAT!', '#c8a8ff', 24); sfx('heal'); }
 }
 function tmTick(f, foe, a, dt, c) {
   const t = a.t * c.ts; f.charging = !!(c.ch && t < c.ch);
@@ -2881,6 +2929,7 @@ function tmTick(f, foe, a, dt, c) {
   f.vx = vx;
   if (c.hide) { const h = inWin(c.hide, t); f.fade = h ? 0 : 1; if (h) f.inv = Math.max(f.inv, .1); }
   if (c.tp && !a.tped && t >= c.tp) { a.tped = 1; const s = Math.sign(foe.x - f.x) || f.face; f.x = clamp(foe.x + s * (foe.w * .5 + f.w * .5 + 20), WALL_L, WALL_R); f.face = -s; f.vx = 0; puff(f.x, GROUND, 8, 'rgba(60,30,90,.7)', 120); }
+  if (c.hop) for (let i = 0; i < c.hop.length; i++) if (!a.done['p' + i] && t >= c.hop[i][0]) { a.done['p' + i] = 1; f.vz = c.hop[i][1]; } // a leap: the caster jumps at this moment
   for (let i = 0; i < c.h.length; i++) if (!a.done[i] && t >= c.h[i][0]) { a.done[i] = 1; tmHit(f, foe, a, c, c.h[i]); }
   if (a.vk) twistVar(f, foe, a, c, t);
   if (c.self) for (let i = 0; i < c.self.length; i++) if (!a.done['s' + i] && t >= c.self[i][0]) { a.done['s' + i] = 1; tmSelf(f, c, c.self[i]); }
@@ -2889,6 +2938,7 @@ function tmTick(f, foe, a, dt, c) {
 function tmWorld(dt) {
   wxClock += dt; if (weather && weather.until && wxClock >= weather.until) { weather = weatherBase; const el = $('wx'); if (weather) { el.innerHTML = ico(weather.icon) + weather.name + `<small>${weather.up.map(t => t.toUpperCase()).join('/')} +20%</small>`; el.style.setProperty('--c', weather.col); } else el.classList.remove('on'); }
   for (const i of tfx) i.age += dt; tfx = tfx.filter(i => i.age < i.end);
+  for (const [f, c] of copies) { c.t -= dt; if (c.t <= 0 || f.dead || state !== 'fight') copies.delete(f); }
   for (const z of tzones) {
     z.age += dt; if (z.age < z.from || z.age > z.to) continue; z.acc += dt; if (z.acc < z.every) continue; z.acc = 0;
     const foe = other(z.owner); if (foe.dead || state !== 'fight' || foe.inv > 0) continue; const b = body(foe);
@@ -2903,10 +2953,11 @@ function tmDraw(layer, g) {
   for (const i of tfx) {
     const c = i.c; let mt = i.age * c.ts; if (c.loop && mt > c.loop[1]) mt = c.loop[0] + (mt - c.loop[0]) % (c.loop[1] - c.loop[0]);
     let tx = i.tx, ty = i.ty; if (i.v && !i.miss) { const o = other(i.f); tx = o.x; ty = center(o).y; } // a variation follows the foe live
+    if (typeof SIGFX !== 'undefined' && SIGFX.has(c.key)) { const fo = other(i.f); SIGFX.move(layer, c.key, g, mt, { x: i.x0, gy: i.gy, dir: i.dir, S: i.S, dx: (i.f.x - i.x0) * i.dir / i.S, cdy: (i.f.z + i.f.lift - i.lift) / i.S, lift: i.lift, tx: i.tx, ty: i.ty, fdx: (fo.x - i.tx) * i.dir / i.S, fdy: -(fo.z + fo.lift) / i.S, img: i.f.vimg, imgW: i.f.w / i.S, imgH: i.f.h / i.S, fimg: fo.vimg, fimgW: fo.w / i.S, fimgH: fo.h / i.S }); continue; }
     TFX.move(layer, c.key, g, mt, { x: i.x0, gy: i.gy, dir: i.dir, S: i.S, dx: (i.f.x - i.x0) * i.dir / i.S, lift: i.lift, tx, ty, v: i.v, to: i.to, img: i.f.vimg, imgW: i.f.w / i.S, imgH: i.f.h / i.S });
   }
 }
-const tmClear = () => { tfx = []; tzones = []; };
+const tmClear = () => { tfx = []; tzones = []; copies.clear(); };
 
 // ----- NORMAL
 T('normal', 'Hyper Voice', 'Sound rings that shove the foe back', { c: 18, cd: 3, sta: 24, r: [100, 540], ch: .5, h: [[1.0, 50, 270, 680, 1, 0, .55]], d: 1.5, anim: 'Shoot' });
@@ -3052,6 +3103,60 @@ T('steel', 'Steel Wing', 'Two silver wing cuts', { c: 18, cd: 3, sta: 24, r: [10
 T('fairy', 'Fairy Wind', 'A petal gust in three waves', { c: 18, cd: 3.2, sta: 24, r: [150, 760], h: rep(3, 1.0, .4, 22, 120, 200, L1, 30), d: 2.2, anim: 'Shoot' });
 T('fairy', 'Draining Kiss', 'A kiss that drains HP', { c: 18, cd: 4.2, sta: 24, r: [140, 680], h: [1.1, 1.4, 1.7].map(t => [t, 14, 110, 0, 0, 0, 1, { live: 1, leech: 1 }]), d: 2.2, anim: 'Shoot' });
 
+// ----- SIGNATURE MOVES: two per type, marked with a star in the move lists. Visuals live in data/sigfx.js; everything here is deterministic (online play).
+const SGN = { sig: 1 };
+T('normal', 'Titan Stomp', 'Leap high and stomp: ground waves pop the foe up', { ...SGN, c: 22, cd: 4, sta: 30, r: [150, 600], hop: [[.35, 900]], h: [[1.5, 58, 150, 320, 1, 0, 1, { launch: 420 }]], d: 2.4, anim: 'Hop' });
+T('normal', 'Halo Crush', 'Golden rings drop, shrink and squeeze the foe', { ...SGN, c: 20, cd: 4.5, sta: 28, r: [200, 600], ch: .4, h: [[1.35, 64, 130, 260, 1, 0, 1]], d: 2.2, anim: 'Charge' });
+T('fire', 'Flame Wheel', 'Roll as a blazing wheel and launch the foe', { ...SGN, c: 18, cd: 3.2, sta: 28, r: [150, 600], rush: [[.45, 1.1, 1800]], back: [[1.8, 2.4, 1500]], h: [[1.1, 56, 130, 520, 1, 'burn', 1, { live: 1, launch: 420, sc: .5 }]], d: 2.4, anim: 'Attack' });
+T('fire', 'Solar Crash', 'A small sun drops and blasts the foe', { ...SGN, c: 28, cd: 6, sta: 38, pow: 1, r: [250, 600], ch: 1.0, h: [[1.45, 84, 170, 560, 1, 'burn', 1, { sc: .4 }]], d: 2.3, anim: 'Charge' });
+T('water', 'Surf Rush', 'Ride a wave straight into the foe', { ...SGN, c: 20, cd: 3.6, sta: 28, r: [200, 600], rush: [[.3, 1.0, 1500]], back: [[1.8, 2.4, 1400]], h: [[1.0, 58, 150, 700, 1, 0, 1, L1]], d: 2.4, anim: 'Swing' });
+T('water', 'Bubble Prison', 'A giant bubble lifts the foe, then pops', { ...SGN, c: 24, cd: 5, sta: 32, pow: 1, r: [150, 600], h: [[.9, 6, 130, 0, 0, 0, 1, { live: 1, launch: 480 }], [1.85, 62, 140, 0, 1, 0, 1, { live: 1, slam: -1100 }]], d: 2.3, anim: 'Charge' });
+T('electric', 'Thunder Spear', 'A javelin of lightning pins the foe', { ...SGN, c: 22, cd: 4, sta: 30, r: [200, 600], ch: .9, h: [[1.2, 70, 110, 420, 1, 'slow', 1, { live: 1, sc: .6 }]], d: 2.3, anim: 'Shoot' });
+T('electric', 'Thunderfall', 'Three sky bolts, each wider than the last', { ...SGN, c: 24, cd: 5, sta: 32, pow: 1, r: [200, 600], ch: .5, h: [[.65, 20, 120, 120, 0, 0], [1.0, 24, 130, 160, 0, 0], [1.35, 42, 170, 420, 1, 0]], d: 2.1, anim: 'Charge' });
+T('grass', 'Giant Bloom', 'A huge flower closes around the foe and bursts', { ...SGN, c: 22, cd: 4.5, sta: 30, r: [150, 600], h: [[1.55, 66, 140, 0, 1, 0, 1, { live: 1, launch: 360 }]], d: 2.3, anim: 'Charge' });
+T('grass', 'Vine Wall Slam', 'A wall of vines tips over and flattens the foe', { ...SGN, c: 22, cd: 4.5, sta: 30, r: [200, 600], h: [[1.25, 70, 160, 380, 1, 0, 1, { trip: 1 }]], d: 2.2, anim: 'Swing' });
+T('ice', 'Snowball Roll', 'A snowball grows as it rolls and bursts on the foe', { ...SGN, c: 18, cd: 3.6, sta: 26, r: [200, 600], h: [[1.2, 56, 140, 420, 1, 'freeze', 1, { sc: .35 }]], d: 2.2, anim: 'Swing' });
+T('ice', 'Glacier Slide', 'Skate down an ice sheet and shoulder-check the foe', { ...SGN, c: 16, cd: 3.4, sta: 24, r: [200, 600], rush: [[.85, 1.2, 1700]], back: [[1.8, 2.4, 1500]], h: [[1.2, 52, 130, 560, 1, 'slow', 1, { live: 1, sc: .6 }]], d: 2.4, anim: 'Attack' });
+T('fighting', 'Axe Kick', 'Leap over the foe and drop a heel on its head', { ...SGN, c: 22, cd: 4, sta: 30, r: [150, 600], hop: [[.3, 950]], rush: [[.3, .95, 1100]], back: [[1.9, 2.4, 1500]], h: [[1.15, 72, 120, 0, 1, 0, 1, { live: 1, slam: -1400 }]], d: 2.5, anim: 'Hop' });
+T('fighting', 'Aura Burst', 'Power up, then send a shock ring across the arena', { ...SGN, c: 28, cd: 6, sta: 36, pow: 1, r: [100, 600], ch: 1.0, h: [[1.4, 74, 170, 640, 1, 0, 1]], d: 2.2, anim: 'Charge' });
+T('poison', 'Venom Rain', 'A sickly cloud rains stinging venom on the foe', { ...SGN, c: 20, cd: 4.5, sta: 26, r: [200, 600], h: [[.95, 12, 140, 60, 0, 'poison', 1, { sc: .7 }], ...rep(5, 1.25, .22, 12, 140, 60, 0, 20)], d: 2.4, anim: 'Shoot' });
+T('poison', 'Sludge Tide', 'A wave of sludge swamps the foe and leaves a puddle', { ...SGN, c: 22, cd: 5, sta: 28, r: [150, 600], h: [[1.25, 44, 150, 360, 1, 'slow', 1, { sc: .8 }]], z: [[1.25, 3.0, 130, 6, 'poison', 1, .5]], d: 2.3, anim: 'Swing' });
+T('ground', 'Sinkhole', 'The floor gives way, then spits the foe out', { ...SGN, c: 22, cd: 5, sta: 30, r: [150, 600], h: [[.8, 10, 140, 0, 0, 'slow', 1, { sc: 1 }], [1.55, 66, 150, 0, 1, 0, 1, { live: 1, launch: 620 }]], d: 2.3, anim: 'Hop' });
+T('ground', 'Sandfall', 'A roaring sandfall buries the foe, then erupts', { ...SGN, c: 20, cd: 4.5, sta: 28, r: [200, 600], h: [[1.0, 14, 140, 0, 0, 'slow', 1, { sc: 1 }], [1.85, 60, 150, 0, 1, 0, 1, { launch: 420 }]], d: 2.3, anim: 'Charge' });
+T('flying', 'Skyfall Dive', 'Vanish into the sky, then dive down on the foe', { ...SGN, c: 24, cd: 4.5, sta: 30, r: [200, 600], hide: [[.3, 1.1]], tp: 1.1, h: [[1.2, 70, 140, 480, 1, 0, 1, L1]], back: [[1.9, 2.4, 1500]], d: 2.4, anim: 'Hop' });
+T('flying', 'Twister Pincer', 'Two whirlwinds merge and spin the foe', { ...SGN, c: 22, cd: 4.5, sta: 30, r: [200, 600], h: [[1.1, 20, 140, 0, 1, 0, 1, { live: 1, launch: 520 }], [1.9, 40, 150, 300, 1, 'confuse', 1, { sc: .3 }]], d: 2.3, anim: 'Charge' });
+T('psychic', 'Gravity Crush', 'A gravity sphere squashes the foe, then slams it', { ...SGN, c: 26, cd: 5.5, sta: 34, pow: 1, r: [200, 600], h: [[.8, 8, 140, 0, 0, 'slow', 1, { live: 1, sc: .8 }], [1.6, 68, 150, 0, 1, 0, 1, { live: 1, slam: -1200 }]], d: 2.3, anim: 'Charge' });
+T('psychic', 'Blink Strike', 'Teleport in and slash with a psychic blade', { ...SGN, c: 16, cd: 3, sta: 24, r: [200, 600], hide: [[.4, .95]], tp: .95, h: [[1.3, 64, 130, 400, 1, 0, 1, L1]], back: [[1.9, 2.4, 2000]], d: 2.4, anim: 'Attack' });
+T('bug', 'Blade Whirl', 'Spin and send a ring of blades outward', { ...SGN, c: 18, cd: 3.6, sta: 26, r: [150, 600], h: rep(2, 1.4, .15, 26, 150, 200, 0, 34), d: 2.2, anim: 'Swing' });
+T('bug', 'Silk Reel', 'Silk drags the foe in, then a punch sends it back', { ...SGN, c: 18, cd: 4, sta: 24, r: [200, 600], h: [[.9, 8, 130, -650, 0, 'slow', 1, { live: 1, sc: 1 }], [1.55, 52, 130, 640, 1, 0, 1, { live: 1 }]], d: 2.2, anim: 'Shoot' });
+T('rock', 'Boulder Punt', 'Heave a boulder and kick it into the foe', { ...SGN, c: 20, cd: 4, sta: 28, r: [200, 600], h: [[1.3, 62, 130, 520, 1, 0, 1]], d: 2.3, anim: 'Attack' });
+T('rock', 'Gem Volley', 'Five glittering gems fly into the foe', { ...SGN, c: 22, cd: 3.8, sta: 28, r: [200, 600], ch: .7, h: rep(5, 1.35, .09, 15, 110, 120, 0, 30), d: 2.2, anim: 'Shoot' });
+T('ghost', 'Copycat', 'Look like a random Pokémon for 20 s with a power-up', { ...SGN, c: 20, cd: 14, sta: 24, r: [0, 9999], self: [[1.3, 'copy', 20]], d: 1.8, anim: 'Charge', when: f => f.buffT <= 0 && !copies.has(f) });
+T('ghost', 'Haunting Shade', 'The foe\'s own shadow steps out and punches it twice', { ...SGN, c: 20, cd: 4.5, sta: 26, r: [200, 600], h: [[1.25, 34, 130, 300, 0, 0, 1, L1], [1.6, 44, 130, 420, 1, 0, 1, L1]], d: 2.2, anim: 'Charge' });
+T('dragon', 'Dragon Helix', 'Two energy dragons spiral in and bite together', { ...SGN, c: 28, cd: 6, sta: 36, pow: 1, r: [200, 600], ch: .8, h: [[1.2, 74, 150, 520, 1, 0, 1]], d: 2.3, anim: 'Charge' });
+T('dragon', 'Scale Storm', 'Dragon scales swirl, then rain into the foe', { ...SGN, c: 24, cd: 4.5, sta: 30, r: [200, 600], ch: .8, h: rep(7, 1.2, .1, 12, 110, 100, 0, 30), d: 2.4, anim: 'Charge' });
+T('dark', 'Red Eye Ambush', 'Lights out: red eyes open, three slashes from the dark', { ...SGN, c: 22, cd: 5, sta: 26, r: [200, 600], hide: [[.35, 2.0]], h: rep(3, 1.2, .2, 24, 130, 200, L1, 40), d: 2.5, anim: 'Charge' });
+T('dark', 'Shadow Chains', 'Dark chains bind the foe, then snap', { ...SGN, c: 22, cd: 5, sta: 28, r: [200, 600], h: [[1.1, 12, 130, 0, 0, 'slow', 1, { live: 1, sc: 1 }], [1.8, 56, 140, 400, 1, 0, 1, { live: 1 }]], d: 2.3, anim: 'Charge' });
+T('steel', 'Gear Grinder', 'Two gears roll in and grind the foe', { ...SGN, c: 20, cd: 4.5, sta: 28, r: [200, 600], h: [...rep(4, 1.15, .18, 13, 120, 60, 0), [1.9, 38, 130, 420, 1, 0, 1]], d: 2.4, anim: 'Swing' });
+T('steel', 'Chrome Blade Fan', 'Five mirror blades fan out and fly into the foe', { ...SGN, c: 22, cd: 4, sta: 28, r: [200, 600], ch: .7, h: [...rep(5, 1.3, .1, 14, 110, 140, 0), [1.85, 30, 130, 420, 1, 0, 1]], d: 2.3, anim: 'Shoot' });
+T('fairy', 'Crescent Moon Strike', 'A giant crescent moon swings down on the foe', { ...SGN, c: 26, cd: 5.5, sta: 34, pow: 1, r: [200, 600], ch: .8, h: [[1.25, 72, 160, 500, 1, 0, 1]], d: 2.3, anim: 'Charge' });
+T('fairy', 'Wish Star', 'A shooting star lands on you and heals', { ...SGN, c: 18, cd: 9, sta: 22, r: [0, 9999], self: [[1.0, 'heal', .2], [1.0, 'cure']], d: 2.0, anim: 'Charge', when: f => f.hp < f.maxhp * .85 });
+
+// Copycat: the fighter looks like another Pokémon and a clock counts the 20 s down over its head (cosmetic; the power-up is the real effect)
+const copyImgs = {};
+function copyDraw(g) {
+  for (const [f, c] of copies) {
+    if (f.dead) continue; const p = dexById(c.id); if (!p) continue; const im = copyImgs[c.id] || (copyImgs[c.id] = Object.assign(new Image(), { src: stillUrl(p) }));
+    const fy = GROUND + laneY(f) - f.z - f.lift, h = f.h, w = im.naturalWidth ? im.naturalWidth * h / im.naturalHeight : h;
+    if (im.naturalWidth) { g.save(); g.translate(f.x, fy); if (f.face > 0) g.scale(-1, 1); g.imageSmoothingEnabled = false; g.drawImage(im, -w / 2, -h, w, h); g.restore(); }
+    const cx = f.x, cy = fy - h - 26, k = clamp(c.t / 20, 0, 1);
+    g.save(); g.fillStyle = '#141a36'; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, 18, 0, 6.283); g.fill(); g.stroke();
+    g.strokeStyle = k > .25 ? '#ffd34d' : '#ff6a4a'; g.lineWidth = 4; g.beginPath(); g.arc(cx, cy, 14, -1.5708, -1.5708 + 6.283 * k); g.stroke();
+    g.fillStyle = '#fff'; g.font = 'bold 15px "Courier New",monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(Math.ceil(c.t)), cx, cy + 1); g.fillRect(cx - 3, cy - 24, 6, 4); g.restore();
+  }
+}
+const copyHide = () => { for (const [f] of copies) if (!f.dead) { f.el.style.opacity = 0; f._op = 0; } }; // the real sprite is hidden under the copy
+
 function statRows(p) { const mx = { hp: 255, atk: 190, spa: 194, spe: 160 }; return [['HP', 'hp'], ['ATK', 'atk'], ['SPA', 'spa'], ['SPE', 'spe']].map(([l, k]) => `<div class="srow"><span>${l}</span><i><b style="width:${Math.min(100, p[k] / mx[k] * 100)}%;background:${STAT_COL[k]}"></b></i><em>${p[k]}</em></div>`).join(''); }
 const moveIcons = (k, specs) => [`<div class="mi" title="${k.melee.name}">${ico(k.melee.icon)}</div>`, `<div class="mi" title="${k.ranged.name}">${ico(k.ranged.icon)}</div>`, ...specs.map(s => `<div class="mi" title="${s.name}">${ico(s.icon)}</div>`), `<div class="mi ult" title="${k.beam.name}">${ico(k.beam.icon)}</div>`].join('');
 // every Pokémon of the first three generations is always unlocked, in the app and in the browser (the ?mine= list is ignored)
@@ -3077,8 +3182,8 @@ function fitSprite(im) { // whole-number pixel scaling so small Pok\u00e9mon fil
   const t = +im.dataset.t || 165, h = im.naturalHeight || 40, w = im.naturalWidth || 40; let s = Math.max(1, Math.round(t / h));
   while (h * s > t * 1.25 && s > 1) s--; while (w * s > 270 && s > 1) s--; im.style.width = w * s + 'px'; im.style.height = h * s + 'px';
 }
-function openMoves() {
-  const p = dexById(selYou), k = buildKit(p), need = Math.min(3, k.pool.length), tc = TYPE_HEX[p.types[0]] || '#3a4a7a';
+function openMoves(pid = selYou, onDone) { // onDone: continue a flow (the tournament) once the moves are confirmed
+  const p = dexById(pid), k = buildKit(p), need = Math.min(3, k.pool.length), tc = TYPE_HEX[p.types[0]] || '#3a4a7a';
   let sel = loadouts[p.id] && loadouts[p.id].length === need ? [...loadouts[p.id]] : defaultSpecIndices(k);
   const pane = $('movesPane'); pane.style.setProperty('--a', tc); pane.style.setProperty('--b', '#4dec82'); $('mpBg').style.backgroundImage = menuBgUrl(); $('mpBox').style.setProperty('--tc', tc);
   $('mpImg').dataset.t = 120; $('mpImg').onload = () => fitSprite($('mpImg')); $('mpImg').src = spriteUrl(p);
@@ -3087,13 +3192,13 @@ function openMoves() {
     const keep = $('mpList').scrollTop;
     $('mpTitle').textContent = `${nm(p.name).toUpperCase()} \u00b7 CHOOSE ${need} SPECIALS`; $('mpCount').textContent = `${sel.length} / ${need}`;
     $('mpSlots').innerHTML = Array.from({ length: need }, (_, n) => sel[n] !== undefined ? `<div class="slot f"><i>${n + 1}</i>${ico(k.pool[sel[n]].icon)}</div>` : '<div class="slot">+</div>').join('');
-    $('mpList').innerHTML = k.pool.map((s, i) => { const n = sel.indexOf(i); return `<div class="mp ${n >= 0 ? 'sel' : ''}" data-i="${i}" style="--c:${TYPE_HEX[s.type] || '#888'}"><div class="ic">${ico(s.icon)}</div><div class="tx"><b>${s.name}<span class="tag" style="background:${TYPE_HEX[s.type] || '#888'}">${s.type.toUpperCase()}</span></b><small>${DESC[s.key]}</small></div><em>STAMINA ${s.sta}</em><div class="eye" title="Preview">${EYE}</div>${n >= 0 ? `<div class="ck">${n + 1}</div>` : ''}</div>`; }).join('');
+    $('mpList').innerHTML = k.pool.map((s, i) => { const n = sel.indexOf(i); return `<div class="mp ${n >= 0 ? 'sel' : ''}" data-i="${i}" style="--c:${TYPE_HEX[s.type] || '#888'}"><div class="ic">${ico(s.icon)}</div><div class="tx"><b>${s.name}${s.sig ? '<span class="sigstar" title="Signature move" style="color:#ffd34d;margin-left:5px">★</span>' : ''}<span class="tag" style="background:${TYPE_HEX[s.type] || '#888'}">${s.type.toUpperCase()}</span></b><small>${DESC[s.key]}</small></div><em>STAMINA ${s.sta}</em><div class="eye" title="Preview">${EYE}</div>${n >= 0 ? `<div class="ck">${n + 1}</div>` : ''}</div>`; }).join('');
     $('mpList').scrollTop = keep;
     $('mpList').querySelectorAll('.mp').forEach(el => el.onclick = e => { const i = +el.dataset.i; if (e.target.closest('.eye')) { openPreview(p, i); return; } if (sel.includes(i)) { if (sel.length > 1) sel = sel.filter(x => x !== i); } else { sel.push(i); if (sel.length > need) sel.shift(); } draw(); });
   };
   draw(); $('mpList').scrollTop = 0; pane.classList.add('on');
   $('mpBack').onclick = () => { pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); };
-  $('mpDone').onclick = () => { if (sel.length === need) loadouts[p.id] = sel; pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); };
+  $('mpDone').onclick = () => { if (sel.length === need) loadouts[p.id] = sel; pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); if (onDone) onDone(); };
 }
 // ---- move preview dialog: the eye button on a move opens a small window that runs this same game in ?preview mode (see the end of this file)
 const EYE = '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zm0 12.5a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>';
@@ -3116,8 +3221,8 @@ addEventListener('message', e => {
 });
 let screenName = 'title', themeIdx = 0;
 function showScreen(n) {
-  vsWait = false; screenName = n; state = 'menu'; cine = null; demo = demoUrl; document.body.classList.remove('watch'); $('cine').classList.remove('on'); $('msg').classList.remove('on');
-  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane', 'netPane']) $(id).classList.toggle('on', id === n);
+  aceChallenge = null; vsWait = false; screenName = n; state = 'menu'; cine = null; demo = demoUrl; document.body.classList.remove('watch'); $('cine').classList.remove('on'); $('msg').classList.remove('on');
+  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane', 'cupPane', 'netPane']) $(id).classList.toggle('on', id === n);
   $('pickPane').classList.remove('on');
   if (n === 'title') { const a = POKEDEX[Math.floor(Math.random() * POKEDEX.length)], b = POKEDEX[Math.floor(Math.random() * POKEDEX.length)]; $('tImgA').src = spriteUrl(a); $('tImgB').src = spriteUrl(b); }
   if (n === 'menu') refreshMenu();
@@ -3130,7 +3235,7 @@ const PICK_PAGE = 15; // 5 x 3 cards per page keeps the picker light: only 15 sp
 const pgNums = (c, n) => { const a = [...new Set([0, n - 1, c - 1, c, c + 1])].filter(i => i >= 0 && i < n).sort((x, y) => x - y), out = []; a.forEach((i, k) => { if (k && i - a[k - 1] > 1) out.push('\u2026'); out.push(i); }); return out; };
 function drawPicker() { // one page of 15 cards, filtered by the search text, the generation and the type chip
   const q = pickQ.trim().toLowerCase().replace(/^#/, ''), curYou = pickSlot === 'lab' ? labId : selYou, curRival = pickSlot === 'lab' || pickSlot === 'tour' ? 0 : selRival;
-  const list = POKEDEX.filter(p => (!pickGen || (p.id <= 151 ? 1 : p.id <= 251 ? 2 : 3) === +pickGen) && (!pickType || p.types.includes(pickType)) && (!q || p.name.includes(q) || nm(p.name).toLowerCase().includes(q) || String(p.id).padStart(3, '0').includes(q))).sort((a, b) => ((pickSlot === 'you' || pickSlot === 'tour') ? owns(b.id) - owns(a.id) : 0) || a.id - b.id);
+  const list = POKEDEX.filter(p => (!pickGen || (p.id <= 151 ? 1 : p.id <= 251 ? 2 : 3) === +pickGen) && (!pickType || p.types.includes(pickType)) && (pickSlot !== 'tour' || !(cupOf(tourCup) || {}).type || p.types.includes(cupOf(tourCup).type)) && (!q || p.name.includes(q) || nm(p.name).toLowerCase().includes(q) || String(p.id).padStart(3, '0').includes(q))).sort((a, b) => ((pickSlot === 'you' || pickSlot === 'tour') ? owns(b.id) - owns(a.id) : 0) || a.id - b.id);
   const pages = Math.max(1, Math.ceil(list.length / PICK_PAGE));
   if (pickPg < 0) { const at = list.findIndex(p => p.id === (pickSlot === 'rival' ? curRival : curYou)); pickPg = at < 0 ? 0 : Math.floor(at / PICK_PAGE); } // open on the page of the current pick
   pickPg = clamp(pickPg, 0, pages - 1);
@@ -3139,7 +3244,7 @@ function drawPicker() { // one page of 15 cards, filtered by the search text, th
   $('pkCount').textContent = (pickSlot === 'you' || pickSlot === 'tour') && mine ? `${list.filter(p => owns(p.id)).length} caught \u00b7 ${list.length} shown` : `${list.length} Pokémon`;
   $('pkPager').innerHTML = pages > 1 ? `<button class="pgb" data-pg="${pickPg - 1}"${pickPg === 0 ? ' disabled' : ''}>\u2039</button>` + pgNums(pickPg, pages).map(i => i === '\u2026' ? '<span class="pgd">\u2026</span>' : `<button class="pgb${i === pickPg ? ' sel' : ''}" data-pg="${i}">${i + 1}</button>`).join('') + `<button class="pgb" data-pg="${pickPg + 1}"${pickPg >= pages - 1 ? ' disabled' : ''}>\u203a</button><span id="pkPg">Page ${pickPg + 1} / ${pages}</span>` : '';
 }
-function openPicker(slot) { pickSlot = slot; if (slot !== 'lab' && slot !== 'tour') activeSlot = slot; $('pkTitle').textContent = slot === 'you' ? 'CHOOSE YOUR FIGHTER' : slot === 'tour' ? 'CHOOSE YOUR TOURNAMENT FIGHTER' : slot === 'lab' ? 'CHOOSE A POK\u00c9MON FOR THE LAB' : 'CHOOSE THE RIVAL'; $('pickPane').classList.add('on'); pickPg = -1; drawPicker(); $('pkGrid').scrollTop = 0; }
+function openPicker(slot) { pickSlot = slot; document.querySelectorAll('#pkTypes .tchip:not(.gen), #pkTypes .tsep').forEach(x => x.style.display = ''); if (slot !== 'lab' && slot !== 'tour') activeSlot = slot; $('pkTitle').textContent = slot === 'you' ? 'CHOOSE YOUR FIGHTER' : slot === 'tour' ? 'CHOOSE YOUR TOURNAMENT FIGHTER' : slot === 'lab' ? 'CHOOSE A POK\u00c9MON FOR THE LAB' : 'CHOOSE THE RIVAL'; $('pickPane').classList.add('on'); pickPg = -1; drawPicker(); $('pkGrid').scrollTop = 0; }
 function closePicker() { $('pickPane').classList.remove('on'); if (pickSlot === 'lab') refreshLab(); else { refreshMenu(); if (NETG.lobby) NETG.refresh(); } }
 function buildMenu() {
   const types18 = ['normal', 'fire', 'water', 'electric', 'grass', 'ice', 'fighting', 'poison', 'ground', 'flying', 'psychic', 'bug', 'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy'];
@@ -3157,7 +3262,7 @@ function buildMenu() {
   $('pkGrid').onclick = e => {
     const c = e.target.closest('.pk'); if (!c) return; const p = dexById(+c.dataset.id);
     if (pickSlot === 'lab') { if (labId !== p.id) { labId = p.id; labAb = 'own'; labSel = null; } closePicker(); return; }
-    if (pickSlot === 'tour') { if (!owns(p.id)) { $('pkTitle').textContent = `${nm(p.name)} is not in your collection yet`; setTimeout(() => { $('pkTitle').textContent = 'CHOOSE YOUR TOURNAMENT FIGHTER'; }, 1600); return; } closePicker(); newTournament(p.id); return; }
+    if (pickSlot === 'tour') { if (!owns(p.id)) { $('pkTitle').textContent = `${nm(p.name)} is not in your collection yet`; setTimeout(() => { $('pkTitle').textContent = 'CHOOSE YOUR TOURNAMENT FIGHTER'; }, 1600); return; } closePicker(); openMoves(p.id, () => newTournament(p.id, tourCup)); return; }
     if (pickSlot === 'you') { if (!owns(p.id)) { $('pkTitle').textContent = `${nm(p.name)} is not in your collection yet`; setTimeout(() => { $('pkTitle').textContent = 'CHOOSE YOUR FIGHTER'; }, 1600); return; } selYou = p.id; activeSlot = 'rival'; } else selRival = p.id;
     closePicker();
   };
@@ -3222,7 +3327,7 @@ function refreshLab() {
   $('labImg').src = spriteUrl(p); $('labCard').style.setProperty('--tc', TYPE_HEX[p.types[0]]);
   $('labName').innerHTML = `<small>#${String(p.id).padStart(3, '0')}</small>${nm(p.name)}`; $('labTypes').innerHTML = tags(p.types);
   $('labFixed').innerHTML = [k.melee, k.ranged, k.beam].map(m => `<div class="mi" title="${m.name}">${ico(m.icon)}</div>`).join('');
-  $('labMoves').innerHTML = k.pool.map((s, i) => `<div class="lm${labSel.includes(i) ? ' sel' : ''}" data-i="${i}"><span class="ic">${ico(s.icon)}</span><div><b>${s.name}</b><small>${DESC[s.key]}</small></div><div class="eye" title="Preview">${EYE}</div><i>${labSel.includes(i) ? labSel.indexOf(i) + 1 : ''}</i></div>`).join('');
+  $('labMoves').innerHTML = k.pool.map((s, i) => `<div class="lm${labSel.includes(i) ? ' sel' : ''}" data-i="${i}"><span class="ic">${ico(s.icon)}</span><div><b>${s.name}${s.sig ? '<span title="Signature move" style="color:#ffd34d;margin-left:5px">★</span>' : ''}</b><small>${DESC[s.key]}</small></div><div class="eye" title="Preview">${EYE}</div><i>${labSel.includes(i) ? labSel.indexOf(i) + 1 : ''}</i></div>`).join('');
   const own = abilityFor(p.types, p.id), cur = labAb === 'own' ? own : labAbility(p);
   $('labAbs').innerHTML = `<span class="chip${labAb === 'own' ? ' sel' : ''}" data-a="own">${own.name} (own)</span>` + LAB_ABILS.map(a => `<span class="chip${labAb === a.slug ? ' sel' : ''}" data-a="${a.slug}">${a.ab.name}</span>`).join('');
   const fk = Object.keys(cur).find(x => x !== 'name'); $('labAbDesc').textContent = `${cur.name}: ${FX_DESC[fk] || 'No special effect'}`;
@@ -3276,11 +3381,11 @@ function togglePause() {
   if (state === 'fight' || state === 'intro' || state === 'ko') { resumeState = state; state = 'pause'; refreshPause(); $('pause').classList.add('on'); }
 }
 // ---------------------------------------------------------------- tournament: 8 fighters in a bracket, one loss and you are out
-const TOUR_KEY = 'pf_tour', TOUR_ROUNDS = ['QUARTER-FINAL', 'SEMI-FINAL', 'FINAL'];
+const TOUR_KEY = 'pf_tour', TOUR_ROUNDS = ['QUARTER-FINAL', 'SEMI-FINAL', 'FINAL', 'GYM LEADER'];
 let tour = null, tourOn = false;
 try { const t = JSON.parse(localStorage.getItem(TOUR_KEY) || 'null'); if (t && !t.over && Array.isArray(t.ent) && t.ent.length === 8 && Array.isArray(t.win) && t.win.length === 3) tour = t; } catch (e) { }
 const tourSave = () => { try { if (tour && !tour.over) localStorage.setItem(TOUR_KEY, JSON.stringify(tour)); else localStorage.removeItem(TOUR_KEY); } catch (e) { } };
-const tourHp = () => tourOn && tour ? 1 + .06 * tour.round : 1; // later rounds are only a little tougher
+const tourHp = () => tourOn && tour ? 1 + .06 * Math.min(tour.round, 2) + (tour.round === 3 ? .15 : 0) : 1; // later rounds are only a little tougher; the gym leader's ace has extra health
 const tourEnt = r => r === 0 ? tour.ent : tour.win[r - 1];
 const tourEdge = (a, b) => Math.max(...a.types.map(t => effect(t, b.types)));
 function tourSim(ia, ib) { // computer vs computer: base stats and type matchup, with plenty of luck
@@ -3289,27 +3394,88 @@ function tourSim(ia, ib) { // computer vs computer: base stats and type matchup,
   return sc(a, b) >= sc(b, a) ? ia : ib;
 }
 function tourPlayerMatch() {
+  if (tour.round === 3) return { i: 0, opp: tour.ace };
   const e = tourEnt(tour.round);
   for (let i = 0; i < e.length; i += 2) if (e[i] === tour.you || e[i + 1] === tour.you) return { i: i / 2, opp: e[i] === tour.you ? e[i + 1] : e[i] };
   return null;
 }
-function newTournament(you) {
-  const pool = POKEDEX.map(p => p.id).filter(id => id !== you);
-  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  const ent = pool.slice(0, 7); ent.splice(Math.floor(Math.random() * 8), 0, you);
-  tour = { you, ent, win: [[0, 0, 0, 0], [0, 0], [0]], round: 0, over: null, champ: 0 }; tourOn = false; tourSave(); openTour();
+// ---- cups: one themed tournament per type with its own boss trainer and badge, plus an open cup (every Pokémon); badges are kept in localStorage
+const CUPS = [
+  ['normal', 'Plain', 'whitney', 'WHITNEY', 'I never back down from a fight!'], ['fire', 'Ember', 'blaine', 'BLAINE', 'My flames will melt your confidence!'], ['water', 'Tide', 'misty', 'MISTY', 'Let\u2019s make a splash!'],
+  ['electric', 'Volt', 'ltsurge', 'LT. SURGE', 'Get ready for a shocking defeat!'], ['grass', 'Leaf', 'erika', 'ERIKA', 'Care to battle among the flowers?'], ['ice', 'Frost', 'pryce', 'PRYCE', 'Cold experience beats hot-headed youth.'],
+  ['fighting', 'Fist', 'chuck', 'CHUCK', 'Show me your fighting spirit!'], ['poison', 'Venom', 'koga', 'KOGA', 'Never underestimate a ninja.'], ['ground', 'Quake', 'giovanni', 'GIOVANNI', 'You stand before a true master.'],
+  ['flying', 'Gale', 'falkner', 'FALKNER', 'Keep up if you can!'], ['psychic', 'Mind', 'sabrina', 'SABRINA', 'I foresaw your arrival.'], ['bug', 'Hive', 'bugsy', 'BUGSY', 'My research says I can\u2019t lose!'],
+  ['rock', 'Boulder', 'brock', 'BROCK', 'My defence is rock solid!'], ['ghost', 'Shade', 'morty', 'MORTY', 'Step into the shadows with me...'], ['dragon', 'Drake', 'clair', 'CLAIR', 'I am the best dragon master around!'],
+  ['dark', 'Dusk', 'karen', 'KAREN', 'Strong Pok\u00e9mon, weak Pok\u00e9mon \u2014 only fighting spirit matters.'], ['steel', 'Iron', 'jasmine', 'JASMINE', 'Um... I\u2019ll do my best.'], ['fairy', 'Charm', 'valerie', 'VALERIE', 'Oh, hello! Shall we dance?'],
+].map(([id, b, tr, tn, line]) => ({ id, type: id, badge: b + ' Badge', name: nm(id) + ' Cup', tr, tn, line }));
+CUPS.push({ id: 'open', type: null, badge: 'Champion Badge', name: 'Open Cup', tr: 'blue', tn: 'BLUE', line: 'I\u2019m the champion around here!' });
+const cupOf = id => CUPS.find(c => c.id === id);
+const CUP_ACE = { normal: 'miltank', fire: 'arcanine', water: 'starmie', electric: 'raichu', grass: 'vileplume', ice: 'piloswine', fighting: 'poliwrath', poison: 'crobat', ground: 'rhydon', flying: 'pidgeotto', psychic: 'alakazam', bug: 'scyther', rock: 'onix', ghost: 'gengar', dragon: 'kingdra', dark: 'houndoom', steel: 'steelix', fairy: 'clefable', open: 'pidgeot' };
+CUPS.forEach(c => { const p = POKEDEX.find(x => x.name === CUP_ACE[c.id]); c.ace = p ? p.id : 0; }); // the gym leader's ace, fought after the bracket
+const CUP_STYLE = { normal: 'counter', fire: 'berserker', water: 'zoner', electric: 'rusher', grass: 'trapper', ice: 'turtle', fighting: 'counter', poison: 'trickster', ground: 'berserker', flying: 'trickster', psychic: 'sniper', bug: 'rusher', rock: 'turtle', ghost: 'trapper', dragon: 'zoner', dark: 'berserker', steel: 'counter', fairy: 'trickster', open: 'rusher' }; // each leader's ace fights in a fixed AI style
+const STYLE_HINT = { rusher: 'charges in', zoner: 'shoots from range', trapper: 'sets traps', counter: 'guards, then counters', turtle: 'defends and heals', trickster: 'dodges and teleports', berserker: 'all-out attacks', sniper: 'long-range shots' };
+const ACH = { master: { n: 'MASTER', i: '\ud83d\udc51', d: 'Win all 18 type cups' }, flawless: { n: 'FLAWLESS', i: '\ud83d\udc8e', d: 'Win a cup in best-of-3 without losing a single round' }, underdog: { n: 'UNDERDOG', i: '\ud83d\udc23', d: 'Win a cup with one of the weakest Pok\u00e9mon' }, hard: { n: 'HARDCORE', i: '\ud83d\udd25', d: 'Win a cup on Hard' } };
+const BADGE_KEY = 'pf_badges'; let badges = { cup: {}, ach: {}, tier: {}, hof: {}, st: { runs: 0, champs: 0, streak: 0, best: 0, use: {} } }, tourCup = 'open';
+try { const b = JSON.parse(localStorage.getItem(BADGE_KEY) || 'null'); if (b && b.cup) badges = { cup: b.cup, ach: b.ach || {}, tier: b.tier || {}, hof: b.hof || {}, st: Object.assign(badges.st, b.st || {}) }; } catch (e) { }
+const badgeSave = () => { try { localStorage.setItem(BADGE_KEY, JSON.stringify(badges)); } catch (e) { } };
+const dexBst = p => p.hp + p.atk + p.def + p.spa + p.spd + p.spe;
+const CUP_SYM = { normal: '\u2b50', fire: '\ud83d\udd25', water: '\ud83d\udca7', electric: '\u26a1', grass: '\ud83c\udf43', ice: '\u2744\ufe0f', fighting: '\ud83e\udd4a', poison: '\u2620\ufe0f', ground: '\ud83c\udfdc\ufe0f', flying: '\ud83e\udd85', psychic: '\ud83d\udd2e', bug: '\ud83d\udc1b', rock: '\u26f0\ufe0f', ghost: '\ud83d\udc7b', dragon: '\ud83d\udc09', dark: '\ud83c\udf19', steel: '\u2699\ufe0f', fairy: '\u2728' };
+const medal = (c, got, tier) => `<div class="mw${got && tier ? ' t' + tier : ''}"><div class="medal${got ? '' : ' off'}" style="--c:${c.type ? TYPE_HEX[c.type] : '#ffd34d'}"><i>${c.type ? CUP_SYM[c.type] : '\ud83c\udfc6'}</i></div></div>`;
+function tourAward() { // called once when the player wins a cup: returns the names of everything newly earned
+  const cup = cupOf(tour.cup), got = []; if (!cup) return got;
+  const tier = tour.diff || 2, TN = ['', 'BRONZE', 'SILVER', 'GOLD']; let pts = Math.round(100 * [0, 1, 1.5, 2][tier]); // difficulty of the easiest fight decides the tier
+  if (!badges.cup[cup.id]) { badges.cup[cup.id] = Date.now(); got.push(cup.badge); pts += 200; }
+  const give = k => { if (!badges.ach[k]) { badges.ach[k] = 1; got.push(ACH[k].n + ' medal'); pts += k === 'master' ? 500 : 100; } };
+  if ((tour.bo || bestOf) >= 3 && !tour.dropped) give('flawless');
+  const all = POKEDEX.map(dexBst).sort((a, b) => a - b); if (dexBst(dexById(tour.you)) <= all[Math.floor(all.length * .25)]) give('underdog');
+  if (tier === 3) give('hard');
+  if (CUPS.filter(c => c.type && badges.cup[c.id]).length === CUPS.length - 1) give('master');
+  if (tier > (badges.tier[cup.id] || 0)) { if (!got.includes(cup.badge)) got.push(TN[tier] + ' rim'); badges.tier[cup.id] = tier; }
+  if (!badges.hof[cup.id] || tier >= badges.hof[cup.id].tier) badges.hof[cup.id] = { t: Date.now(), you: tour.you, tier };
+  tour.bonus = pts; try { if (window.PF && window.PF.award) window.PF.award(pts); } catch (e) { }
+  badgeSave(); return got;
+}
+function newTournament(you, cupId) {
+  const cup = cupOf(cupId) || cupOf('open'), shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const rest = shuf(POKEDEX.filter(p => p.id !== you && p.id !== cup.ace && (!cup.type || p.types.includes(cup.type))));
+  if (rest.length < 7) rest.push(...shuf(POKEDEX.filter(p => p.id !== you && p.id !== cup.ace && !rest.includes(p))));
+  const opp = rest.slice(0, 7).sort((a, b) => dexBst(a) - dexBst(b)), first = opp.splice(Math.floor(Math.random() * 3), 1)[0], pair = Math.floor(Math.random() * 4) * 2; // the quarter-final is against one of the three weakest
+  const ent = Array(8).fill(0); ent[pair] = you; ent[pair + 1] = first.id; if (Math.random() < .5) [ent[pair], ent[pair + 1]] = [ent[pair + 1], ent[pair]];
+  shuf(opp); let k = 0; for (let i = 0; i < 8; i++) if (!ent[i]) ent[i] = opp[k++].id;
+  tour = { you, ent, win: [[0, 0, 0, 0], [0, 0], [0]], round: 0, over: null, champ: 0, cup: cup.id, ace: cup.ace, dropped: 0 }; tourOn = false; tourSave(); openTour();
+}
+function tourScout(opp) { // the opponent's three specials are rolled once per round and shown on the bracket screen; the fight then uses exactly these
+  const p = dexById(opp);
+  if (!tour.scout || tour.scout.r !== tour.round || tour.scout.id !== opp) {
+    delete aiPick[opp]; specsFor(p, true); let ix = aiPick[opp] || [];
+    if (tour.round === 3 && tour.ace === opp) { const a = aceIx(p); if (a.length) ix = a; }
+    tour.scout = { r: tour.round, id: opp, ix, st: tour.round === 3 && tour.ace === opp ? CUP_STYLE[tour.cup] || VAR.pickStyle() : VAR.pickStyle() }; tourSave();
+  }
+  if (!tour.scout.st) tour.scout.st = VAR.pickStyle();
+  if (tour.scout.ix.length) aiPick[opp] = tour.scout.ix;
+  return specsFor(p, true);
+}
+const aceIx = p => { const pool = buildKit(p).pool, pw = s => (s.sig ? 1e3 : 0) + (s.pw || 0) + (s.sc || 0) / 1e3; return pool.length > 3 ? pool.map((s, i) => i).sort((a, b) => pw(pool[b]) - pw(pool[a])).slice(0, 3) : []; }; // the ace brings its strongest moves
+function bossIntro(cup, oppId, go) {
+  const b = $('bossIntro'); b.innerHTML = `<img src="assets/trainers/${cup.tr}.png" alt=""><div class="bn">${cup.tn}</div><div class="bl">\u201c${cup.line}\u201d</div><div class="bv">${nm(dexById(oppId).name).toUpperCase()} steps up!</div>`;
+  let done = false, t = 0; const fin = () => { if (done) return; done = true; clearTimeout(t); b.classList.remove('on'); go(); };
+  b.classList.add('on'); b.onclick = fin; t = setTimeout(fin, 2800);
 }
 function tourResolve(playerWon) { // record the player's match and play out everyone else; once the player is out the whole bracket is decided
+  if (tour.round === 3) { tour.over = playerWon ? 'champ' : 'out'; tour.champ = playerWon ? tour.you : tour.ace; tourSave(); return; }
   const pm = tourPlayerMatch(), simRound = r => { const en = tourEnt(r); for (let i = 0; i < en.length; i += 2) if (!tour.win[r][i / 2]) tour.win[r][i / 2] = tourSim(en[i], en[i + 1]); };
   tour.win[tour.round][pm.i] = playerWon ? tour.you : pm.opp; simRound(tour.round);
   if (!playerWon) { for (let r = tour.round + 1; r < 3; r++) simRound(r); tour.over = 'out'; tour.champ = tour.win[2][0]; }
-  else if (tour.round === 2) { tour.over = 'champ'; tour.champ = tour.you; }
+  else if (tour.round === 2 && !tour.ace) { tour.over = 'champ'; tour.champ = tour.you; }
   else { tour.round++; VAR.perkOffer(); }
   tourSave();
 }
 function tourEnd(win) { // the result is stored right away; CONTINUE only opens the bracket
-  tourResolve(win); $('againBtn').textContent = 'CONTINUE'; $('menuBtn').style.display = 'none';
-  if (tour.over === 'champ') $('overS').textContent += ' You won the tournament!'; else if (tour.over === 'out') $('overS').textContent += ' You are out of the tournament.';
+  tour.dropped = (tour.dropped || 0) + (rounds ? rounds.b : 0); tourResolve(win); $('againBtn').textContent = 'CONTINUE'; $('menuBtn').style.display = 'none';
+  if (tour.over === 'champ') { tour.earned = tourAward(); const cup = cupOf(tour.cup); $('overS').textContent += cup ? ` You won the ${cup.name}!` + (tour.earned.length ? ' Earned: ' + tour.earned.join(', ') + '.' : '') + (tour.bonus ? ` +${tour.bonus} points.` : '') : ' You won the tournament!'; } else if (tour.over === 'out') $('overS').textContent += tour.round === 3 ? ' The gym leader wins \u2014 no badge this time.' : ' You are out of the tournament.';
+  if (!tour.over) { const pm = tourPlayerMatch(); tourScout(pm.opp); $('oinfo').insertAdjacentHTML('beforeend', `<div class="onote">${TOUR_ROUNDS[tour.round - 1]} won. Next: ${TOUR_ROUNDS[tour.round]} vs ${nm(dexById(pm.opp).name)} \u00b7 Style: ${VAR.STYLES[tour.scout.st].n}.</div>`); }
+  const cp = cupOf(tour.cup); if (cp && tour.round === 3) $('overS').textContent += tour.over === 'champ' ? ` ${cp.tn}: \u201cYou\u2019ve earned it. Take the ${cp.badge}.\u201d` : ` ${cp.tn}: \u201c${cp.line}\u201d`;
+  if (tour.over) { const st = badges.st; st.runs++; st.use[tour.you] = (st.use[tour.you] || 0) + 1; if (tour.over === 'champ') { st.champs++; st.streak++; st.best = Math.max(st.best, st.streak); } else st.streak = 0; badgeSave(); }
 }
 function openTour() { showScreen('tourPane'); drawTour(); }
 function drawTour() {
@@ -3325,22 +3491,75 @@ function drawTour() {
     cells += `<div class="tbc${id === tour.you ? ' you' : ''}${lost ? ' lost' : ''}${now ? ' cur' : ''}${l === 3 && id ? ' champ' : ''}" style="left:${X[l]}px;top:${ys[l][k] - CH / 2}px;width:${CW}px;height:${CH}px">${p ? `<img src="assets/icon/${p.name}.png" alt=""><span>${nm(p.name)}</span>` : '<span class="q">?</span>'}</div>`;
   }));
   $('tbTree').innerHTML = `<svg width="960" height="326">${svg}</svg>` + cells;
+  const cup = cupOf(tour.cup); $('tbTitle').innerHTML = cup ? cup.name.toUpperCase() + (tour.ace ? `<small>GYM LEADER ${cup.tn} \u00b7 ${nameOf(tour.ace)}</small>` : '') : 'TOURNAMENT';
   if (tour.over) {
     $('tbSub').textContent = tour.over === 'champ' ? 'CHAMPION!' : 'ELIMINATED';
-    $('tbMsg').textContent = tour.over === 'champ' ? `${nameOf(tour.you)} won the tournament!` : `${nameOf(tour.you)} lost in the ${TOUR_ROUNDS[tour.round].toLowerCase()}. ${nameOf(tour.champ)} won the tournament.`;
-    $('tbGo').style.display = 'none'; $('tbNew').style.display = ''; $('tbOpt').style.display = 'none';
+    if (tour.over === 'champ' && cup) $('tbMsg').innerHTML = medal(cup, true, tour.diff || 2) + `<div><div class="l1">${nameOf(tour.you)} won the ${cup.name}!</div><div class="l2">${tour.earned && tour.earned.length ? 'Earned: ' + tour.earned.join(', ') + (tour.bonus ? ` \u00b7 +${tour.bonus} points` : '') : 'Badge already in your case'}</div></div>`;
+    if (tour.over === 'champ' && cup && !tour.celebrated) { tour.celebrated = 1; const m = $('tbMsg').querySelector('.mw'); if (m) m.classList.add('pop'); setTimeout(() => sfx('pick'), 200); setTimeout(() => sfx('chime'), 520); }
+    else $('tbMsg').textContent = tour.over === 'champ' ? `${nameOf(tour.you)} won the tournament!` : tour.round === 3 && cup ? `${nameOf(tour.you)} lost to ${cup.tn}\u2019s ${nameOf(tour.ace)}. No badge this time.` : `${nameOf(tour.you)} lost in the ${TOUR_ROUNDS[tour.round].toLowerCase()}. ${nameOf(tour.champ)} won the tournament.`;
+    $('tbGo').style.display = 'none'; $('tbMoves').style.display = 'none'; $('tbNew').style.display = ''; $('tbOpt').style.display = 'none';
   } else {
-    $('tbSub').textContent = TOUR_ROUNDS[tour.round]; $('tbMsg').textContent = `Next: ${nameOf(tour.you)} vs ${nameOf(pm.opp)}`;
-    $('tbGo').style.display = ''; $('tbNew').style.display = 'none'; $('tbOpt').style.display = ''; VAR.perkUI();
+    const opp = dexById(pm.opp), boss = !!cup && tour.round === 3, sp = tourScout(pm.opp), mine = tourEdge(dexById(tour.you), opp), theirs = tourEdge(opp, dexById(tour.you));
+    $('tbSub').textContent = TOUR_ROUNDS[tour.round];
+    $('tbMsg').innerHTML = (boss ? `<img class="trn" src="assets/trainers/${cup.tr}.png" alt="">` : `<img class="trn sm" src="assets/icon/${opp.name}.png" alt="">`) + `<div><div class="l1">${boss ? `LEADER ${cup.tn}\u2019S ACE \u00b7 ` : 'NEXT \u00b7 '}${nameOf(tour.you)} vs <b>${nameOf(pm.opp)}</b> ${tags(opp.types)} <span class="fx ${mine > theirs ? 'good' : mine < theirs ? 'bad' : ''}">You hit \u00d7${mine} \u00b7 they hit \u00d7${theirs}</span></div><div class="l2">Moves: ${sp.map(s => `<span style="color:${TYPE_HEX[s.type] || '#cdd6f4'}">${s.sig ? '\u2605 ' : ''}${s.name}</span>`).join(' \u00b7 ')} \u00b7 Style: <b>${VAR.STYLES[tour.scout.st].n}</b> (${STYLE_HINT[tour.scout.st]})</div></div>`;
+    $('tbGo').style.display = ''; $('tbMoves').style.display = ''; $('tbNew').style.display = 'none'; $('tbOpt').style.display = ''; VAR.perkUI();
   }
 }
-function refreshTourBtn() { const on = !!(tour && !tour.over); $('tTourRet').style.display = on ? 'flex' : 'none'; $('title').classList.toggle('tr', on); }
-$('tTour').onclick = () => { audio(); openPicker('tour'); };
+function refreshTourBtn() {
+  const on = !!(tour && !tour.over); $('tTourRet').style.display = on ? 'flex' : 'none'; $('title').classList.toggle('tr', on);
+  $('tTourSub').textContent = `${CUPS.filter(c => c.type && badges.cup[c.id]).length}/${CUPS.length - 1} BADGES`;
+  if (on) { const c = cupOf(tour.cup); $('tTourRetSub').textContent = `${c ? c.name : 'Tournament'} \u00b7 ${TOUR_ROUNDS[tour.round].toLowerCase()}`; }
+}
+function openCups() { showScreen('cupPane'); $('hofPane').classList.remove('on'); drawCups(); }
+const CUP_MAPS = { normal: ['champion', 'plaza', 'meadow', 'city'], fire: ['magmacrater', 'volcano'], water: ['water', 'sea', 'beach', 'palmcove', 'cliffs'], electric: ['storm', 'lab'], grass: ['forest', 'glade', 'meadow', 'ranch'], ice: ['frozenlake', 'ice'], fighting: ['stadium', 'pokeball', 'redcanyon'], poison: ['night', 'cave'], ground: ['canyon', 'desert', 'redcanyon'], flying: ['cliffs', 'stadium', 'shrine'], psychic: ['lab', 'crystalcave'], bug: ['forest', 'glade'], rock: ['cave', 'crystalcave', 'canyon'], ghost: ['ruins', 'night'], dragon: ['shrine', 'champion', 'cliffs'], dark: ['night', 'ruins'], steel: ['lab', 'city'], fairy: ['crystalcave', 'glade', 'plaza'] };
+function tourTheme(cupId = tour && tour.cup) { const ix = (CUP_MAPS[cupId] || []).map(id => THEMES.findIndex(t => t.id === id)).filter(i => i >= 0); return ix.length ? ix[Math.floor(Math.random() * ix.length)] : Math.floor(Math.random() * THEMES.length); }
+function challengeAce(cupId) { // one fight against a won cup's ace, outside any bracket
+  const c = cupOf(cupId), h = badges.hof[cupId]; if (!c || !h || !c.ace) return; audio();
+  bossIntro(c, c.ace, () => { selYou = h.you; selRival = c.ace; tourOn = false; aceChallenge = cupId; themeIdx = tourTheme(cupId); setTheme(THEMES[themeIdx]); const ix = aceIx(dexById(c.ace)); if (ix.length) aiPick[c.ace] = ix; startMatch(); });
+}
+function drawHof() {
+  const rows = CUPS.filter(c => badges.hof[c.id]), st = badges.st, fav = Object.keys(st.use).sort((a, b) => st.use[b] - st.use[a])[0];
+  $('hofGrid').innerHTML = `<div class="hofs">RUNS ${st.runs} \u00b7 CUPS WON ${st.champs} \u00b7 BEST STREAK ${st.best}${fav ? ' \u00b7 FAVOURITE ' + nm(dexById(+fav).name).toUpperCase() : ''}</div><div class="hofa">${Object.keys(ACH).map(k => `<span class="ach${badges.ach[k] ? ' got' : ''}" title="${ACH[k].d}">${ACH[k].i} ${ACH[k].n}</span>`).join('')}</div>` + (rows.length ? rows.map(c => { const h = badges.hof[c.id], p = dexById(h.you); return `<div class="hof t${h.tier}" style="--c:${c.type ? TYPE_HEX[c.type] : '#ffd34d'}"><img src="${spriteUrl(p)}" alt=""><b>${nm(p.name)}</b><small>${c.name}</small><small>${['', 'BRONZE', 'SILVER', 'GOLD'][h.tier]} \u00b7 ${new Date(h.t).toLocaleDateString()}</small><button class="chip pillb hofch" data-c="${c.id}">CHALLENGE ${nm(dexById(c.ace).name).toUpperCase()}</button></div>`; }).join('') : '<div class="hofe">No cups won yet \u2014 win a cup to enter the Hall of Fame.</div>');
+}
+$('hofGrid').onclick = e => { const b = e.target.closest('.hofch'); if (b) challengeAce(b.dataset.c); };
+$('cpHof').onclick = () => { audio(); drawHof(); $('hofPane').classList.add('on'); };
+$('hofBack').onclick = () => $('hofPane').classList.remove('on');
+function pickCup(id) { // a type cup only allows fighters of its type, so the type chips are hidden while it is open
+  audio(); tourCup = id; const cc = cupOf(id), lock = !!cc.type; if (lock) pickType = '';
+  document.querySelectorAll('#pkTypes .tchip:not(.gen)').forEach(x => x.classList.toggle('sel', x.dataset.t === pickType));
+  openPicker('tour'); document.querySelectorAll('#pkTypes .tchip:not(.gen), #pkTypes .tsep').forEach(x => x.style.display = lock ? 'none' : '');
+  if (lock) $('pkTitle').textContent = `CHOOSE YOUR ${cc.type.toUpperCase()}-TYPE FIGHTER`;
+}
+function drawCupDiff() { $('cpDiff').innerHTML = ['Easy', 'Normal', 'Hard'].filter(n => DIFF[n]).map(n => `<span class="dchip${n === selDiff ? ' sel' : ''}" data-d="${n}">${n.toUpperCase()}<small>${{ Easy: 'BRONZE', Normal: 'SILVER', Hard: 'GOLD' }[n]}</small></span>`).join(''); }
+$('cpDiff').onclick = e => { const c = e.target.closest('.dchip'); if (!c) return; audio(); selDiff = c.dataset.d; refreshMenu(); drawCupDiff(); };
+$('cpNext').onclick = () => { audio(); const left = CUPS.filter(c => c.type && !badges.cup[c.id]); cupSel = (left.length ? left[Math.floor(Math.random() * left.length)] : cupOf('open')).id; drawCups(); };
+let cupSel = null; // the cup shown in the big showcase; tapping it again (or ENTER CUP) opens the fighter picker
+function drawCups() {
+  const typed = CUPS.filter(c => c.type), cname = c => c.type ? c.type.toUpperCase() : 'OPEN';
+  $('cpCount').textContent = `BADGES ${typed.filter(c => badges.cup[c.id]).length} / ${typed.length}`;
+  if (!cupOf(cupSel)) cupSel = (typed.find(c => !badges.cup[c.id]) || cupOf('open')).id;
+  $('cpStrip').innerHTML = CUPS.map(c => `<div class="mdl${c.id === cupSel ? ' sel' : ''}" data-c="${c.id}" style="--c:${c.type ? TYPE_HEX[c.type] : '#ffd34d'}">${medal(c, badges.cup[c.id], badges.tier[c.id])}<small>${cname(c)}</small>${badges.cup[c.id] ? '' : '<i class="nw"></i>'}</div>`).join('');
+  const c = cupOf(cupSel), a = c.ace ? dexById(c.ace) : null, got = badges.cup[c.id], tier = badges.tier[c.id];
+  $('cpShow').style.setProperty('--c', c.type ? TYPE_HEX[c.type] : '#ffd34d');
+  $('cpShow').innerHTML = `<div class="scw">${c.type ? CUP_SYM[c.type] : '\ud83c\udfc6'}</div><div class="scs l"><img src="assets/trainers/${c.tr}.png" alt=""><b>${c.tn}</b><small>GYM LEADER</small></div>`
+    + `<div class="scm"><div class="scn">${c.name.toUpperCase()}</div>${medal(c, got, tier)}<div class="scst${got ? ' got' : ''}">${got ? c.badge.toUpperCase() + ' \u00b7 ' + ['', 'BRONZE', 'SILVER', 'GOLD'][tier || 0] : 'NOT YET WON'}</div><div class="schint">${c.type ? 'Only ' + c.type + '-type fighters' : 'Any Pok\u00e9mon'}. Win the bracket, then beat the ace.</div></div>`
+    + `<div class="scs r">${a ? `<img src="${spriteUrl(a)}" alt=""><b>${nm(a.name)}</b><span>${tags(a.types)}</span>` : ''}<small>THE ACE</small></div>`;
+  drawCupDiff();
+}
+$('cpStrip').onclick = e => { const m = e.target.closest('.mdl'); if (!m) return; if (m.dataset.c === cupSel) { pickCup(cupSel); return; } audio(); cupSel = m.dataset.c; drawCups(); };
+$('cpEnter').onclick = () => pickCup(cupSel);
+$('tTour').onclick = () => { audio(); openCups(); };
+$('cpBack').onclick = () => showScreen('title');
+$('tbMoves').onclick = () => { audio(); if (tour && !tour.over) openMoves(tour.you, drawTour); };
 $('tTourRet').onclick = () => { audio(); if (tour && !tour.over) openTour(); };
 $('tbBack').onclick = () => { tourOn = false; showScreen('title'); };
 $('tbOpt').onclick = () => { audio(); tour = null; tourOn = false; tourSave(); refreshTourBtn(); showScreen('title'); }; // leaving for good: the next TOURNAMENT starts a fresh bracket
-$('tbNew').onclick = () => openPicker('tour');
-$('tbGo').onclick = () => { audio(); const pm = tour && !tour.over && tourPlayerMatch(); if (!pm) return; selYou = tour.you; selRival = pm.opp; startMatch({ tour: true }); };
+$('tbNew').onclick = () => openCups();
+$('tbGo').onclick = () => {
+  audio(); const pm = tour && !tour.over && tourPlayerMatch(); if (!pm) return;
+  const go = () => { selYou = tour.you; selRival = pm.opp; themeIdx = tourTheme(); setTheme(THEMES[themeIdx]); tour.bo = Math.min(tour.bo || 9, bestOf); tour.diff = Math.min(tour.diff || 3, { Easy: 1, Normal: 2, Hard: 3 }[selDiff] || 2); tourSave(); startMatch({ tour: true }); }; // each cup fights on arenas that suit its type
+  const cup = cupOf(tour.cup); if (cup && tour.round === 3) bossIntro(cup, pm.opp, go); else go();
+};
 refreshTourBtn();
 
 // ---------------------------------------------------------------- arena cards: pick the background from a page of picture cards
@@ -3410,7 +3629,7 @@ if (q.has('preview')) {
     pv.id = id; labId = id; labSel = null; labAb = 'own'; curTheme = { id: 'plain', name: 'Plain' }; curBg = pc; props = []; bgDirty = true;
     await startMatch({ lab: true });
     curBg = pc; bgDirty = true; weather = null; rainFx = false; tod = 'day'; updateTint(); introT = 1.85; const valid = pvSet(mv, move); pv.next = now + .6; pv.was = false;
-    const k = P.kit; if (window.parent !== window) window.parent.postMessage({ pf: 'pool', id, name: P.p.name, pool: k.pool.map((s, i) => ({ i, name: s.name, type: s.type, key: s.key, sta: s.sta, desc: DESC[s.key] || '' })), fixed: [k.melee, k.ranged, k.beam].map((m, i) => ({ mv: ['melee', 'ranged', 'beam'][i], name: m.name, type: m.type })) }, '*');
+    const k = P.kit; if (window.parent !== window) window.parent.postMessage({ pf: 'pool', id, name: P.p.name, pool: k.pool.map((s, i) => ({ i, name: s.name, type: s.type, key: s.key, sta: s.sta, sig: !!s.sig, desc: DESC[s.key] || '' })), fixed: [k.melee, k.ranged, k.beam].map((m, i) => ({ mv: ['melee', 'ranged', 'beam'][i], name: m.name, type: m.type })) }, '*');
     if (!valid) pvPost({ pf: 'error' });
   }
   window.playerInput = () => {

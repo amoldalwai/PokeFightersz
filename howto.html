@@ -156,7 +156,7 @@ const pulse=(t,hs,kb,dir=1,d=.45)=>{let dx=0,pose=null;for(const h of hs){const 
 const sp=(t,x,y,col,s)=>({k:'spark',t0:t,x,y,col,s}),pp=(t,s,x,y,col,size,d)=>({t0:t,s,x,y:y+40,col,size,d});
 const HY=GY-55;
 // ---------- lessons
-const MODES=[['sword-cross','BATTLE','g','Pick you and the rival, choose the arena and the difficulty (Easy, Normal, Hard), then fight.'],['dice-5','QUICK FIGHT','','A random match-up, straight into the fight.'],['trophy','TOURNAMENT','g','An 8-fighter bracket: quarter-final, semi-final, final. Progress is saved.'],['target','PRACTICE','','Train on a dummy. Set it to idle, guard, or fight back.'],['atom','MOVE LAB','','Infinite stamina and KI. Test your three specials freely.'],['eye-outline','WATCH AI FIGHT','','Sit back and watch two computer fighters battle.'],['cog','SETTINGS','d','Touch or keyboard controls, sprite style, match length and sound.']];
+const MODES=[['sword-cross','BATTLE','g','Pick you and the rival, choose the arena and the difficulty (Easy, Normal, Hard), then fight.'],['dice-5','QUICK FIGHT','','A random match-up, straight into the fight.'],['trophy','TOURNAMENT','g','An 8-fighter bracket: pick a type cup, beat the bracket and its boss trainer in the final to earn a badge. Progress is saved.'],['target','PRACTICE','','Train on a dummy. Set it to idle, guard, or fight back.'],['atom','MOVE LAB','','Infinite stamina and KI. Test your three specials freely.'],['eye-outline','WATCH AI FIGHT','','Sit back and watch two computer fighters battle.'],['cog','SETTINGS','d','Touch or keyboard controls, sprite style, match length and sound.']];
 const CH=[['BASICS','#5b7cff'],['ATTACKS','#ff7a3a'],['DEFENCE','#3fd0ff'],['SYSTEMS','#43f08a'],['MASTERY','#ffd34d']];
 const STEPS=[
 {id:'goal',ch:0,ic:'trophy',name:'Win the round',lead:"Empty the rival's HP bar before the timer runs out.",
@@ -205,7 +205,7 @@ const STEPS=[
  pops:[pp(.55,'-14',500,200,'#fff',30),pp(1.0,'-9',520,170,'#fff',26),pp(1.35,'-6',540,150,'#fff',22),pp(1.7,'-4',560,140,'#fff',18),pp(1.9,'JUGGLE x3',430,120,'#ffd34d',30,1.2)],
  press:[[.5,'tackle'],[.78,'up'],[.95,'tackle'],[1.3,'tackle'],[1.65,'tackle']],caps:[[0,.9,'Launch them ...'],[.9,2.4,'... then keep hitting. Each hit does a little less damage']]},
 {id:'ranged',ch:1,ic:'leaf',name:'Ranged shot',lead:'Attack from a distance.',
- tips:['Tap <b>RANGED</b> to fire a projectile across the arena.','Each shot costs <b>stamina</b> and has a short <b>cooldown</b> (the ring on the button).','A rival can dodge a shot by changing lanes, so mix it up.'],
+ tips:['Tap <b>RANGED</b> to fire a projectile across the arena.','Each shot costs <b>stamina</b> and has a short <b>cooldown</b> (the ring on the button).','A rival can dodge a shot by changing lanes, so mix it up.','Every move has a <b>maximum range</b>: shots and beams fizzle out if the foe is too far away, so close in first.'],
  pro:'Good for forcing the rival to come to you.',hi:['leaf'],len:4.8,
  a:t=>({x:170,pose:ST(t,[[0,'idle'],[.45,'atk'],[.85,'idle'],[2.2,'atk'],[2.6,'idle']])}),
  b:t=>{const r=pulse(t,[1.1,2.75],18);return{x:600+r.dx,pose:r.pose};},
@@ -275,7 +275,7 @@ const STEPS=[
  pops:[pp(.9,'-10',500,180,'#fff',24),pp(2.7,'-22',500,170,'#ffd34d',40,1.2),pp(2.7,'SUPER EFFECTIVE!',500,125,'#ffd34d',20,1.2),pp(4.5,'-2',500,180,'#aab7d8',16),pp(4.5,'NOT VERY EFFECTIVE',500,145,'#aab7d8',16,1.2)],
  press:[[.8,'tackle'],[2.6,'tackle'],[4.4,'tackle']],caps:[[0,1.9,'A normal hit'],[1.9,3.7,'Super effective: double damage'],[3.7,6,'Resisted: much less damage']]},
 {id:'pickups',ch:3,ic:'heart-plus',name:'Pickups',lead:'Items appear in the arena. Walk over them.',
- tips:['<b>Berry</b>: restores 15% HP.','<b>Orb</b>: restores 45 stamina and 25 KI.','Grabbing one mid-fight can swing the round, but do not leave your guard down.'],
+ tips:['<b>Berry</b>: restores 15% HP. <b>Orb</b>: restores 45 stamina and 25 KI.','<b>Shield</b>, <b>Power Up</b>, <b>Cure</b>, <b>Speed Boots</b>, <b>Time Warp</b> (resets cooldowns), <b>Frost</b> (slows your rival) and <b>Magnet</b> (pulls pickups to you) help whoever takes them.','The red-ringed <b>Bomb</b> is a trap: it blows up for 9% HP, so jump over it or lure your rival into it.','Grabbing one mid-fight can swing the round, but do not leave your guard down.'],
  pro:'Watch for them while the rival is stunned or knocked down.',hi:['joy'],len:4.6,
  a:t=>({x:L(t,[[0,150],[1.2,300],[1.5,300],[2.6,460],[4.6,460]])}),b:()=>({x:620}),
  hud:t=>({a:L(t,[[0,.55],[1.25,.55],[1.35,.7]]),st:L(t,[[0,.2],[2.6,.2],[2.7,.65]]),ki:L(t,[[0,.1],[2.6,.1],[2.7,.35]]),hl:t<1.9?'hp':'st'}),

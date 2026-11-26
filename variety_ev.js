@@ -9,12 +9,20 @@
     overdrive: { n: 'OVERDRIVE', s: 'Ki floods in, no melee', ic: 'flash', c: '#ffe54a', dur: 8 },
     blackout: { n: 'BLACKOUT', s: 'Lights out', ic: 'weather-night', c: '#93a1d8', dur: 6 },
     lowgrav: { n: 'LOW GRAVITY', s: 'Jumps float higher', ic: 'rocket-launch', c: '#7dd8ff', dur: 5 },
+    typestorm: { n: 'TYPE STORM', s: 'One type hits harder', ic: 'weather-lightning', c: '#ffb347', dur: 9 },
+    glass: { n: 'GLASS HOUR', s: 'Everyone deals 50% more damage', ic: 'diamond-stone', c: '#ff7a7a', dur: 8 },
+    frenzy: { n: 'COOLDOWN FRENZY', s: 'Cooldowns recover 3x as fast', ic: 'lightning-bolt', c: '#ffd34d', dur: 8 },
+    mud: { n: 'MUD FLATS', s: 'Everyone moves slower', ic: 'terrain', c: '#b58a5a', dur: 8 },
+    underdog: { n: 'UNDERDOG BOOST', s: 'Less health, more damage', ic: 'heart-flash', c: '#7dff9a', dur: 9 },
+    exhaust: { n: 'EXHAUSTION', s: 'Stamina barely recovers', ic: 'sleep', c: '#9aa7ff', dur: 8 },
+    showdown: { n: 'SPECIALS SHOWDOWN', s: 'No melee, specials hit harder', ic: 'creation', c: '#c58bff', dur: 8 },
+    springs: { n: 'HEALING SPRINGS', s: 'Stand in the glow to heal', ic: 'heart-plus', c: '#5affc0', dur: 10 },
   };
   const BN = {
     rock: { n: 'ROCK SLIDE', s: 'Stay out of the red rings', ic: 'landslide', c: '#e0a560' }, bolt: { n: 'LIGHTNING STRIKE', s: 'Bolts are coming down', ic: 'weather-lightning', c: '#ffe54a' },
     hazard: { n: 'HAZARD WAVE', s: 'Three strikes incoming', ic: 'flash-alert', c: '#ff6a4a' }, crowd: { n: 'THE CROWD ROARS', s: 'Both fighters get a boost', ic: 'volume-high', c: '#ffd34d' },
   };
-  const KEYS = Object.keys(EV), T = { next: 35, last: '', ln: 0, sec: -1, bt: 0, br: [0, 0] };
+  const KEYS = Object.keys(EV), T = { next: 24, last: '', hist: [], ln: 0, sec: -1, bt: 0, br: [0, 0] };
 
   const style = document.createElement('style');
   style.textContent = '#evBanner{position:absolute;left:50%;top:148px;transform:translate(-50%,-14px) scale(.92);opacity:0;display:flex;align-items:center;gap:12px;padding:6px 22px 6px 8px;border-radius:40px;background:linear-gradient(90deg,rgba(6,10,28,.94),rgba(22,30,66,.9));border:2px solid var(--c);box-shadow:0 0 26px color-mix(in srgb,var(--c) 55%,transparent),0 6px 16px rgba(0,0,0,.5);pointer-events:none;z-index:30;transition:opacity .25s,transform .35s cubic-bezier(.2,1.5,.4,1);white-space:nowrap}'
@@ -40,21 +48,42 @@
   };
   V.banner = k => { const b = BN[k] || EV[k]; if (b) V.bannerX(b.n, b.s, b.ic, b.c); };
 
-  const lockKeys = { brawl: ['leaf', 'vine', 'special2', 'special3', 'beam'], overdrive: ['tackle', 'grab'] };
+  const lockKeys = { brawl: ['leaf', 'vine', 'special2', 'special3', 'beam'], overdrive: ['tackle', 'grab'], showdown: ['tackle', 'grab'] };
   const setLocks = k => { document.querySelectorAll('.btn.evlock').forEach(b => b.classList.remove('evlock')); if (k && lockKeys[k]) for (const d of lockKeys[k]) document.querySelectorAll('.btn[data-k="' + d + '"]').forEach(b => b.classList.add('evlock')); };
 
   V.locked = (f, name) => {
     const k = S.ev && S.ev.key; if (!k) return false;
-    const bad = k === 'brawl' ? (name === 'ranged' || name === 'beam' || name.startsWith('special')) : k === 'overdrive' ? (name === 'melee' || name === 'grab') : false;
+    const bad = k === 'brawl' ? (name === 'ranged' || name === 'beam' || name.startsWith('special')) : (k === 'overdrive' || k === 'showdown') ? (name === 'melee' || name === 'grab') : false;
     if (bad && f === meF() && now - (f.lockAt || -9) > .7) { f.lockAt = now; floatText(f.x, V.top(f) - 20, 'LOCKED', '#ff8a6a', 20); }
     return bad;
   };
 
   function startEv(k) {
-    const d = EV[k]; S.ev = { key: k, t: 0, dur: d.dur }; V.banner(k); sfx('charge'); T.sec = -1; T.ln = 0;
+    let d = EV[k], ty = null;
+    if (k === 'typestorm') { const ts = Object.keys(TYPE_HEX); ty = ts[Math.min(ts.length - 1, Math.floor(rnd(0, ts.length)))]; d = Object.assign({}, d, { n: ty.toUpperCase() + ' STORM', s: nm(ty) + ' moves hit 40% harder', c: TYPE_HEX[ty] }); } // the storm's type is rolled with the fight's own random numbers
+    S.ev = { key: k, t: 0, dur: d.dur, ty }; V.bannerX(d.n, d.s, d.ic, d.c); sfx('charge'); T.sec = -1; T.ln = 0;
     if (k === 'zerog') for (const f of [P, E]) if (!f.dead) f.vz = Math.max(f.vz, 320);
     if (k === 'lowgrav') S.lowG = d.dur;
+    if (k === 'springs') spawnSprings(d.dur);
     setLocks(k); chip.style.setProperty('--c', d.c); chip.innerHTML = `${ico(d.ic)}<span>${d.n}</span><b></b><i></i>`;
+  }
+  function spawnSprings(dur) { // a glowing patch between the fighters that heals whoever stands in it
+    const x = clamp((P.x + E.x) / 2, WALL_L + 220, WALL_R - 220);
+    V.spawn({
+      x, r: 130, life: dur + .6, springs: true,
+      upd(e, dt) { for (const f of [P, E]) if (!f.dead && f.z < 50 && Math.abs(f.x - e.x) < e.r) { f.hp = Math.min(f.maxhp, f.hp + f.maxhp * .04 * dt); if (now - (f.spAt || -9) > 1.2) { f.spAt = now; floatText(f.x, V.top(f) - 24, 'SPRINGS +HP', '#5affc0', 20); } } },
+      draw(g, e) {
+        const a = Math.max(0, Math.min(1, e.t / .5, (e.life - e.t) / .6)), y = GROUND + (laneY(P) + laneY(E)) / 2 - 12, r = e.r, pulse = (e.t * .9) % 1;
+        g.globalAlpha = a; g.globalCompositeOperation = 'lighter';
+        const bm = g.createLinearGradient(0, y, 0, y - 190); bm.addColorStop(0, 'rgba(90,255,192,.35)'); bm.addColorStop(1, 'rgba(90,255,192,0)'); g.fillStyle = bm; g.fillRect(e.x - r * .8, y - 190, r * 1.6, 190); // light column
+        const gr = g.createRadialGradient(e.x, y, 6, e.x, y, r); gr.addColorStop(0, 'rgba(90,255,192,.7)'); gr.addColorStop(1, 'rgba(90,255,192,0)');
+        g.fillStyle = gr; g.beginPath(); g.ellipse(e.x, y, r, r * .3, 0, 0, 6.283); g.fill();
+        g.strokeStyle = `rgba(160,255,220,${.8 * (1 - pulse)})`; g.lineWidth = 3; g.beginPath(); g.ellipse(e.x, y, r * (.4 + .6 * pulse), r * .3 * (.4 + .6 * pulse), 0, 0, 6.283); g.stroke();
+        g.strokeStyle = 'rgba(160,255,220,.9)'; g.lineWidth = 3; g.beginPath(); g.ellipse(e.x, y, r, r * .3, 0, 0, 6.283); g.stroke();
+        g.lineWidth = 3; g.lineCap = 'round';
+        for (let i = 0; i < 7; i++) { const ph = (e.t * .6 + i / 7) % 1, mx = e.x + Math.sin(i * 2.4 + e.t) * r * .7, my = y - 10 - ph * 150, s = 6 * (1 - ph * .4); g.strokeStyle = `rgba(210,255,235,${.9 * (1 - ph)})`; g.beginPath(); g.moveTo(mx - s, my); g.lineTo(mx + s, my); g.moveTo(mx, my - s); g.lineTo(mx, my + s); g.stroke(); } // rising plus signs
+      },
+    });
   }
   function endEv() { S.ev = null; setLocks(null); edge.className = ''; }
   V.forceEv = k => { if (EV[k]) startEv(k); };
@@ -65,6 +94,9 @@
     if (k === 'brawl') for (const f of [P, E]) f.sta = Math.min(100, f.sta + 12 * dt);
     if (k === 'lanes') { T.ln -= dt; if (T.ln <= 0) { T.ln = 2; for (const f of [P, E]) if (!f.dead) { f.lane = Math.floor(Math.random() * 3) - 1; f.laneCool = 0; } } }
     if (k === 'overdrive') for (const f of [P, E]) { f.ki = Math.min(100, f.ki + 45 * dt); for (const c in f.cool) f.cool[c] = Math.max(0, f.cool[c] - dt * 5); }
+    if (k === 'frenzy') for (const f of [P, E]) { for (const c in f.cool) f.cool[c] = Math.max(0, f.cool[c] - dt * 2); f.dashCool = Math.max(0, f.dashCool - dt * 2); }
+    if (k === 'exhaust' && Math.floor(S.ev.t * 2) % 2 === 0) for (const f of [P, E]) f.staDelay = Math.max(f.staDelay, .3); // stamina only recovers every other half second
+    if (k === 'underdog') for (const f of [P, E]) { const o = f === P ? E : P; if (!f.dead && f.hp / f.maxhp < o.hp / o.maxhp - .05) { f.sta = Math.min(100, f.sta + 10 * dt); if (now - (f.udAt || -9) > .5) { f.udAt = now; spark(f.x, V.top(f) + 10, '#7dff9a', 3, 120); } } }
   }
 
   const _ew = V.extraWorld;
@@ -77,11 +109,11 @@
       const bar = chip.querySelector('i'); if (bar) bar.style.width = (100 * (1 - S.ev.t / S.ev.dur)) + '%';
     } else {
       T.next -= dt;
-      if (T.next <= 0 && !(S.lowG > 0)) { const o = KEYS.filter(k => k !== T.last), k = o[Math.floor(Math.random() * o.length)]; T.last = k; T.next = S.rule === 'chaos' ? rnd(14, 20) : rnd(40, 60); startEv(k); }
+      if (T.next <= 0 && !(S.lowG > 0)) { const o = KEYS.filter(k => !T.hist.includes(k)), k = o[Math.floor(Math.random() * o.length)]; T.last = k; T.hist = [...T.hist, k].slice(-3); T.next = S.rule === 'chaos' ? rnd(14, 20) : rnd(30, 45); startEv(k); }
     }
   };
   const _mr = V.moveResetWx;
-  V.moveResetWx = () => { _mr(); endEv(); T.next = S.rule === 'chaos' ? rnd(10, 14) : rnd(28, 42); };
+  V.moveResetWx = () => { _mr(); endEv(); T.last = null; T.hist = []; T.next = S.rule === 'chaos' ? rnd(10, 14) : rnd(20, 30); };
 
   // the overlay and chip follow the sim state; nothing here changes it
   V.extraDraw = () => {

@@ -28,14 +28,14 @@ const VAR = (() => {
     tricky: new Set(['teleport', 'decoy', 'dig', 'pushpull', 'mark', 'boomer', 'debuff']),
   };
   const STYLES = {
-    rusher: { n: 'RUSHER', w: { approach: 3, dash: 2.5, melee: 2.2, guard: .3, retreat: .15, ranged: .4, rest: .5 }, sp: { contact: 2 } },
-    zoner: { n: 'ZONER', w: { ranged: 3, retreat: 3, approach: .25, melee: .4, dash: .5, guard: .8 }, sp: { proj: 3 }, keep: 360 },
-    trapper: { n: 'TRAPPER', w: { retreat: 1.8, sidestep: .5, approach: .6, ranged: .6 }, sp: { trap: 3.5 }, keep: 280 },
-    counter: { n: 'COUNTER', w: { guard: 3.5, grab: 2.2, approach: .3, melee: 1.6, dash: .4 }, sp: { counter: 4 } },
-    turtle: { n: 'TURTLE', w: { guard: 4.5, rest: 3, retreat: 1.8, approach: .3, melee: .5, ranged: 1.2 }, sp: { def: 3.5 } },
-    trickster: { n: 'TRICKSTER', w: { sidestep: 4, align: 2, dash: 3, jump: 3, guard: .4, melee: .8 }, sp: { tricky: 3 } },
-    berserker: { n: 'BERSERKER', w: { melee: 3, guard: .1, approach: 2.8, retreat: .1, rest: .2, ranged: .3 }, sp: { contact: 1.8 }, dmg: 1.1, take: 1.1 },
-    sniper: { n: 'SNIPER', w: { ranged: 2.6, retreat: 2.6, approach: .3, melee: .4, guard: .8 }, sp: { proj: 2.6 }, keep: 420 },
+    rusher: { n: 'RUSHER', w: { approach: 3, dash: 2.5, melee: 2.2, guard: .3, retreat: .15, ranged: .4, rest: .5 }, sp: { contact: 2 }, pref: [60, 170], agg: .9 },
+    zoner: { n: 'ZONER', w: { ranged: 3, retreat: 3, approach: .25, melee: .4, dash: .5, guard: .8 }, sp: { proj: 3 }, pref: [340, 480], agg: 0 },
+    trapper: { n: 'TRAPPER', w: { retreat: 1.8, sidestep: .5, approach: .6, ranged: .6 }, sp: { trap: 3.5 }, pref: [260, 420], agg: 0 },
+    counter: { n: 'COUNTER', w: { guard: 3.5, grab: 2.2, approach: .3, melee: 1.6, dash: .4 }, sp: { counter: 4 }, pref: [140, 280], agg: .2 },
+    turtle: { n: 'TURTLE', w: { guard: 4.5, rest: 3, retreat: 1.8, approach: .3, melee: .5, ranged: 1.2 }, sp: { def: 3.5 }, pref: [200, 330], agg: -.3 },
+    trickster: { n: 'TRICKSTER', w: { sidestep: 4, align: 2, dash: 3, jump: 3, guard: .4, melee: .8 }, sp: { tricky: 3 }, pref: [120, 320], agg: .4 },
+    berserker: { n: 'BERSERKER', w: { melee: 3, guard: .1, approach: 2.8, retreat: .1, rest: .2, ranged: .3 }, sp: { contact: 1.8 }, pref: [40, 150], agg: 1, dmg: 1.1, take: 1.1 },
+    sniper: { n: 'SNIPER', w: { ranged: 2.6, retreat: 2.6, approach: .3, melee: .4, guard: .8 }, sp: { proj: 2.6 }, pref: [420, 520], agg: 0 },
   };
   const STYLE_IDS = Object.keys(STYLES);
   const RULES = { glass: { n: 'GLASS CANNON', d: 'everyone deals 40% more damage' }, lowgrav: { n: 'MOON ARENA', d: 'low gravity all fight' }, chaos: { n: 'STORM CHASER', d: 'weather and hazards every few seconds' }, berries: { n: 'BERRY RAIN', d: 'a pickup drops every 6 seconds' }, rush: { n: 'OVERCLOCK', d: 'cooldowns recover twice as fast' } };
@@ -68,6 +68,7 @@ const VAR = (() => {
     if (k === v.lastKey && now - v.lastAt < 4.5) v.rep++; else v.rep = 1;
     v.lastKey = k; v.lastAt = now; v.hist.push({ k, t: now });
     const cat = a.name === 'melee' || a.name === 'grab' ? 'melee' : a.name === 'ranged' ? 'ranged' : 'special'; v.cat[cat]++;
+    if (state === 'fight') { const mc = stats.mc || (stats.mc = { P: { melee: 0, ranged: 0, special: 0 }, E: { melee: 0, ranged: 0, special: 0 } }), mine = f === meF(); mc[mine ? 'P' : 'E'][cat]++; if (mine) { const mv = stats.mv || (stats.mv = {}); mv[k] = (mv[k] || 0) + 1; } } // totals for the result screen
     if (f.vr.rep >= 2 && f.vr.rep <= 4 && !f.hazard && state === 'fight' && now - v.staleAt > .8) { v.staleAt = now; floatText(f.x, top(f) - 24, v.rep >= 4 ? 'STALE -45%' : v.rep === 3 ? 'STALE -30%' : 'STALE -15%', '#ff9a7a', 18); }
     while (v.hist.length && now - v.hist[0].t > 7) v.hist.shift();
     const set = new Set(v.hist.map(h => h.k)); // four different attacks in 7 s earns a damage bonus
@@ -96,6 +97,11 @@ const VAR = (() => {
     if (hasPerk(att, 'brawler') && att.act && att.act.name === 'melee') m *= 1.12;
     if (hasPerk(att, 'sniper') && (!att.act || att.act.name !== 'melee')) m *= 1.08;
     if (S.rule === 'glass') m *= 1.4;
+    const ev = S.ev && S.ev.key; // timed arena events
+    if (ev === 'glass') m *= 1.5;
+    else if (ev === 'typestorm' && ty === S.ev.ty) m *= 1.4;
+    else if (ev === 'showdown' && (!att.act || (att.act.name !== 'melee' && att.act.name !== 'grab'))) m *= 1.3;
+    else if (ev === 'underdog' && att.hp / att.maxhp < def.hp / def.maxhp - .05) m *= 1.3;
     if (hasPerk(def, 'thick')) m *= .92;
     if (hasPerk(def, 'lucky') && Math.random() < .08) m *= .5;
     return m;
@@ -121,7 +127,7 @@ const VAR = (() => {
       floatText(def.x, top(def) - 58, 'WEAKNESS BREAK!', '#ff6a8a', 26); spark(def.x, center(def).y, '#ff6a8a', 14);
     }
     if (ty) { const c = av.combo; if (c && c[4] && now - av.comboAt < .1) applyStatus(def, c[4], false, att); av.combo = null; av.lastTy = ty; av.lastTyAt = now; }
-    if (offline() && att === P && av.lastKey) { const k = av.lastKey, n = S.mastery[k] = (S.mastery[k] || 0) + 1; if (mLv(n) !== mLv(n - 1)) { floatText(att.x, top(att) - 50, 'MASTERY LV ' + mLv(n), '#ffe27a', 22); saveMastery(); } else if (n % 10 === 0) saveMastery(); }
+    if (offline() && att === P && av.lastKey) { const k = av.lastKey, n = S.mastery[k] = (S.mastery[k] || 0) + 1; if (mLv(n) !== mLv(n - 1)) { floatText(att.x, top(att) - 50, 'MASTERY LV ' + mLv(n), '#ffe27a', 22); (stats.lv || (stats.lv = [])).push([k, mLv(n)]); saveMastery(); } else if (n % 10 === 0) saveMastery(); }
   }
 
   // an orbiting orb (see moves) soaks a whole hit
@@ -134,7 +140,7 @@ const VAR = (() => {
   function fighterTick(f, dt) {
     const v = vr(f);
     if (f.dead) return;
-    v.bonusT = Math.max(0, v.bonusT - dt); v.aura = Math.max(0, v.aura - dt); v.regenT = Math.max(0, v.regenT - dt);
+    v.bonusT = Math.max(0, v.bonusT - dt); v.aura = Math.max(0, v.aura - dt); v.regenT = Math.max(0, v.regenT - dt); v.magT = Math.max(0, (v.magT || 0) - dt); v.bootT = Math.max(0, (v.bootT || 0) - dt);
     if (v.regenT > 0) f.sta = Math.min(100, f.sta + 12 * dt);
     if (S.rule === 'rush') for (const k in f.cool) f.cool[k] = Math.max(0, f.cool[k] - dt);
     while (v.hist.length && now - v.hist[0].t > 7) v.hist.shift();
@@ -147,7 +153,7 @@ const VAR = (() => {
       if (ph > v.phase) {
         v.phase = ph; spark(f.x, center(f).y, ph === 3 ? '#ff5a3a' : '#ffb347', 20); sfx('boom'); shake = Math.max(shake, 10);
         floatText(f.x, top(f) - 46, ph === 3 ? 'RAGE!' : 'PHASE 2', ph === 3 ? '#ff5a3a' : '#ffb347', 30);
-        if (ph === 3 && S.style && S.style[f.side] === 'counter') { S.style[f.side] = 'berserker'; tag(); }
+        if (ph === 3 && S.style && S.style[f.side] === 'counter' && !S.lockStyle) { S.style[f.side] = 'berserker'; tag(); }
       }
       if (v.phase > 1) for (const k in f.cool) f.cool[k] = Math.max(0, f.cool[k] - dt * .16 * (v.phase - 1));
     }
@@ -159,26 +165,36 @@ const VAR = (() => {
     const el = document.querySelector('#nameB small'); if (!el || !E) return;
     const st = STYLES[S.style && S.style[E.side]], txt = (E.ability && E.ability.name || '') + (st ? ' \u00b7 ' + st.n : ''); if (el.textContent !== txt) el.textContent = txt;
   }
+  const pickStyle = () => { const pool = selDiff === 'Easy' ? ['rusher', 'zoner', 'turtle', 'counter'] : STYLE_IDS; return pool[Math.floor(Math.random() * pool.length)]; }; // Easy never meets the tricky styles
   function aiOpts(f, o, opts) {
     if (!aiOn() || !f.isAI) return;
     if (!S.style) S.style = {};
-    if (!S.style[f.side]) { S.style[f.side] = STYLE_IDS[Math.floor(Math.random() * STYLE_IDS.length)]; floatText(f.x, top(f) - 30, STYLES[S.style[f.side]].n + ' STYLE', '#ffd0a0', 20); }
+    if (!S.style[f.side]) { S.style[f.side] = S.fixedStyle || pickStyle(); floatText(f.x, top(f) - 30, STYLES[S.style[f.side]].n + ' STYLE', '#ffd0a0', 20); }
     if (practice && S.forceStyle) S.style[f.side] = S.forceStyle;
     const st = STYLES[S.style[f.side]]; if (!st) return; tag();
-    const dd = Math.abs(o.x - f.x), evk = S.ev && S.ev.key;
+    const dd = Math.abs(o.x - f.x), evk = S.ev && S.ev.key, spg = evk === 'springs' && S.ents.find(e => e.springs);
+    const wallD = o.x > f.x ? f.x - WALL_L : WALL_R - f.x, band = dd > st.pref[1] ? 1 : dd < st.pref[0] ? -1 : 0, ag = st.agg || 0; // wallD: room left behind the AI; band: too far (1), too close (-1) or in its preferred range (0)
     for (const x of opts) {
       const nm = x[0]; let m = st.w[nm] || 1;
+      if (spg && f.hp < f.maxhp * .9 && Math.abs(f.x - spg.x) < spg.r * .8 && (nm === 'approach' || nm === 'retreat')) m *= .3; // hurt and standing in the springs: stay and heal
+      if (nm === 'approach') m = (band > 0 ? 2.4 : band < 0 ? .2 : .55) * (1 + ag); // every style steers toward its own preferred range
+      else if (nm === 'retreat') m = (band < 0 ? 2.4 : band > 0 ? .15 : .5) * (1 - .6 * ag);
+      if (wallD < 260 && nm === 'retreat') m *= .1; if (wallD < 260 && (nm === 'sidestep' || nm === 'jump' || nm === 'guard')) m *= 1.6; // cornered: do not keep backing into the wall
       if (evk === 'brawl' && (nm === 'ranged' || nm === 'special' || nm === 'special2' || nm === 'special3')) m = 0; // locked moves are not worth rolling
-      if (evk === 'overdrive') m *= nm === 'melee' || nm === 'grab' ? 0 : nm === 'ranged' || nm.startsWith('special') ? 3 : 1;
-      if (st.keep && nm === 'retreat' && dd < st.keep) m *= 2; // ranged styles back away when you get close
+      if (evk === 'overdrive' || evk === 'showdown') m *= nm === 'melee' || nm === 'grab' ? 0 : nm === 'ranged' || nm.startsWith('special') ? 3 : 1;
+      if (nm === 'melee' && o.hitT > 0) m *= 1.3; // you are staggered: press the attack
       const i = nm === 'special' ? 0 : nm === 'special2' ? 1 : nm === 'special3' ? 2 : -1;
-      if (i >= 0 && f.specs[i]) { const key = f.specs[i].key; for (const g in st.sp) if (K[g] && K[g].has(key)) m *= st.sp[g]; }
-      if (nm === 'ranged' && st.sp.proj) m *= 1;
+      if (i >= 0 && f.specs[i]) {
+        const key = f.specs[i].key; for (const g in st.sp) if (K[g] && K[g].has(key)) m *= st.sp[g];
+        if (f.hp < f.maxhp * .4 && K.def.has(key)) m *= 2.5; // hurt: heal, shield or buff
+        else if (o.hp < o.maxhp * .3 && (K.proj.has(key) || K.contact.has(key))) m *= 1.6; // you are low: go for the finish
+        if (o.hitT > 0 && K.contact.has(key)) m *= 1.4;
+      }
       x[1] *= m;
     }
   }
   function roundAdapt(oP, oE) { // the AI studies how it lost the last round and changes its style
-    if (!aiOn() || !oP || !oP.vr || !S.style) return;
+    if (!aiOn() || !oP || !oP.vr || !S.style || S.lockStyle || selDiff === 'Easy') return;
     const c = oP.vr.cat, t = c.melee + c.ranged + c.special; if (t < 4) return;
     const old = S.style[E.side]; let ns = old;
     const pickOf = l => { const r = l.filter(x => x !== old); return r[Math.floor(Math.random() * r.length)]; };
@@ -187,44 +203,85 @@ const VAR = (() => {
   }
 
   // ---- arena events and repeating pickups
-  const PK = [['berry', 3], ['orb', 3], ['shield', 2], ['power', 2], ['cure', 1.5], ['crate', 1.5]];
+  const PK = [['berry', 3], ['orb', 3], ['shield', 2], ['power', 2], ['cure', 1.5], ['crate', 1.5], ['magnet', 1.2], ['bomb', 1.4], ['boots', 1.6], ['clock', 1.2], ['frost', 1.2]];
+  const PICK = { // what each pickup is called and does: written under it on the field and shown over the fighter that takes it
+    berry: { n: 'BERRY', e: '+15% health', c: '#ff5a6a' }, orb: { n: 'ENERGY ORB', e: '+45 stamina, +25 ki', c: '#5ad6ff' }, shield: { n: 'SHIELD', e: 'Half damage for 6 s', c: '#8cc8ff' },
+    power: { n: 'POWER UP', e: '+25% damage for 8 s', c: '#ff9a3a' }, cure: { n: 'CURE', e: 'Clears status, +5% health', c: '#7dff9a' }, crate: { n: 'MYSTERY CRATE', e: 'Could be anything', c: '#ffd34d' },
+    magnet: { n: 'MAGNET', e: 'Pulls pickups to you for 7 s', c: '#b48cff' }, bomb: { n: 'BOMB', e: 'Blast: -9% health nearby', c: '#ff5a3a' }, boots: { n: 'SPEED BOOTS', e: '+35% speed for 7 s', c: '#3fe0b0' },
+    clock: { n: 'TIME WARP', e: 'All cooldowns reset', c: '#ffb347' }, frost: { n: 'FROST', e: 'Rival slowed for 4 s', c: '#8fe3ff' },
+  };
+  const toast = (f, title, line, col) => { // two lines over the fighter: what it took and what that does; back-to-back pickups stack upward
+    const v = vr(f), n = now - (v.tAt || -9) < 1.4 ? Math.min(2, (v.tN || 0) + 1) : 0, dy = n * 56; v.tN = n; v.tAt = now;
+    floatText(f.x, top(f) - 58 - dy, title, col, 30, 1.7); floatText(f.x, top(f) - 28 - dy, line, '#ffffff', 18, 1.7);
+  };
+  const speedMul = f => (f.vr && f.vr.bootT > 0 ? 1.35 : 1) * (S.ev && S.ev.key === 'mud' ? .7 : 1);
   const pkKind = () => { let t = 0; for (const p of PK) t += p[1]; let r = Math.random() * t; for (const p of PK) { r -= p[1]; if (r <= 0) return p[0]; } return 'berry'; };
   function spawnPickup() {
     if (pickups.length >= (S.rule === 'berries' ? 3 : 2)) return;
     pickups.push({ kind: pkKind(), x: clamp((P.x + E.x) / 2 + rnd(-260, 260), WALL_L + 80, WALL_R - 80), y: -40, t: 0, life: 13 });
   }
   function collect(f, p) {
-    const col = k => ({ berry: '#ff5a6a', orb: '#5ad6ff', shield: '#8cc8ff', power: '#ff9a3a', cure: '#7dff9a', crate: '#ffd34d' }[k] || '#fff');
-    let kind = p.kind;
+    let kind = p.kind, d = PICK[kind] || PICK.berry, title = d.n, line = d.e;
     if (kind === 'crate') {
       const r = Math.random();
-      if (r < .2) { f.hp = Math.max(1, f.hp - f.maxhp * .06); floatText(f.x, top(f) - 14, 'TRAP! -6%', '#ff7a5a', 26); boom(f.x, GROUND - 30, 90, '#ff9a3a', 10); return true; }
-      if (r < .4) { vr(f).regenT = 6; floatText(f.x, top(f) - 14, 'STAMINA BOOST', '#5ad6ff', 24); return true; }
-      kind = ['berry', 'orb', 'shield', 'power', 'cure'][Math.floor(Math.random() * 5)];
+      if (r < .2) { f.hp = Math.max(1, f.hp - f.maxhp * .06); toast(f, 'CRATE TRAP!', '-6% health', '#ff7a5a'); boom(f.x, GROUND - 30, 90, '#ff9a3a', 10); return true; }
+      if (r < .4) { vr(f).regenT = 6; toast(f, 'CRATE: STAMINA SURGE', 'Fast stamina regen for 6 s', '#5ad6ff'); spark(p.x, p.y, '#5ad6ff', 12); return true; }
+      kind = ['berry', 'orb', 'shield', 'power', 'cure', 'magnet', 'boots', 'clock'][Math.floor(Math.random() * 8)]; d = PICK[kind]; title = 'CRATE: ' + d.n; line = d.e;
     }
-    spark(p.x, p.y, col(kind), 12);
-    if (kind === 'berry') { const g = f.maxhp * .15 * (hasPerk(f, 'berry') ? 2 : 1); f.hp = Math.min(f.maxhp, f.hp + g); floatText(f.x, top(f) - 14, '+HP', '#7dff9a', 28); }
-    else if (kind === 'orb') { f.sta = Math.min(100, f.sta + 45); f.ki = Math.min(100, f.ki + 25); floatText(f.x, top(f) - 14, '+STAMINA', '#5ad6ff', 24); }
-    else if (kind === 'shield') { f.shieldT = 6; floatText(f.x, top(f) - 14, 'SHIELD', '#8cc8ff', 26); }
-    else if (kind === 'power') { f.buffT = 8; floatText(f.x, top(f) - 14, 'POWER UP', '#ff9a3a', 26); }
-    else if (kind === 'cure') { f.sleepT = f.poisonT = f.burnT = f.confT = f.slowT = f.freezeT = 0; f.hp = Math.min(f.maxhp, f.hp + f.maxhp * .05); floatText(f.x, top(f) - 14, 'CURED', '#7dff9a', 26); }
+    if (kind === 'berry' && hasPerk(f, 'berry')) line = '+30% health (Berry perk)';
+    spark(p.x, p.y, d.c, 18); toast(f, title, line, d.c);
+    if (kind === 'berry') { const g = f.maxhp * .15 * (hasPerk(f, 'berry') ? 2 : 1); f.hp = Math.min(f.maxhp, f.hp + g); }
+    else if (kind === 'orb') { f.sta = Math.min(100, f.sta + 45); f.ki = Math.min(100, f.ki + 25); }
+    else if (kind === 'shield') f.shieldT = 6;
+    else if (kind === 'power') f.buffT = 8;
+    else if (kind === 'cure') { f.sleepT = f.poisonT = f.burnT = f.confT = f.slowT = f.freezeT = 0; f.hp = Math.min(f.maxhp, f.hp + f.maxhp * .05); }
+    else if (kind === 'magnet') vr(f).magT = 7;
+    else if (kind === 'boots') vr(f).bootT = 7;
+    else if (kind === 'clock') { for (const c in f.cool) f.cool[c] = 0; f.dashCool = 0; f.laneCool = 0; f.staDelay = 0; }
+    else if (kind === 'frost') { const o = f === P ? E : P; if (!o.dead) { o.slowT = Math.max(o.slowT, 4); spark(o.x, center(o).y, '#8fe3ff', 14); floatText(o.x, top(o) - 14, 'SLOWED!', '#8fe3ff', 24); } }
+    else if (kind === 'bomb') {
+      boom(p.x, GROUND - 30, 230, '#ff7a3a', 26); shake = Math.max(shake, 14);
+      for (const t of [P, E]) if (!t.dead && Math.abs(t.x - p.x) < 230) { t.hp = Math.max(1, t.hp - t.maxhp * .09); t.kvx += (t.x >= p.x ? 1 : -1) * 520; floatText(t.x, top(t) - 14, '-9%', '#ff7a5a', 26); }
+    }
     return true;
   }
-  const wants = (f, p) => (p.kind === 'berry' && f.hp < f.maxhp * .7) || (p.kind === 'orb' && f.sta < 50) || p.kind === 'shield' || p.kind === 'power' || p.kind === 'crate' || (p.kind === 'cure' && statusy(f));
+  const wants = (f, p) => { const k = p.kind; return k !== 'bomb' && ((k === 'berry' && f.hp < f.maxhp * .7) || (k === 'orb' && f.sta < 50) || k === 'shield' || k === 'power' || k === 'crate' || k === 'boots' || k === 'frost' || (k === 'cure' && statusy(f)) || (k === 'magnet' && pickups.length > 1) || (k === 'clock' && Object.values(f.cool).some(c => c > 2))); };
   function drawPickup(g, p) {
     if (p.kind === 'berry' || p.kind === 'orb') return false;
     if (p.life - p.t < 2 && Math.floor(now * 8) % 2) return true;
-    const y = p.y + Math.sin(now * 4 + p.x) * 4, c = { shield: '#8cc8ff', power: '#ff9a3a', cure: '#7dff9a', crate: '#ffd34d' }[p.kind] || '#fff';
-    g.save(); g.globalCompositeOperation = 'lighter'; spr(g, 'shine', p.x, y, 70, now * 2, .8); g.globalCompositeOperation = 'source-over';
-    if (p.kind === 'crate') { g.fillStyle = '#b8782a'; g.fillRect(p.x - 15, y - 15, 30, 30); g.strokeStyle = '#ffd34d'; g.lineWidth = 3; g.strokeRect(p.x - 15, y - 15, 30, 30); g.fillStyle = '#ffd34d'; g.font = 'bold 20px sans-serif'; g.textAlign = 'center'; g.fillText('?', p.x, y + 7); }
-    else {
-      g.fillStyle = c; circ(g, p.x, y, 16); g.fillStyle = 'rgba(255,255,255,.75)'; g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = 2;
-      g.beginPath();
-      if (p.kind === 'shield') { g.moveTo(p.x, y - 9); g.lineTo(p.x + 8, y - 5); g.lineTo(p.x + 6, y + 5); g.lineTo(p.x, y + 10); g.lineTo(p.x - 6, y + 5); g.lineTo(p.x - 8, y - 5); }
-      else if (p.kind === 'power') { g.moveTo(p.x, y - 10); g.lineTo(p.x + 8, y + 3); g.lineTo(p.x + 2, y + 3); g.lineTo(p.x + 2, y + 10); g.lineTo(p.x - 8, y - 3); g.lineTo(p.x - 2, y - 3); }
-      else { g.moveTo(p.x - 3, y - 9); g.lineTo(p.x + 3, y - 9); g.lineTo(p.x + 3, y - 3); g.lineTo(p.x + 9, y - 3); g.lineTo(p.x + 9, y + 3); g.lineTo(p.x + 3, y + 3); g.lineTo(p.x + 3, y + 9); g.lineTo(p.x - 3, y + 9); g.lineTo(p.x - 3, y + 3); g.lineTo(p.x - 9, y + 3); g.lineTo(p.x - 9, y - 3); g.lineTo(p.x - 3, y - 3); }
-      g.closePath(); g.fill(); g.stroke();
+    const d = PICK[p.kind] || PICK.cure, x = p.x, y = p.y + Math.sin(now * 4 + p.x) * 4, c = d.c;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    const gl = g.createRadialGradient(x, y, 4, x, y, 46); gl.addColorStop(0, c + 'aa'); gl.addColorStop(1, c + '00'); g.fillStyle = gl; circ(g, x, y, 46);
+    spr(g, 'shine', x, y, 90, now * 2, .8); g.globalCompositeOperation = 'source-over';
+    g.translate(x, y); g.scale(1.3, 1.3); g.translate(-x, -y); // the icons are drawn at 1.3x so they read on a phone
+    if (p.kind === 'crate') { g.fillStyle = '#b8782a'; g.fillRect(x - 15, y - 15, 30, 30); g.strokeStyle = '#ffd34d'; g.lineWidth = 3; g.strokeRect(x - 15, y - 15, 30, 30); g.fillStyle = '#ffd34d'; g.font = 'bold 20px sans-serif'; g.textAlign = 'center'; g.fillText('?', x, y + 7); }
+    else if (p.kind === 'bomb') { // a visible trap: a pulsing red ring warns that it blows up when touched
+      const pulse = .5 + .5 * Math.sin(now * 8); g.strokeStyle = `rgba(255,70,50,${.35 + .5 * pulse})`; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 24 + pulse * 4, 0, 6.283); g.stroke();
+      g.fillStyle = '#23232e'; circ(g, x, y + 2, 14); g.fillStyle = 'rgba(255,255,255,.35)'; circ(g, x - 5, y - 3, 4);
+      g.strokeStyle = '#b9a27a'; g.lineWidth = 3; g.beginPath(); g.moveTo(x + 4, y - 11); g.quadraticCurveTo(x + 9, y - 19, x + 15, y - 17); g.stroke();
+      g.fillStyle = pulse > .5 ? '#ffe27a' : '#ff8a3a'; circ(g, x + 15, y - 17, 3 + pulse * 2);
+    } else {
+      g.fillStyle = c; circ(g, x, y, 16); g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 16, 0, 6.283); g.stroke();
+      if (p.kind === 'magnet') {
+        g.lineWidth = 5; g.strokeStyle = '#ff4d5e'; g.beginPath(); g.arc(x, y + 1, 7, Math.PI, 0); g.lineTo(x + 7, y + 6); g.moveTo(x - 7, y + 1); g.lineTo(x - 7, y + 6); g.stroke();
+        g.strokeStyle = '#f2f6ff'; g.beginPath(); g.moveTo(x - 7, y + 6); g.lineTo(x - 7, y + 10); g.moveTo(x + 7, y + 6); g.lineTo(x + 7, y + 10); g.stroke();
+      } else if (p.kind === 'boots') {
+        g.strokeStyle = '#fff'; g.lineWidth = 4; for (const o of [-6, 4]) { g.beginPath(); g.moveTo(x + o - 4, y - 8); g.lineTo(x + o + 4, y); g.lineTo(x + o - 4, y + 8); g.stroke(); }
+      } else if (p.kind === 'clock') {
+        g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(x, y, 9, 0, 6.283); g.stroke(); const a = now * 3; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.sin(a) * 7, y - Math.cos(a) * 7); g.moveTo(x, y); g.lineTo(x + 4, y); g.stroke();
+      } else if (p.kind === 'frost') {
+        g.strokeStyle = '#fff'; g.lineWidth = 2.5; for (let i = 0; i < 3; i++) { const a = i * 1.0472; g.beginPath(); g.moveTo(x - Math.cos(a) * 10, y - Math.sin(a) * 10); g.lineTo(x + Math.cos(a) * 10, y + Math.sin(a) * 10); g.stroke(); }
+      } else {
+        g.fillStyle = 'rgba(255,255,255,.75)'; g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = 2;
+        g.beginPath();
+        if (p.kind === 'shield') { g.moveTo(x, y - 9); g.lineTo(x + 8, y - 5); g.lineTo(x + 6, y + 5); g.lineTo(x, y + 10); g.lineTo(x - 6, y + 5); g.lineTo(x - 8, y - 5); }
+        else if (p.kind === 'power') { g.moveTo(x, y - 10); g.lineTo(x + 8, y + 3); g.lineTo(x + 2, y + 3); g.lineTo(x + 2, y + 10); g.lineTo(x - 8, y - 3); g.lineTo(x - 2, y - 3); }
+        else { g.moveTo(x - 3, y - 9); g.lineTo(x + 3, y - 9); g.lineTo(x + 3, y - 3); g.lineTo(x + 9, y - 3); g.lineTo(x + 9, y + 3); g.lineTo(x + 3, y + 3); g.lineTo(x + 3, y + 9); g.lineTo(x - 3, y + 9); g.lineTo(x - 3, y + 3); g.lineTo(x - 9, y + 3); g.lineTo(x - 9, y - 3); g.lineTo(x - 3, y - 3); }
+        g.closePath(); g.fill(); g.stroke();
+      }
     }
+    g.translate(x, y); g.scale(1 / 1.3, 1 / 1.3); g.translate(-x, -y);
+    g.font = 'bold 14px sans-serif'; g.textAlign = 'center'; g.lineJoin = 'round'; g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.8)'; g.strokeText(d.n, x, y + 40); g.fillStyle = '#fff'; g.fillText(d.n, x, y + 40);
     g.restore(); return true;
   }
 
@@ -252,6 +309,7 @@ const VAR = (() => {
     if (!live()) return;
     if (S.rule && !S.ruleShown) { S.ruleShown = true; showMsg('DAILY: ' + RULES[S.rule].n, 2600); }
     for (const f of [P, E]) fighterTick(f, dt);
+    for (const f of [P, E]) if (f.vr && f.vr.magT > 0 && !f.dead) for (const p of pickups) if (p.life > 0 && p.kind !== 'bomb' && p.y >= GROUND - 40 && Math.abs(f.x - p.x) < 1100) p.x += Math.sign(f.x - p.x) * Math.min(Math.abs(f.x - p.x), 520 * dt); // magnet: pickups slide to its holder
     events(dt); if (VAR.extraWorld) VAR.extraWorld(dt);
     for (const e of S.ents) { e.t += dt; if (e.upd(e, dt) === false || e.t > e.life) e.dead = true; }
     if (S.ents.some(e => e.dead)) S.ents = S.ents.filter(e => !e.dead);
@@ -279,6 +337,8 @@ const VAR = (() => {
       if (v.rep >= 3 && now - v.lastAt < 6) { g.fillStyle = '#ff8a6a'; g.font = 'bold 12px sans-serif'; g.textAlign = 'center'; g.fillText('STALE x' + v.rep, f.x, y - 9); }
       if (!v.cmbUsed && v.cmb > 6) { g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(f.x - 22, y + 8, 44, 4); g.fillStyle = '#ffb347'; g.fillRect(f.x - 22, y + 8, 44 * clamp(v.cmb / 100, 0, 1), 4); }
       if (v.aura > 0) { g.globalCompositeOperation = 'lighter'; g.strokeStyle = '#ffd34d'; g.lineWidth = 3; g.beginPath(); g.ellipse(f.x, center(f).y, f.w * .5 + 8 + Math.sin(now * 10) * 3, f.h * .55, 0, 0, 6.283); g.stroke(); }
+      if (v.magT > 0) { const k = (now * 1.6) % 1; g.globalCompositeOperation = 'lighter'; g.strokeStyle = `rgba(180,140,255,${.7 * (1 - k)})`; g.lineWidth = 3; g.beginPath(); g.arc(f.x, center(f).y, 30 + k * 90, 0, 6.283); g.stroke(); }
+      if (v.bootT > 0) { g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(63,224,176,.55)'; g.lineWidth = 3; for (let i = 0; i < 3; i++) { const yy = center(f).y + (i - 1) * 18, len = 24 + ((now * 90 + i * 17) % 30), bx = f.x - f.face * (f.w * .5 + 4); g.beginPath(); g.moveTo(bx, yy); g.lineTo(bx - f.face * len, yy); g.stroke(); } }
       g.restore();
       if (VAR.statusDraw) VAR.statusDraw(g, f);
     }
@@ -297,13 +357,13 @@ const VAR = (() => {
     const offer = tour && !tour.over && tour.offer;
     box.classList.toggle('on', !!offer); $('tbGo').disabled = !!offer; $('tbGo').style.opacity = offer ? .35 : ''; $('tbMsg').style.visibility = offer ? 'hidden' : '';
     if (offer) $('tbGo').style.display = 'none';
-    if (tour && tour.perks && tour.perks.length) $('tbMsg').textContent += '  \u00b7  Perks: ' + tour.perks.map(k => PERKS[k].n).join(', ');
+    if (tour && tour.perks && tour.perks.length) ($('tbMsg').lastElementChild || $('tbMsg')).insertAdjacentHTML('beforeend', '<div class="l3">Perks: ' + tour.perks.map(k => PERKS[k].n).join(', ') + '</div>');
     if (!offer) return;
     box.innerHTML = '<h3>CHOOSE A PERK</h3>' + offer.map(k => `<button data-k="${k}">${PERKS[k].n}<small>${PERKS[k].d}</small></button>`).join('');
     box.querySelectorAll('button').forEach(b => b.onclick = () => { tour.perks.push(b.dataset.k); tour.offer = null; tourSave(); drawTour(); });
   }
 
-  const api = { S, matchEnd, perkOffer, perkUI, vr, onAct, dmgMul, onHit, absorb, world, reset, draw, aiOpts, roundAdapt, collect, wants, drawPickup, events, PERKS, STYLES, hasPerk, actKey, spawn: e => { e.t = e.t || 0; e.life = e.life || 3; S.ents.push(e); return e; }, distinct, top, offline };
+  const api = { S, matchEnd, perkOffer, perkUI, vr, onAct, dmgMul, onHit, absorb, world, reset, draw, aiOpts, roundAdapt, pickStyle, collect, wants, drawPickup, events, PICK, speedMul, PERKS, STYLES, hasPerk, actKey, spawn: e => { e.t = e.t || 0; e.life = e.life || 3; S.ents.push(e); return e; }, distinct, top, offline };
   // training room: pick the style the "fights back" dummy uses
   const pu = document.getElementById('practiceUI');
   if (pu) {

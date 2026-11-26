@@ -3,7 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, INIT_D = 4, MAX_D = 16, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.6.0'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const NET_VER = '0.8.0'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };
@@ -151,7 +151,7 @@
   }
   function begin(cfg) {
     if (!N.saved) N.saved = { sprite: spriteStyle, best: bestOf, low: lowQ, theme: themeIdx, gm: [GM.dmg, GM.sta, GM.ki] };
-    Object.assign(N, { cfg, spvReady: undefined, spvMine: undefined, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], lastStall: 0, fpL: null, fpR: null, lastDiff: null, desyncAt: 0, ring: {}, calls: [], nCalls: 0, peerRing: null, diag: null, ringSent: false });
+    Object.assign(N, { cfg, spvReady: undefined, spvMine: undefined, go: false, readyL: false, readyR: false, rmL: false, rmR: false, tick: 0, simT: 0, acc: 0, loc: {}, rem: {}, hl: {}, hr: {}, stall: 0, D: INIT_D, wantD: INIT_D, hitch: 0, stallEv: [], lastStall: 0, fpL: null, fpR: null, lastDiff: null, desyncAt: 0, desync: 0, ring: {}, calls: [], nCalls: 0, peerRing: null, diag: null, ringSent: false });
     setGM(cfg.gm);
     for (let t = 0; t < INIT_D; t++) { N.loc[t] = 0; N.rem[t] = 0; }
     NETG.on = true; NETG.role = N.role; NETG.lobby = false; NETG.inP = {}; NETG.inE = {}; NETG.names = (cfg.names || ['', '']).map(cleanName);
@@ -191,13 +191,13 @@
     add(1, matchTime); add(3, projectiles.length + beams.length * 7);
     return [...hs, rs].map(x => (x >>> 0).toString(36)).join('/');
   }
-  const EXACT = ['x', 'z', 'lp', 'lift', 'vx', 'vz', 'kvx', 'hp', 'sta', 'ki', 'hitT', 'skT', 'toss', 'tossV', 'hv', 'lk', 'inv', 'face', 'cbN', 'idleT', 'laneCool', 'dashCool'];
-  const exact = () => { const o = []; for (const f of [P, E]) for (const k of EXACT) o.push(+f[k] || 0); o.push(matchTime, freeze, slowT, introT, overT); return o; }; // exact values: any difference is where the fights split
+  const EXACT = ['x', 'z', 'lp', 'lift', 'vx', 'vz', 'kvx', 'hp', 'sta', 'ki', 'hitT', 'skT', 'toss', 'tossV', 'hv', 'inv', 'face', 'cbN', 'idleT', 'laneCool', 'dashCool'];
+  const exact = () => { const o = []; for (const f of [P, E]) for (const k of EXACT) o.push(+f[k] || 0); o.push(matchTime, freeze, slowT, introT, overT, N.cin ? N.cin[0] : 0, N.cin ? N.cin[1] : 0); return o; }; // exact values: any difference is where the fights split (the last two are the inputs each side played)
   function compareRings() { // the first tick whose random-number state or fighter state differs tells where the fights split
     const p = N.peerRing; if (!p || !N.ringSent || N.diag) return;
     for (let i = 0; i < p.d.length; i++) {
       const t = p.from + i, a = N.ring[t], b = p.d[i]; if (!a || !b) continue;
-      if (a[0] !== b[0] || a[2] !== b[2] || (a[3] && b[3] && a[3].some((v, j) => v !== b[3][j]))) { const jx = a[3] && b[3] ? a[3].findIndex((v, j) => v !== b[3][j]) : -1, names = [...EXACT.map(k => 'P.' + k), ...EXACT.map(k => 'E.' + k), 'matchTime', 'freeze', 'slowT', 'introT', 'overT']; N.diag = { tick: t, kind: jx >= 0 ? 'value ' + names[jx] : 'random numbers', exactMine: jx >= 0 ? a[3][jx] : null, exactTheirs: jx >= 0 ? b[3][jx] : null, mine: [a[0], typeof a[1] === 'number' ? a[1] : a[1].length, a[2]], theirs: [b[0], typeof b[1] === 'number' ? b[1] : b[1].length, b[2]], prevCalls: [N.ring[t - 1] && N.ring[t - 1][1], p.d[i - 1] && p.d[i - 1][1]], state: state }; if (typeof a[1] === 'string' && typeof b[1] === 'string') { const ma = a[1].split('|'), tb = b[1].split('|'); let q = 0; while (q < ma.length && q < tb.length && ma[q] === tb[q]) q++; N.diag.callsAt = { count: [ma.length, tb.length], firstDiff: q, mine: ma.slice(Math.max(0, q - 3), q + 3), theirs: tb.slice(Math.max(0, q - 3), q + 3) }; N.diag.prevCalls = null; } if (N.dbg) console.log('FIRST SPLIT', N.diag); return; }
+      if (a[0] !== b[0] || a[2] !== b[2] || (a[3] && b[3] && a[3].some((v, j) => v !== b[3][j]))) { const jx = a[3] && b[3] ? a[3].findIndex((v, j) => v !== b[3][j]) : -1, names = [...EXACT.map(k => 'P.' + k), ...EXACT.map(k => 'E.' + k), 'matchTime', 'freeze', 'slowT', 'introT', 'overT', 'inP', 'inE']; N.diag = { tick: t, diffs: a[3] && b[3] ? names.map((n, j) => a[3][j] !== b[3][j] ? n + ':' + a[3][j] + '/' + b[3][j] : '').filter(Boolean) : null, kind: jx >= 0 ? 'value ' + names[jx] : 'random numbers', exactMine: jx >= 0 ? a[3][jx] : null, exactTheirs: jx >= 0 ? b[3][jx] : null, mine: [a[0], typeof a[1] === 'number' ? a[1] : a[1].length, a[2]], theirs: [b[0], typeof b[1] === 'number' ? b[1] : b[1].length, b[2]], prevCalls: [N.ring[t - 1] && N.ring[t - 1][1], p.d[i - 1] && p.d[i - 1][1]], state: state }; if (typeof a[1] === 'string' && typeof b[1] === 'string') { const ma = a[1].split('|'), tb = b[1].split('|'); let q = 0; while (q < ma.length && q < tb.length && ma[q] === tb[q]) q++; N.diag.callsAt = { count: [ma.length, tb.length], firstDiff: q, mine: ma.slice(Math.max(0, q - 3), q + 3), theirs: tb.slice(Math.max(0, q - 3), q + 3) }; N.diag.prevCalls = null; } if (N.dbg) console.log('FIRST SPLIT', N.diag); return; }
     }
     N.diag = { tick: -1, kind: 'not within the last 100 ticks' };
   }
@@ -224,7 +224,7 @@
       }
       N.loc[t + N.D] = m; send({ t: 'i', k: t + N.D, m });
     }
-    NETG.inP = dec(host ? N.loc[t] : N.rem[t]); NETG.inE = dec(host ? N.rem[t] : N.loc[t]);
+    NETG.inP = dec(host ? N.loc[t] : N.rem[t]); NETG.inE = dec(host ? N.rem[t] : N.loc[t]); N.cin = [host ? N.loc[t] : N.rem[t], host ? N.rem[t] : N.loc[t]];
     delete N.loc[t]; delete N.rem[t];
     now = N.simT; simR = mulberry; DetMath.on(); // the built-in sin, cos, pow ... differ between CPU types; the fight must not use them
     try { stepFn(TICK); } finally { simR = null; DetMath.off(); }

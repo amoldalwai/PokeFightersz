@@ -140,7 +140,7 @@
     const h = document.getElementById('nHzBtn'); if (h) { h.disabled = !host; setHzBtn(h, host ? hzOn : !cfg || cfg.hz !== 0); }
   };
   const _sm = startMatch;
-  startMatch = function (opts) { const ol = opts && opts.online; V.S.wxMatch = ol ? (ol.wx || 'auto') : V.S.nextRule ? 'auto' : sel; V.S.evMatch = ol ? ol.ev !== 0 : V.S.nextRule ? true : evOn; V.S.hzMatch = ol ? ol.hz !== 0 : V.S.nextRule ? true : hzOn; return _sm.apply(this, arguments); };
+  startMatch = function (opts) { const ol = opts && opts.online, tr = !ol && !!(opts && opts.tour); V.S.wxMatch = ol ? (ol.wx || 'auto') : tr ? 'clear' : V.S.nextRule ? 'auto' : sel; V.S.evMatch = ol ? ol.ev !== 0 : tr ? Math.random() < .5 : V.S.nextRule ? true : evOn; V.S.hzMatch = ol ? ol.hz !== 0 : V.S.nextRule ? true : hzOn; return _sm.apply(this, arguments); }; // tournament fights: no weather, events in half of them
   const _pw = pickWeather;
   pickWeather = function () {
     const id = V.S.wxMatch; if (!id || id === 'auto' || (id !== 'clear' && !WEATHER[id])) return _pw();
