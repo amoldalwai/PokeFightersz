@@ -3,7 +3,7 @@
 // The host plays the left fighter (P), the guest the right one (E).
 (() => {
   const TICK = 1 / 60, INIT_D = 4, MAX_D = 16, HASH_EVERY = 20, HELD = 63; // HELD: the first six input bits are held keys (the rest are one-shot presses)
-  const NET_VER = '0.8.0'; // bump on every release: friends must run exactly the same game code to stay in sync
+  const NET_VER = '0.11.3'; // bump on every release: friends must run exactly the same game code to stay in sync
   const KEYS = ['l', 'r', 'guard', 'down', 'upHold', 'charge', 'up', 'dash', 'laneBack', 'laneFront', 'melee', 'ranged', 'special', 'special2', 'special3', 'beam', 'grab', 'tap'];
   const enc = i => { let m = 0; for (let k = 0; k < KEYS.length; k++) if (i[KEYS[k]]) m |= 1 << k; return m; };
   const dec = m => { const o = {}; for (let k = 0; k < KEYS.length; k++) if (m & (1 << k)) o[KEYS[k]] = true; return o; };

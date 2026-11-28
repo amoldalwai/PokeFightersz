@@ -790,6 +790,105 @@ body:has(#pause.on) #practiceUI{display:none}
 .odanger{width:100%;height:54px;border-radius:16px;border:1px solid rgba(255,90,90,.55);background:rgba(255,60,60,.1);color:#ff9a9a;font:800 15px var(--uif);letter-spacing:1.5px;cursor:pointer}
 #tug b{display:block;margin-top:-52px;font:900 22px system-ui,Arial,sans-serif;color:#fff;text-shadow:0 2px 4px #000}
 #tapBtn{position:absolute;right:16px;bottom:14px;width:96px;height:96px;border-radius:50%;display:none;place-items:center;font:900 22px system-ui,Arial,sans-serif;color:#3b1b00;background:radial-gradient(circle at 35% 30%,#fff7b0,#ffb52e 60%,#d9650f);border:3px solid rgba(255,255,255,.55);pointer-events:none;z-index:41;animation:tapPulse .5s infinite}#tapBtn.on{display:grid}@keyframes tapPulse{50%{transform:scale(1.08)}}
+/* research tree and starters: designed on a 1300x650 board scaled like #wbase */
+#treePane,#starPane{background:#05070f;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;z-index:6;justify-content:flex-start;align-items:flex-start;text-align:left}
+#starPane{z-index:9}
+.rsBoard{position:absolute;left:0;top:0;width:1300px;height:650px;transform:scale(.73846);transform-origin:0 0;background:linear-gradient(160deg,#0d1330,#141b3d 55%,#0b1028);overflow:hidden;color:#e8edff}
+.rsBoard button{font-family:inherit}
+#rsHdr{position:absolute;left:0;top:0;right:0;height:62px;display:flex;align-items:center;gap:14px;padding:0 18px;background:linear-gradient(#1a2352,#111838);border-bottom:2px solid #2a3770}
+#rsHdr .rsBack{font:800 13px system-ui,sans-serif;padding:8px 14px;border-radius:99px;background:#25306a;color:#cfe0ff;border:1px solid #3a4a94;cursor:pointer}
+#rsHdr h1{font:900 20px system-ui,sans-serif;letter-spacing:2px;margin:0;color:#fff;text-shadow:none}
+#rsHdr h1 small{display:block;font:700 11px system-ui,sans-serif;letter-spacing:1px;color:#8fa0d8}
+.rsSp{flex:1}
+.rsPill{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:99px;font:800 15px system-ui,sans-serif;background:#0b1030;border:1px solid #33408a;color:#e8edff}
+.rsPts{border-color:#a8841a;color:#ffd34d;box-shadow:0 0 18px #ffd34d33 inset}.rsPts b{font-size:22px;letter-spacing:.5px;color:#fff}
+.rsCoin{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3b0,#ffc72b 55%,#b9820a);display:inline-flex;align-items:center;justify-content:center;font:900 12px system-ui,sans-serif;color:#7a4f00;box-shadow:0 0 0 2px #a8841a;flex:none}
+.rsCoin.sm{width:14px;height:14px;font-size:8px;box-shadow:0 0 0 1px #a8841a}
+.rsChip{cursor:pointer;user-select:none}
+.rsSwi{width:34px;height:18px;border-radius:99px;background:#39426f;position:relative;transition:.2s}
+.rsSwi:after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.2s}
+.rsChip.on .rsSwi{background:#27c46a}.rsChip.on .rsSwi:after{left:18px}
+#rsTabs{position:absolute;left:0;top:62px;right:0;height:58px;display:flex;gap:6px;align-items:center;padding:0 14px;overflow-x:auto;background:#0e1431;border-bottom:1px solid #26306a;scrollbar-width:none;touch-action:pan-x}
+.rsTab{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;min-width:64px;padding:5px 8px 4px;border-radius:10px;background:#141c44;border:2px solid transparent;cursor:pointer}
+.rsTab b{font:800 10px system-ui,sans-serif;letter-spacing:.8px;text-transform:uppercase;color:#fff;padding:1px 7px;border-radius:99px;background:var(--c)}
+.rsTab span{font:700 11px system-ui,sans-serif;color:#9fb0d8;margin-top:3px}
+.rsTab.sel{border-color:var(--c);background:#1b2556;box-shadow:0 0 14px var(--c)}
+#rsMain{position:absolute;left:0;top:120px;right:0;bottom:44px;display:flex}
+#rsTreeWrap{flex:1;position:relative;overflow:auto;border-right:1px solid #26306a;scrollbar-color:#3a4a94 #0b1030;touch-action:pan-x pan-y;overscroll-behavior:contain}
+#rsCols{position:sticky;top:0;z-index:3;height:30px;background:#0e1431;border-bottom:1px solid #26306a}
+#rsCols div{position:absolute;top:0;height:30px;width:122px;text-align:center;font:900 13px system-ui,sans-serif;letter-spacing:1px;color:#9fb0d8;padding-top:6px;white-space:nowrap}
+#rsCols div i{font-style:normal;color:#ffd34d;font-weight:700;margin-left:6px;font-size:11px}
+#rsTree{position:relative}
+#rsLinks{position:absolute;left:0;top:0;pointer-events:none}
+.rsNode{position:absolute;width:122px;height:122px;border-radius:12px;background:#151d48;border:2px solid #2d3978;display:flex;flex-direction:column;align-items:center;padding:5px 4px 0;cursor:pointer;box-sizing:border-box}
+.rsNode img{width:56px;height:56px;object-fit:contain;image-rendering:pixelated}
+.rsNode b{font:800 11px system-ui,sans-serif;margin-top:1px;max-width:112px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rsNode i{font:700 10px system-ui,sans-serif;color:#9fb0d8;font-style:normal}
+.rsNode u{position:absolute;left:0;right:0;bottom:0;height:22px;border-radius:0 0 10px 10px;display:flex;align-items:center;justify-content:center;gap:5px;text-decoration:none;font:800 11px system-ui,sans-serif}
+.rsNode.owned{border-color:var(--c);background:linear-gradient(#1c2a5e,#16204f)}
+.rsNode.owned u{background:var(--c);color:#fff;text-shadow:0 1px 2px #0008}
+.rsNode.avail{border-color:#ffd34d;box-shadow:0 0 16px #ffd34d44}
+.rsNode.avail u{background:#3a3010;color:#ffd34d}
+.rsNode.avail.poor u{color:#ff8a8a;background:#3a1a1a}
+.rsNode.locked{opacity:.55;border-style:dashed}
+.rsNode.locked img{filter:grayscale(1) brightness(.6)}
+.rsNode.locked u{background:#1a2150;color:#8791c0}
+.rsNode.leg{border-width:3px}
+.rsNode.leg:before{content:"\2605";position:absolute;right:6px;top:3px;color:#ffd34d;font-size:13px}
+.rsNode.sel{outline:3px solid #fff;outline-offset:2px}
+#rsPanel{width:300px;padding:14px;background:linear-gradient(#111838,#0c1230);display:flex;flex-direction:column;gap:9px;overflow:auto;touch-action:pan-y;box-sizing:border-box}
+#rsPanel .rsBig{height:130px;flex:none;border-radius:14px;background:radial-gradient(circle at 50% 70%,var(--c),#0c1230 78%);display:flex;align-items:center;justify-content:center}
+#rsPanel .rsBig img{height:108px;image-rendering:pixelated;filter:drop-shadow(0 6px 4px #0009)}
+#rsPanel h2{margin:0;font:900 22px system-ui,sans-serif;letter-spacing:.5px;color:#fff}
+.rsTag{display:inline-block;font:800 10px system-ui,sans-serif;letter-spacing:1px;padding:2px 8px;border-radius:99px;color:#fff;text-transform:uppercase;margin-right:4px}
+.rsStat{display:flex;align-items:center;gap:8px;font:700 11px system-ui,sans-serif;color:#9fb0d8}
+.rsStat span{width:44px}.rsStat i{flex:1;height:8px;background:#1d2656;border-radius:9px;overflow:hidden}.rsStat i b{display:block;height:100%;border-radius:9px}
+.rsStat em{width:28px;text-align:right;font-style:normal;color:#fff}
+#rsBtn{margin-top:auto;padding:12px;border-radius:12px;font:900 16px system-ui,sans-serif;letter-spacing:1px;text-align:center;border:2px solid transparent}
+#rsBtn.go{background:linear-gradient(#ffdf6a,#f2a81d);color:#3a2600;border-color:#fff3b0;cursor:pointer}
+#rsBtn.poor{background:#3a1a1a;color:#ff9a9a;border-color:#7a2a2a}
+#rsBtn.lock{background:#1a2150;color:#8791c0;border-color:#2d3978}
+#rsBtn.own{background:#12331f;color:#7dff9a;border-color:#27c46a}
+.rsNote{font:600 11px system-ui,sans-serif;color:#8fa0d8;line-height:1.4}
+#rsFoot{position:absolute;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;gap:18px;padding:0 18px;background:#0a0f26;border-top:1px solid #26306a;font:700 12px system-ui,sans-serif;color:#9fb0d8}
+#rsFoot b{color:#ffd34d}
+#rsToast{position:absolute;right:20px;top:70px;z-index:20;padding:10px 18px;border-radius:12px;background:#12331f;border:2px solid #27c46a;font:900 16px system-ui,sans-serif;color:#7dff9a;opacity:0;transform:translateY(-10px);transition:.3s;pointer-events:none}
+#rsToast.show{opacity:1;transform:none}
+#rsStart{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(circle at 50% 40%,#1a2352ee,#070a1cf4)}
+#rsStart h2{margin:0;font:900 30px system-ui,sans-serif;letter-spacing:3px;color:#fff}
+#rsStart p{margin:0;color:#9fb0d8;font:700 14px system-ui,sans-serif}
+#starOffer{display:flex;gap:14px;margin-top:6px}
+.rsOc{width:150px;height:178px;border-radius:16px;background:#151d48;border:3px solid #2d3978;display:flex;flex-direction:column;align-items:center;padding-top:10px;cursor:pointer;position:relative;box-sizing:border-box;transition:.12s}
+.rsOc img{width:92px;height:92px;object-fit:contain;image-rendering:pixelated}
+.rsOc b{font:900 15px system-ui,sans-serif;margin-top:4px;color:#fff}
+.rsOc small{font:700 11px system-ui,sans-serif;color:#9fb0d8;margin-top:2px}
+.rsOc .tg{position:absolute;bottom:10px;font:800 10px system-ui,sans-serif;padding:2px 10px;border-radius:99px;color:#fff;text-transform:uppercase;background:var(--c)}
+.rsOc.on{border-color:#ffd34d;background:#2a2810;box-shadow:0 0 22px #ffd34d66;transform:translateY(-4px)}
+.rsOc.on:after{content:"\2713";position:absolute;right:8px;top:4px;font:900 20px system-ui,sans-serif;color:#ffd34d}
+#starGo{padding:13px 34px;border-radius:14px;font:900 17px system-ui,sans-serif;letter-spacing:1px;cursor:pointer;background:linear-gradient(#ffdf6a,#f2a81d);color:#3a2600;border:2px solid #fff3b0}
+#starGo.off{background:#1a2150;color:#6f7aa8;border-color:#2d3978;cursor:default}
+.ptsb{position:absolute;right:204px;top:10px;z-index:3;height:40px;padding:0 14px 0 8px;border-radius:99px;border:1px solid #a8841a;background:rgba(10,16,40,.78);cursor:pointer;display:flex;align-items:center;gap:8px;color:#fff;font:800 17px system-ui,sans-serif;box-shadow:0 0 14px #ffd34d33 inset}
+.ptsb:active{transform:scale(.95)}
+.rsTa{width:100%;box-sizing:border-box;background:#0b1030;color:#ffe27a;border:1px solid #33408a;border-radius:10px;padding:8px;font:12px/1.3 monospace;resize:none;user-select:text;-webkit-user-select:text;touch-action:auto}
+#ovGrade .gp .gn{display:block;margin-top:3px;font-size:9px;letter-spacing:.5px;color:#cdd6f4}
+#ovGrade .gp .gbar{display:block;height:4px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden;margin-top:2px}#ovGrade .gp .gbar u{display:block;height:100%;background:#ffd34d}
+#ovGrade .gp{max-width:250px}
+.mdl.lk{opacity:.4;filter:grayscale(1)}
+#tRes small{font:600 10px var(--ui);letter-spacing:.6px;opacity:.85;margin-left:10px}
+/* locked moves on the Moves screen */
+#mpPtsB{display:flex;align-items:center;gap:8px;border-color:#a8841a!important;color:#ffd34d}#mpPtsB b{color:#fff;font-size:18px}
+#movesPane .mp .mm{position:absolute;right:12px;bottom:7px;display:flex;align-items:center;gap:8px}
+#movesPane .mp .mm em{position:static}
+#movesPane .mp .pips{display:flex;gap:2px;position:static}#movesPane .mp .pips i{width:7px;height:7px;border-radius:2px;border:0;box-shadow:none;background:rgba(255,255,255,.2)}#movesPane .mp .pips i.on{background:#ffb347}
+#movesPane .mp.lock{background:rgba(8,12,30,.7)}#movesPane .mp.lock .ic,#movesPane .mp.lock .tx{opacity:.5}#movesPane .mp.lock .ic{filter:grayscale(.7)}
+#movesPane .mp .price{display:flex;align-items:center;gap:5px;padding:2px 10px 2px 6px;border-radius:99px;background:#3a3010;border:1px solid #a8841a;color:#ffd34d;font:800 13px var(--ui)}
+#movesPane .mp .price.poor{background:#3a1a1a;border-color:#7a2a2a;color:#ff9a9a}
+#movesPane .mp .lk{position:absolute;right:10px;top:8px;font-size:16px;opacity:.85}
+#movesPane .mp.focus{outline:3px solid #fff;outline-offset:1px}
+#mpBuy{display:none;position:absolute;left:292px;right:14px;bottom:2px;height:30px;margin:0 auto;width:420px;border-radius:12px;background:linear-gradient(#ffdf6a,#f2a81d);color:#3a2600;font:900 14px var(--ui);letter-spacing:1px;border:2px solid #fff3b0;cursor:pointer;z-index:4}
+#mpBuy.poor{background:#3a1a1a;color:#ff9a9a;border-color:#7a2a2a;cursor:default}
+#mpToast{position:absolute;right:16px;top:58px;z-index:20;padding:7px 14px;border-radius:12px;background:#12331f;border:2px solid #27c46a;font:900 13px var(--ui);color:#7dff9a;opacity:0;transform:translateY(-8px);transition:.3s;pointer-events:none}
+#mpToast.show{opacity:1;transform:none}
 </style><link rel="stylesheet" href="net.css">
 </head><body>
 <div id="wrap"><div id="stage">
@@ -845,13 +944,13 @@ body:has(#pause.on) #practiceUI{display:none}
     <img id="tImgA" class="tfighter" alt=""><img id="tImgB" class="tfighter" alt=""><img id="tSil" alt="">
     <div class="tbtns">
       <button class="bigbtn gold" id="tPlay" data-ic="sword-cross">BATTLE</button>
-      <button class="bigbtn" id="tQuick" data-ic="dice-5">QUICK FIGHT</button>
+      <button class="bigbtn gold" id="tRes" data-ic="star"><span>RESEARCH<small id="tResSub"></small></span></button>
       <button class="bigbtn ret" id="tTourRet" data-ic="restart"><span>RETURN TO TOURNAMENT<small id="tTourRetSub"></small></span></button>
       <div class="trow"><button class="bigbtn gold" id="tTour" data-ic="trophy"><span>TOURNAMENT<small id="tTourSub"></small></span></button><button class="bigbtn gold" id="tOnline" data-ic="swap-horizontal">ONLINE 1v1</button></div>
       <div class="trow"><button class="bigbtn" id="tPractice" data-ic="target">PRACTICE</button><button class="bigbtn" id="tLab" data-ic="atom">MOVE LAB</button></div>
       <div class="trow"><button class="bigbtn dark" id="tOpts" data-ic="cog">SETTINGS</button><button class="bigbtn howb" id="tHow"><span class="htq">?</span>HOW TO PLAY</button></div>
     </div>
-    <button class="ballb" id="tBalls" title="Poké Balls"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="#fff"/><path d="M3 24A21 21 0 0 1 45 24Z" fill="#e8402f"/><circle cx="24" cy="24" r="21" fill="none" stroke="#111" stroke-width="3"/><path d="M3 24H45" stroke="#111" stroke-width="4"/><circle cx="24" cy="24" r="7" fill="#fff" stroke="#111" stroke-width="3.5"/><circle cx="24" cy="24" r="2.5" fill="#d8d8d8"/></svg><b id="tBallPts"></b></button>
+    <button class="ptsb" id="tPtsB" title="Research points"><span class="rsCoin">P</span><b id="tPts">0</b></button>
     <button class="ghb" id="tGit" title="Poke Fighters Z on GitHub" aria-label="GitHub"><svg viewBox="0 0 24 24"><path fill="#fff" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></button>
     <button class="chip" id="tExit" data-ic="close">Exit</button><div id="tVer"></div><button class="chip" id="tUpd">CHECK FOR UPDATES</button>
   </div>
@@ -954,7 +1053,7 @@ body:has(#pause.on) #practiceUI{display:none}
 
   <div class="ov" id="movesPane">
     <div class="bkImg" id="mpBg"></div><div class="bkWash"></div><div class="bkGrid"></div><div class="bkVig"></div>
-    <div class="topb"><button class="chip pillb" id="mpBack" data-ic="arrow-left">BACK</button><div id="mpTitle"></div><div class="chip pillb" id="mpCount"></div></div>
+    <div class="topb"><button class="chip pillb" id="mpBack" data-ic="arrow-left">BACK</button><div id="mpTitle"></div><div class="chip pillb" id="mpPtsB"><span class="rsCoin">P</span><b id="mpPts">0</b></div><div class="chip pillb" id="mpCount"></div></div>
     <div id="mpLeft">
       <div class="stagebox" id="mpBox"><div class="ring"></div><div class="pad"></div><img id="mpImg" alt=""></div>
       <div class="cname" id="mpName"></div><div id="mpTypes"></div>
@@ -962,7 +1061,7 @@ body:has(#pause.on) #practiceUI{display:none}
       <button class="go" id="mpDone">DONE</button>
     </div>
     <div id="mpList"></div>
-    <div id="mpNote">Tap a move to pick it. Pick another and the oldest pick drops out. Scroll for more moves.</div>
+    <div id="mpNote">Tap a move to pick it. Pick another and the oldest pick drops out. Locked moves are bought with points.</div><button id="mpBuy"></button><div id="mpToast"></div>
   </div>
 
   <div class="ov" id="pvModal"><div id="pvCard">
@@ -972,13 +1071,26 @@ body:has(#pause.on) #practiceUI{display:none}
     <button id="pvPlay">&#9654; PLAY</button>
   </div></div>
 
+  <div class="ov" id="treePane"><div class="rsBoard">
+    <div id="rsHdr"><button class="rsBack" id="rsBack">&larr; MENU</button><h1>POK&Eacute;MON RESEARCH<small>Unlock fighters along each type tree</small></h1><div class="rsSp"></div>
+      <div class="rsPill"><span id="rsOwn">0</span>&nbsp;/ 386 unlocked</div>
+      <div class="rsPill rsChip" id="rsUa" title="Single player only. Online battles always have every Pok&eacute;mon."><span>UNLOCK ALL</span><div class="rsSwi"></div></div>
+      <div class="rsPill rsPts"><span class="rsCoin">P</span><b id="rsPts">0</b><span style="font-size:12px;color:#c8a84a">POINTS</span></div></div>
+    <div id="rsTabs"></div>
+    <div id="rsMain"><div id="rsTreeWrap"><div id="rsCols"></div><div id="rsTree"></div></div><div id="rsPanel"></div></div>
+    <div id="rsFoot"><span>Every offline battle pays points, win or lose:</span><span>WIN <b>+100</b></span><span>LOSS <b>+40</b></span><span>STREAK <b>+10 per win in a row (max +50)</b></span><span>FLAWLESS <b>+25</b></span><span>QUICK KO <b>+15</b></span><span class="rsSp"></span><span>Saved on this device</span></div>
+    <div id="rsToast"></div>
+  </div></div>
+  <div class="ov" id="starPane"><div class="rsBoard"><div id="rsStart"><h2>CHOOSE YOUR STARTERS</h2><p>Pick up to 3 to begin with. Everything else is unlocked with points.</p><div id="starOffer"></div><div id="starGo" class="off">PICK 1 TO 3</div></div></div></div>
   <div class="ov" id="opts">
     <nav id="optRail">
       <h1>SETTINGS</h1>
       <button class="otab on" data-t="oDisp" data-ic="cellphone">Controls &amp; display</button>
       <button class="otab" data-t="oGfx" data-ic="flash">Graphics</button><button class="otab" data-t="oAudio" data-ic="volume-high">Audio</button>
       <button class="otab" data-t="oGame" data-ic="sword-cross">Gameplay</button>
-      <button class="otab" data-t="oReset" data-ic="restart">Reset</button>
+      <button class="otab" data-t="oProg" data-ic="star">Progress</button>
+
+      <button class="otab" data-t="oReset" data-ic="restart">Reset</button><button class="otab" data-t="oCred" data-ic="star">Credits</button>
       <div class="sp"></div>
       <button class="go" id="optClose">DONE</button>
     </nav>
@@ -1010,6 +1122,8 @@ body:has(#pause.on) #practiceUI{display:none}
         <section id="oGame"><h2>Gameplay</h2>
           <div class="ocard">
             <div class="oitem"><div class="t"><b>Match length</b><small>Rounds needed to win</small></div><div class="seg"><button class="rndchip" data-r="1">Single</button><button class="rndchip" data-r="3">Best of 3</button></div></div>
+            <div class="oitem"><div class="t"><b>Balanced stats</b><small>Narrows the gap between weak and strong Pokémon (offline only)</small></div><div class="seg"><button class="balchip" data-b="0">Off</button><button class="balchip" data-b="1">On</button></div></div>
+            <div class="oitem"><div class="t"><b>Unlock all Pok&eacute;mon</b><small>Single player only. Online battles always have every Pok&eacute;mon. Turn it off to bring your real progress back.</small></div><button class="sw" id="optUA" aria-label="Unlock all Pokemon"></button></div>
             <div class="oitem"><div class="t"><b>Fight speed</b><small>Preset for damage and refill speed</small></div><div class="seg"><button class="gpre" data-p="1,1,1">Classic</button><button class="gpre" data-p="1.5,1.5,1.5">Quick</button><button class="gpre" data-p="2,2,2">Blitz</button><button class="gpre" data-p="custom">Custom</button></div></div>
             <div class="oitem"><div class="t"><b>Damage</b></div><div class="osl"><input type="range" class="vr" id="gD" min="5" max="30"><span class="vo" id="oD"></span></div></div>
             <div class="oitem"><div class="t"><b>Stamina regen</b></div><div class="osl"><input type="range" class="vr" id="gS" min="5" max="30"><span class="vo" id="oS"></span></div></div>
@@ -1017,8 +1131,20 @@ body:has(#pause.on) #practiceUI{display:none}
             <p class="oest" id="gEst"></p>
           </div>
         </section>
+        <section id="oProg"><h2>Progress</h2>
+          <div class="ocard">
+            <div class="oitem"><div class="t"><b>Backup code</b><small>Your progress is one short code. Save it somewhere safe (notes, chat) and paste it back after a reinstall or on a new phone.</small></div><div class="seg"><button id="pgMake">Create</button><button id="pgCopy">Copy</button></div></div>
+            <div class="oitem" style="display:block"><textarea id="pgCode" class="rsTa" readonly rows="2" placeholder="Your backup code appears here"></textarea></div>
+            <div class="oitem"><div class="t"><b>Restore from code</b><small id="pgMsg">Paste a code below, then tap Restore. This replaces your current progress.</small></div><div class="seg"><button id="pgImp">Restore</button></div></div>
+            <div class="oitem" style="display:block"><textarea id="pgTxt" class="rsTa" rows="2" placeholder="Paste a backup code here"></textarea></div>
+          </div>
+          <button class="odanger" id="pgReset">ERASE PROGRESS</button>
+        </section>
         <section id="oReset"><h2>Reset</h2>
           <button class="odanger" id="optReset">RESTORE DEFAULTS</button>
+        </section>
+        <section id="oCred"><h2>Credits</h2>
+          <div class="ocard"><p class="oest" style="border-top:0">Move icons from <b>game-icons.net</b> by Lorc, Delapouite, Skoll, sbed, DarkZaitzev, Willdabeast and other contributors, used under the CC BY 3.0 licence (creativecommons.org/licenses/by/3.0). Pok&eacute;mon data from PokeAPI; arenas from Pok&eacute;mon Showdown.</p></div>
         </section>
       </div>
       <div id="optFade"><span>&#9662; SCROLL FOR MORE</span></div>
@@ -1041,16 +1167,21 @@ body:has(#pause.on) #practiceUI{display:none}
 <script src="data/typechart.js"></script>
 <script src="data/pmd.js"></script>
 <script src="data/icons.js"></script>
+<script src="data/moveicons.js"></script>
 <script src="data/bwa.js"></script>
 <script src="data/backcut.js"></script>
 <script src="data/taunts.js"></script>
 <script src="data/abilities.js"></script>
 <script src="data/typefx.js"></script>
 <script src="data/sigfx.js"></script>
+<script src="data/morefx.js"></script>
 <script src="data/shotfx.js"></script>
     <script src="data/spfx.js"></script>
 <script src="data/whirlfx.js"></script>
 <script src="data/movefx.js"></script>
+<script src="data/tree.js"></script>
+<script src="data/moveids.js"></script>
+<script src="unlock.js"></script>
 <script src="variety.js"></script>
 <script src="game.js"></script>
 <script src="variety_moves.js"></script>

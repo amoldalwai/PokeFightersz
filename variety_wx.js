@@ -31,7 +31,10 @@
     ['coolingtowers', 'Cooling Towers', '#a49ba8', ['clear', 'rain', 'fog', 'thunder'], undefined], ['station', 'Central Station', '#c9ae9a', ['clear', 'rain', 'fog'], undefined],
     ['refinery', 'Refinery', '#ab9c9c', ['clear', 'sun', 'rain', 'fog'], undefined], ['robotfactory', 'Robot Factory', '#8095c3', ['clear'], undefined],
     ['construction', 'Construction Yard', '#ada7bb', ['clear', 'sun', 'rain', 'sand'], 'dust'], ['researchlab', 'Research Lab', '#8e99be', ['clear'], undefined],
-    ['subway', 'Subway Tunnel', '#909bc2', ['clear'], undefined], ['launchpad', 'Launch Pad', '#8a94bf', ['clear', 'sun', 'rain', 'thunder'], undefined],
+      ['subway', 'Subway Tunnel', '#909bc2', ['clear'], undefined], ['launchpad', 'Launch Pad', '#8a94bf', ['clear', 'sun', 'rain', 'thunder'], undefined],
+    // four more, from a 2x2 sheet
+    ['hauntedmansion', 'Haunted Mansion', '#277371', ['clear', 'fog', 'rain', 'thunder'], 'fly'], ['nightstreet', 'Night Street', '#2b387f', ['clear', 'rain', 'fog', 'thunder'], undefined],
+    ['highway', 'Highway Bridge', '#6a7298', ['clear', 'sun', 'rain', 'thunder', 'fog'], undefined], ['moonsurface', 'Moon Surface', '#333b84', ['clear'], 'dust'],
   ];
   { const fresh = []; for (const [id, name, gc, wx, amb] of NEW_MAPS) { fresh.push({ id, name, file: id + '.jpg' }); GROUND_COL[id] = gc; THEME_WEATHER[id] = wx; if (amb) AMBIENT[id] = amb; } const at = THEMES.findIndex(t => t.id === 'desert'); THEMES.splice(at < 0 ? THEMES.length : at, 0, ...fresh); } // they sit between Red Canyon Gate and the Wasteland
   for (const id of ['bamboo', 'skyisles', 'dinofalls']) TUFT_MAPS.add(id);

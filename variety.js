@@ -97,6 +97,7 @@ const VAR = (() => {
     if (hasPerk(att, 'brawler') && att.act && att.act.name === 'melee') m *= 1.12;
     if (hasPerk(att, 'sniper') && (!att.act || att.act.name !== 'melee')) m *= 1.08;
     if (S.rule === 'glass') m *= 1.4;
+    m *= .96 + .1 * (att.kit.wt || 0); // heavy fighters hit a little harder
     const ev = S.ev && S.ev.key; // timed arena events
     if (ev === 'glass') m *= 1.5;
     else if (ev === 'typestorm' && ty === S.ev.ty) m *= 1.4;
@@ -341,6 +342,11 @@ const VAR = (() => {
       if (v.bootT > 0) { g.globalCompositeOperation = 'lighter'; g.strokeStyle = 'rgba(63,224,176,.55)'; g.lineWidth = 3; for (let i = 0; i < 3; i++) { const yy = center(f).y + (i - 1) * 18, len = 24 + ((now * 90 + i * 17) % 30), bx = f.x - f.face * (f.w * .5 + 4); g.beginPath(); g.moveTo(bx, yy); g.lineTo(bx - f.face * len, yy); g.stroke(); } }
       g.restore();
       if (VAR.statusDraw) VAR.statusDraw(g, f);
+    }
+    for (const f of [P, E]) { // where a lock-on attack will land: a ring on the ground that turns solid once the attack commits
+      const mk = !f.dead && f.act && f.act.mk; if (!mk || mk.x == null) continue; const y = GROUND + laneY(other(f)), pulse = .5 + .5 * Math.sin(now * 14);
+      g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(255,70,40,${mk.lock ? .22 : .1})`; g.beginPath(); g.ellipse(mk.x, y, mk.r, mk.r * .28, 0, 0, 6.283); g.fill();
+      g.strokeStyle = `rgba(255,${mk.lock ? 90 : 160},60,${mk.lock ? .6 + .3 * pulse : .45})`; g.lineWidth = mk.lock ? 4 : 3; g.beginPath(); g.ellipse(mk.x, y, mk.r, mk.r * .28, 0, 0, 6.283); g.stroke(); g.restore();
     }
     for (const e of S.ents) if (e.draw) { g.save(); e.draw(g, e); g.restore(); }
   }

@@ -14,7 +14,7 @@ for (const id of ['bg', 'fxb', 'fxf']) { $(id).width = W; $(id).height = H; }
 let lowQ = new URLSearchParams(location.search).has('lowq'), fAvg = 16, fCnt = 0; // low-quality mode switches on by itself when the frame rate is poor
 let fpsCap = 60, fxLow = false, lastRun = 0; // Settings > Graphics: frame-rate cap (0 follows the screen's own rate) and reduced effects
 try { const v = localStorage.getItem('pf_fps'); if (v === '30' || v === '60' || v === '0') fpsCap = +v; fxLow = localStorage.getItem('pf_fx') === '1'; if (fxLow) lowQ = true; } catch (e) { }
-const ico = n => ICON_PATH[n] ? `<svg class="sv" viewBox="0 0 24 24"><path d="${ICON_PATH[n]}"/></svg>` : '';
+const ico = n => ICON_PATH[n] ? `<svg class="sv" viewBox="0 0 24 24"><path d="${ICON_PATH[n]}"/></svg>` : GI_PATH[n] ? `<svg class="sv" viewBox="0 0 512 512"><path d="${GI_PATH[n]}"/></svg>` : '';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, k) => a + (b - a) * k;
 const easeOut = x => 1 - (1 - clamp(x, 0, 1)) ** 2;
@@ -114,7 +114,7 @@ Object.assign(SIG_NAME.spin, { dark: 'Pursuit Spin', steel: 'Steel Spin', fairy:
 function buildKit(p) {
   if (kitCache[p.id]) return kitCache[p.id];
   const types = p.types, t0 = types[0], L = new Set(p.moves), mv = n => MOVEDEX[n] || {};
-  const atkM = clamp((p.atk + 45) / 115, .8, 1.4), spaM = clamp((p.spa + 45) / 115, .8, 1.4);
+  const atkM = clamp((p.atk + 45) / 115, .8, 1.4), spaM = clamp((p.spa + 45) / 115, .8, 1.4), wt = weightT(p.w);
   let rn = null, rp = -1;
   for (const n of p.moves) if (RANGED[n] && MOVEDEX[n] && types.includes(MOVEDEX[n].type)) { const pw = MOVEDEX[n].power || 30; if (pw > rp) { rp = pw; rn = n; } }
   if (!rn) rn = DEF_RANGED[t0] || 'swift';
@@ -141,20 +141,20 @@ function buildKit(p) {
     addSig(sigs[p.id % sigs.length], 1); if (p.id % 2 === 0 && sigs.length > 1) addSig(sigs[(p.id + 1) % sigs.length], 2);
   }
   { // each type's own scripted specials: three of its five for this Pokémon (one up front), plus one from a second type
-    const tl = TM_BY_TYPE[t0], addTM = (key, at) => { if (key && !pool.some(x => x.key === key)) pool.splice(Math.min(at, pool.length), 0, { key, name: TM[key].name, type: TM[key].type, sc: 99, pw: 70, sig: TM[key].sig }); };
-    if (tl) { addTM(tl[p.id % tl.length], 1); addTM(tl[(p.id + 2) % tl.length], 99); addTM(tl[(p.id + 4) % tl.length], 99); }
-    if (types[1] && TM_BY_TYPE[types[1]]) addTM(TM_BY_TYPE[types[1]][p.id % TM_BY_TYPE[types[1]].length], 99);
+    const base = t => (TM_BY_TYPE[t] || []).filter(k => !NEW_PARENTS[k]), tl = base(t0), addTM = (key, at) => { if (key && !pool.some(x => x.key === key)) pool.splice(Math.min(at, pool.length), 0, { key, name: TM[key].name, type: TM[key].type, sc: 99, pw: 70, sig: TM[key].sig }); };
+    if (tl.length) { addTM(tl[p.id % tl.length], 1); addTM(tl[(p.id + 2) % tl.length], 99); addTM(tl[(p.id + 4) % tl.length], 99); } { const nk = newMoveOf(p); if (nk) addTM(nk, 99); } // at most one of the newer moves, picked from what it learns in PokeAPI
+    if (types[1] && base(types[1]).length) addTM(base(types[1])[p.id % base(types[1]).length], 99);
   }
   { const seenN = new Set([nm(rn), nm(melee)]); for (let i = 0; i < pool.length; i++) { if (seenN.has(pool[i].name)) pool.splice(i--, 1); else seenN.add(pool[i].name); } } // the same name never shows twice in one list
-  for (const s of pool) { s.sta = Math.min(85, Math.round(STA[s.key] * clamp(.8 + (s.pw || 70) / 250, .85, 1.2) * 2)); if (POWER_KEYS.has(s.key)) s.sta = Math.min(90, Math.round(s.sta * 1.25)); s.acc = fixAcc(s.acc); s.icon = s.key === 'ring' || (s.key === 'blast' && s.type !== 'fire') ? TYPE_ICON[s.type] : ARCH_ICON[s.key]; }
+  for (const s of pool) { s.sta = Math.min(85, Math.round(STA[s.key] * clamp(.8 + (s.pw || 70) / 250, .85, 1.2) * 2)); if (POWER_KEYS.has(s.key)) s.sta = Math.min(90, Math.round(s.sta * 1.25)); s.acc = Math.min(fixAcc(s.acc), accCap(s)); s.icon = MOVE_GI.sp[s.name] || (s.key === 'ring' || (s.key === 'blast' && s.type !== 'fire') ? TYPE_ICON[s.type] : ARCH_ICON[s.key]); }
   const specials = pool.slice(0, 3), used = new Set(pool.map(s => s.name).concat(nm(rn), nm(melee)));
   let beamName = null; for (const n of (BEAM_NAMES[t0] || BEAM_NAMES.normal)) if (L.has(n) && !used.has(nm(n))) { beamName = nm(n); break; }
   if (!beamName) beamName = used.has(BEAM_DEF[t0]) ? 'Hyper Beam' : (BEAM_DEF[t0] || 'Hyper Beam');
   const bc = colsOf(t0);
   const kit = {
-    types, atkM, spaM, hp: clamp(650 + p.hp * 4.2, 800, 1500) * 1.7, speed: clamp((190 + p.spe * .75) * 1.2, 255, 400), cols: bc, aura: [bc[0], bc[1]],
+    types, atkM, spaM, wt, hp: clamp(650 + p.hp * 4.2, 800, 1500) * 1.7, speed: clamp((190 + p.spe * .75) * 1.2, 255, 400) * (1.06 - .14 * wt), cols: bc, aura: [bc[0], bc[1]],
     melee: { name: nm(melee), dmg: clamp(24 + best * .22, 30, 52) * atkM, reach: 70, lunge: ['quick-attack', 'take-down', 'double-edge', 'skull-bash'].includes(melee) ? 760 : 560, type: mv(melee).type || 'normal', acc: fixAcc(mv(melee).acc), sta: clamp(6 + best * .14, 9, 20), icon: 'boxing-glove' },
-    ranged: { name: nm(rn), kind: rd[0], n: rd[1], dmg: rd[2] * spaM, cost: 6 + rd[1] * 2, cool: rd[5], speed: rd[3], r: rd[4], cols: colsOf(rType), type: rType, acc: fixAcc(mv(rn).acc), sta: clamp(5 + rd[1] * rd[2] * .09, 8, 18), icon: TYPE_ICON[rType] },
+    ranged: { name: nm(rn), kind: rd[0], n: rd[1], dmg: rd[2] * spaM, cost: 6 + rd[1] * 2, cool: rd[5], speed: rd[3], r: rd[4], cols: colsOf(rType), type: rType, acc: fixAcc(mv(rn).acc), sta: clamp(5 + rd[1] * rd[2] * .09, 8, 18), icon: MOVE_GI.ra[nm(rn)] || TYPE_ICON[rType] },
     specials, pool, beam: { name: beamName, dmg: 46 * spaM, cols: ['#ffffff', bc[0], bc[1]], type: t0, sta: 90, icon: 'creation' },
   };
   return (kitCache[p.id] = kit);
@@ -391,6 +391,7 @@ function drawBg(camX) {
     if (mt) { g.drawImage(img, 0, 0, img.width, 1, 0, -mt, w, mt); g.drawImage(img, 0, img.height - 1, img.width, 1, 0, H, w, mb); } // stretch the top and bottom rows so sky and ground continue
     g.restore();
   }
+  const fc = !lowQ && FXC[curTheme.id]; if (fc && fc.hz) { const hg = g.createLinearGradient(0, fc.hz - 70, 0, fc.hz + 50); hg.addColorStop(0, `rgba(${fc.hc},0)`); hg.addColorStop(.55, `rgba(${fc.hc},.3)`); hg.addColorStop(1, `rgba(${fc.hc},0)`); g.fillStyle = hg; g.fillRect(-mx, fc.hz - 70, W + 2 * mx, 120); } // horizon haze makes the far scenery look distant
   const sh = g.createLinearGradient(0, H - 130, 0, H); sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.28)'); g.fillStyle = sh; g.fillRect(-mx, H - 130, W + 2 * mx, 130); if (mb) { g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(-mx, H, W + 2 * mx, mb); }
   if (!lowQ) drawClouds(g);
 }
@@ -405,6 +406,7 @@ let shake = 0, freeze = 0, now = 0, matchTime = 99, introT = 0, overT = 0, winne
 const DASH_STA = 14;
 let hazards = [], pickups = [], impacts = [], clashes = [], clashT = 0, tod = 'day', stats = { dealt: 0, taken: 0, combo: 0, parry: 0 }, hzT = 5, pkT = 12, pkDone = false, practice = false, lab = false, labId = 25, labAb = 'own', labSel = null, labFlip = 0, dummyMode = 0, cur = null, rounds = { a: 0, b: 0, n: 1 }, bestOf = 3, inputLog = [];
 try { const v = +localStorage.getItem('pf_rounds'); if (v === 1 || v === 3) bestOf = v; } catch (e) { }
+let balanced = false; try { balanced = localStorage.getItem('pf_bal') === '1'; } catch (e) { } // Balanced stats: offline only
 let aiLoss = 0, aceChallenge = null; try { aiLoss = +localStorage.getItem('pf_loss') || 0; } catch (e) { } // aiLoss: lost offline fights in a row, which softens the AI a little after the second
 const fxb = $('fxb').getContext('2d'), fxf = $('fxf').getContext('2d');
 const q = new URLSearchParams(location.search), demoUrl = q.has('demo'); let demo = demoUrl; // demo: both fighters are AI (?demo=1, or the Watch AI Fight button)
@@ -419,6 +421,23 @@ const ALT_H = [0, 50, 100, 150]; // altitudes a flyer can hold; the camera zooms
 const maxAlt = () => lowQ ? 2 : ALT_H.length - 1;
 const isFly = f => f.hover && (f.air || f.lift > 12); // a flyer that is up in the air rather than standing on the ground
 // lane-step dodge: light, fast Pokémon get a longer dodge window, a shorter cooldown and a quicker step
+// ---- weight and lock-on balance: light Pokémon are quicker, easier to throw and recover stamina faster; heavy ones the opposite. Moves that aim at where the foe stands land a little off.
+function weightT(w) { return clamp(Math.sqrt(Math.max(0, w || 0)) / 31, 0, 1); } // 0 = feather-light, 1 = heaviest (about 1000 kg); sqrt keeps the numbers identical on every device
+const ACC_CAP = { dig: 88, strike: 90, teleport: 90, rain: 88, blizzard: 85, roots: 90, swoop: 88, sleep: 80, para: 84, poison: 86, spikes: 92 };
+function accCap(s) { const t = TM[s.key]; if (ACC_CAP[s.key]) return ACC_CAP[s.key]; return t && (t.tp || t.hide) ? 88 : t && t.h.some(h => h[7] && h[7].live) ? 90 : 100; }
+const LOCK_ON = new Set(['strike', 'dig', 'teleport', 'rain', 'blizzard', 'swoop']);
+const lockKind = key => LOCK_ON.has(key) || !!(TM[key] && (TM[key].tp || TM[key].hide || TM[key].h.some(h => h[7] && h[7].live)));
+const evadeK = o => clamp((o.kit.speed - 255) / 145, 0, 1) * .6 + (1 - (o.kit.wt || 0)) * .4; // light, fast targets are harder to pin down
+function aimErr(f, o, a, sc = 1) { return (Math.random() < .5 ? -1 : 1) * Math.random() * 230 * sc * (.85 + .45 * evadeK(o) + .2 * Math.min(a.rep || 0, 3)); } // px the strike point lands off the foe
+function lockCd(f, key) { // casting the same lock-on move again within 7 s stretches its cooldown (x1.3 per repeat, up to x1.9)
+  if (!lockKind(key)) return 1; const lh = f.lockRep || (f.lockRep = {}), r = lh[key], n = r && now - r.at < 7 ? r.n + 1 : 0; lh[key] = { n, at: now }; return 1 + .3 * Math.min(n, 3);
+}
+const lockRepN = (f, key) => f.lockRep && f.lockRep[key] ? f.lockRep[key].n : 0;
+function balKit(k) { // Balanced stats (offline only) squeezes the gap between weak and strong Pokémon
+  if (!balanced || NETG.on) return k;
+  const a2 = 1 + (k.atkM - 1) * .5, s2 = 1 + (k.spaM - 1) * .5;
+  return Object.assign({}, k, { hp: 1605 + (k.hp - 1605) * .55, atkM: a2, spaM: s2, speed: 295 + (k.speed - 295) * .7, melee: Object.assign({}, k.melee, { dmg: k.melee.dmg / k.atkM * a2 }), ranged: Object.assign({}, k.ranged, { dmg: k.ranged.dmg / k.spaM * s2 }), beam: Object.assign({}, k.beam, { dmg: k.beam.dmg / k.spaM * s2 }) });
+}
 const grabOdds = (f, o) => { const pw = x => x.p.hp + x.p.atk + x.p.def + x.p.spa + x.p.spd + x.p.spe, s = .5 * clamp(Math.log2(pw(f) / pw(o)), -1, 1) + .5 * clamp(Math.log2(Math.max(1, f.p.w) / Math.max(1, o.p.w)) / 2, -1, 1); return clamp(.5 + .2 * s, .3, .7); }; // 50% even, up to 70% when stronger and heavier
 const evadeStats = f => { const agi = clamp((f.kit.speed - 255) / 145, 0, 1), lite = clamp(1 - Math.log10(Math.max(1, f.p.w)) / 3, 0, 1), k = .6 * agi + .4 * lite; return { win: .15 + .2 * k, cool: .7 - .45 * k, rate: .8 + .7 * k }; };
 const ABILITIES = {
@@ -503,12 +522,13 @@ const ANIM_OF = { strike: ['Charge'], blast: ['Charge', 'Shoot'], cannon: ['Char
 
 // flying and ghost types (and a few floaters) hover above the ground instead of standing on it
 // which three of a Pokémon's specials the player takes into a fight (chosen in the menu, remembered per Pokémon)
-let loadouts = {};
+let loadouts = {}; try { const l = JSON.parse(localStorage.getItem('pf_ld') || '{}'); for (const id in l) if (Array.isArray(l[id]) && l[id].every(Number.isInteger)) loadouts[id] = l[id]; } catch (e) { } // the three specials chosen per Pokémon, kept between sessions
+const saveLd = () => { try { localStorage.setItem('pf_ld', JSON.stringify(loadouts)); } catch (e) { } };
 let aiPick = {}; // the AI's three specials are rolled at random per Pokémon; the menu shows the set the next fight will use, and a new roll follows each fight start
 const defaultSpecIndices = kit => kit.defaultSpecIndices || kit.pool.slice(0, 3).map((_, i) => i);
 function specsFor(p, isAI) {
   const kit = buildKit(p), pool = kit.pool, pick = !isAI && loadouts[p.id];
-  if (pick && pick.length === Math.min(3, pool.length) && pick.every(i => pool[i])) return pick.map(i => pool[i]);
+  if (pick && pick.length === Math.min(3, pool.length) && pick.every(i => pool[i] && moveOwned(p, pool[i], i))) return pick.map(i => pool[i]);
   if (isAI && pool.length > 3) {
     let r = aiPick[p.id]; if (!r || !r.every(i => pool[i])) { const ix = pool.map((_, i) => i); for (let i = ix.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [ix[i], ix[j]] = [ix[j], ix[i]]; } r = aiPick[p.id] = ix.slice(0, 3); }
     return r.map(i => pool[i]);
@@ -530,7 +550,7 @@ function visiblePoseMetrics(img, info) {
   } catch (e) { return null; }
 }
 function makeFighter(p, side, isAI, hpMul, set) {
-  const kit = buildKit(p), pm = set.pmd, anim = !pm && ANIM2D && set.anim || null;
+  const kit = balKit(buildKit(p)), pm = set.pmd, anim = !pm && ANIM2D && set.anim || null;
   let nh, nw, scale, dh = clamp((70 + 85 * Math.sqrt(p.h)) * .92, 100, 190), boxes, pmd = null, w;
   if (pm) {
     dh *= .82; const I = pm.info.Idle || pm.info.Walk, bb = I.bb || [0, 0, I.w, I.h], s = dh / Math.max(8, bb[3] - bb[1]);
@@ -558,7 +578,7 @@ async function startMatch(opts) {
   const ol = opts && opts.online; if (ol) { demo = false; spriteStyle = ol.sprite; bestOf = ol.bestOf; lowQ = false; themeIdx = ol.theme; setTheme(THEMES[themeIdx]); }
   MUS.battle = ['battleA', 'battleB', 'battleC'][(selYou * 7 + selRival * 3 + (typeof themeIdx === 'number' ? themeIdx : 0)) % 3];
   const d = DIFF[selDiff]; lab = !!(opts && opts.lab); practice = lab || !!(opts && opts.practice); document.body.classList.toggle('lab', lab); dummyMode = 0; $('dummyBtn').textContent = 'DUMMY: IDLE';
-  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane', 'cupPane', 'netPane']) $(id).classList.remove('on'); $('title').classList.remove('on'); $('opts').classList.remove('on');
+  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane', 'cupPane', 'netPane', 'treePane']) $(id).classList.remove('on'); $('title').classList.remove('on'); $('opts').classList.remove('on');
   const pa = dexById(ol ? ol.pa : lab ? labId : selYou), pb = ol ? dexById(ol.pb) : lab ? pa : dexById(selRival);
   const [sa, sb] = await Promise.all([loadSet(pa), loadSet(pb)]);
   NETG.rngOn(ol && ol.seed);
@@ -673,6 +693,7 @@ function drawClouds(g) { // slow background clouds that drift at their own speed
   for (let i = 0; i < 6; i++) { const x = (((i * 260 - camX * .18 + now * (6 + i * 2)) % (W + 300)) + W + 300) % (W + 300) - 150, y = 40 + (i * 53) % 150; for (let j = 0; j < 4; j++) { g.beginPath(); g.ellipse(x + j * 34 - 50, y + Math.sin(j * 2) * 6, 46 - j * 4 + (j % 2) * 8, 18, 0, 0, 6.283); g.fill(); } }
   g.restore();
 }
+function setBal(v) { balanced = !!v; try { localStorage.setItem('pf_bal', balanced ? '1' : '0'); } catch (e) { } document.querySelectorAll('.balchip').forEach(b => b.classList.toggle('sel', (b.dataset.b === '1') === balanced)); }
 function setRounds(n) { bestOf = n; try { localStorage.setItem('pf_rounds', String(n)); } catch (e) { } document.querySelectorAll('.rndchip').forEach(b => b.classList.toggle('sel', +b.dataset.r === n)); }
 
 // ---------------------------------------------------------------- effects
@@ -840,6 +861,7 @@ function fightStart() { // abilities that act as the fight begins
 }
 function applyStatus(t, kind, force, src) {
   if (t.dead || (!force && statusy(t)) || (kind === 'confuse' && t.ability.focus)) return;
+  if ((kind === 'freeze' || kind === 'sleep') && t.statImm > 0) return;
   if (t.ability.immune && t.ability.immune.includes(kind)) { abilityPop(t, t.ability.name.toUpperCase() + '!', '#ddd'); return; }
   if (kind === 'freeze') { t.freezeT = .9; t.hitT = 0; } else if (kind === 'sleep') t.sleepT = 3.2 * (t.ability.early ? .5 : 1); else if (kind === 'poison') t.poisonT = 5; else if (kind === 'slow') t.slowT = 3; else if (kind === 'burn') t.burnT = 4; else if (kind === 'confuse') t.confT = 3.2;
   const L = STATUS_TXT[kind]; if (L) floatText(t.x, GROUND - t.z - t.lift - t.h - 8, L[0], L[1], 24);
@@ -1021,6 +1043,7 @@ function damage(att, def, amount, knock, pt, big, ty) {
       floatText(pt.x, pt.y - 100, 'SMASH!', '#ff5a3a', 38); sfx('smash'); impacts.push({ x: pt.x, y: pt.y, t: 0, n: 18, col: '#fff', rot: 0 }); if (def === meF()) buzz(120);
     }
     if (big && !att.launch && !def.canJuggle) { def.inv = Math.max(def.inv, def.hitT + .5); def.ghostT = .14; } // no endless juggling: a knockdown is followed by a moment of invulnerability
+    def.kvx *= 1.15 - .3 * (def.kit.wt || 0); // heavy fighters are thrown less far, light ones further
     if (crit) { shake += 6; spark(pt.x, pt.y, '#ffd34d', 18); floatText(pt.x, pt.y - 70, 'CRITICAL!', '#ffd34d'); sfx('crit'); impactT = .08; impX = pt.x - camX; impY = pt.y; }
     if (cHit) { floatText(pt.x, pt.y - 88, 'COUNTER HIT!', '#ff9a3a', 26); freeze = Math.max(freeze, .06); }
     const st = STATUS_ON_HIT[ty];
@@ -1093,10 +1116,10 @@ const ARCH = {
   vine: { cost: 10, cool: 1.1, range: [0, 280], dur: .6,
     start(f, o, a) { vines.push({ owner: f, t: 0, dur: .6, hit: false, reach: 270, dmg: D(f, 58), ty: a.ty, miss: a.miss }); sfx('whip'); } },
   strike: { cost: 28, cool: 3, range: [100, 800], dur: 1.05,
-    start(f, o, a) { a.off = a.miss ? (Math.random() < .5 ? -1 : 1) * rnd(230, 300) : 0; a.mark = o.x + a.off; sfx('charge'); },
+    start(f, o, a) { a.off = a.miss ? (Math.random() < .5 ? -1 : 1) * rnd(230, 300) : 0; a.err = aimErr(f, o, a); a.mark = o.x + a.off + a.err; a.mk = { x: a.mark, r: 150 }; sfx('charge'); },
     tick(f, o, a) {
-      f.charging = true; if (a.t < .45) a.mark = o.x + a.off;
-      if (!a.done && a.t >= .8) { a.done = true; strikes.push({ x: a.mark, t: 0, sv: a.sv ? a.ty : 0 }); sfx('zap'); boom(a.mark, GROUND - 30, 150, '#ffe01a', 24); if (a.sv) svBoom(a.mark, GROUND - 30, a.ty, .9); aoe(f, a.mark, o.z + o.lift > 60 ? center(o).y : GROUND - 50, 150, D(f, 72), 520, true, null, a.ty); cracks.push({ x: a.mark, t: 0, dur: 2.5 }); if (a.miss) floatText(a.mark, GROUND - 130, 'MISS', '#ddd'); }
+      f.charging = true; if (a.t < .45) { a.mark = o.x + a.off + a.err; a.mk = { x: a.mark, r: 150 }; } else if (a.mk) a.mk.lock = 1;
+      if (!a.done && a.t >= .8) { a.done = true; strikes.push({ x: a.mark, t: 0, sv: a.sv ? a.ty : 0 }); sfx('zap'); boom(a.mark, GROUND - 30, 150, '#ffe01a', 24); if (a.sv) svBoom(a.mark, GROUND - 30, a.ty, .9); const hit = aoe(f, a.mark, o.z + o.lift > 60 ? center(o).y : GROUND - 50, 150, D(f, 72), 520, true, null, a.ty); cracks.push({ x: a.mark, t: 0, dur: 2.5 }); a.mk = null; if (a.miss || !hit) floatText(a.mark, GROUND - 130, 'MISS', '#ddd'); }
     } },
   blast: { cost: 25, cool: 3, range: [220, 900], dur: .55,
     start(f, o, a) { sfx('charge'); if (a.sv) SPV.snd('charge1', () => f.act === a && !a.done); },
@@ -1108,18 +1131,18 @@ const ARCH = {
       }
     } },
   dig: { cost: 18, cool: 3.2, range: [200, 900], dur: 99,
-    start(f, o, a) { a.phase = 0; f.vx = 0; sfx('whip'); for (let i = 0; i < 4; i++) hitFx(f.x + rnd(-40, 40), GROUND - rnd(8, 40), 'rock' + (1 + i % 3)); },
+    start(f, o, a) { a.phase = 0; a.err = aimErr(f, o, a); f.vx = 0; sfx('whip'); for (let i = 0; i < 4; i++) hitFx(f.x + rnd(-40, 40), GROUND - rnd(8, 40), 'rock' + (1 + i % 3)); },
     tick(f, o, a, dt) {
       if (a.phase === 0) { a.sink = clamp(a.t / .35, 0, 1); f.vx = 0; if (a.t >= .35) { a.phase = 1; a.t1 = 0; f.under = true; } }
       else if (a.phase === 1) {
-        a.t1 += dt; f.inv = Math.max(f.inv, .1); f.x += Math.sign(o.x - f.x) * 700 * dt; f.vx = 0;
+        a.t1 += dt; f.inv = Math.max(f.inv, .1); if (a.lockX == null && a.t1 > .45) { a.lockX = o.x + a.err; a.mk = { x: a.lockX, r: 140, lock: 1 }; } a.tgt = a.lockX != null ? a.lockX : o.x + a.err; f.x += Math.sign(a.tgt - f.x) * 700 * dt; f.vx = 0; // the tunnel tracks the foe for a moment, then commits to where it was
         if (Math.random() < .7) puff(f.x, GROUND, 1, 'rgba(120,80,40,.8)', 80); if (Math.random() < .25) hitFx(f.x, GROUND - 12, 'mudwisp');
-        if (Math.abs(o.x - f.x) < 40 || a.t1 > 1.6) {
+        if (Math.abs(a.tgt - f.x) < 30 || a.t1 > 1.6) { a.mk = null;
           a.phase = 2; a.t2 = 0; f.under = false; f.vz = Math.max(640, Math.sqrt(4200 * (Math.max(0, o.z + o.lift - f.lift) + 110))); f.inv = .15; f.el.style.clipPath = ''; // bursts up as high as a flying foe
           for (let i = 0; i < 6; i++) hitFx(f.x + rnd(-70, 70), GROUND - rnd(10, 90), 'rock' + (1 + i % 3), 1.2);
-          puff(f.x, GROUND, 14, 'rgba(120,80,40,.8)', 200); shake = Math.max(shake, 14); sfx('boom'); aoe(f, f.x, o.z + o.lift > 40 ? center(o).y : GROUND - 70, 140, D(f, 62), 480, true, null, a.ty);
+          puff(f.x, GROUND, 14, 'rgba(120,80,40,.8)', 200); shake = Math.max(shake, 14); sfx('boom'); if (!aoe(f, f.x, o.z + o.lift > 40 ? center(o).y : GROUND - 70, 140, D(f, 62), 480, true, null, a.ty)) floatText(f.x, GROUND - 130, 'MISS', '#ddd');
         }
-      } else { a.t2 += dt; if (a.t2 > .4) endAct(f); }
+      } else { a.t2 += dt; if (a.t2 > .65) endAct(f); }
     } },
   quake: { cost: 22, cool: 3, range: [0, 560], dur: .95,
     start(f, o, a) { f.vz = 380; },
@@ -1131,14 +1154,14 @@ const ARCH = {
         cracks.push({ x: f.x, t: 0, dur: 3 });
       }
     } },
-  teleport: { cost: 14, cool: 2.6, range: [200, 900], dur: .8,
-    start(f, o, a) { sfx('tele'); },
+  teleport: { cost: 14, cool: 2.6, range: [200, 900], dur: .95,
+    start(f, o, a) { sfx('tele'); a.err = aimErr(f, o, a, .5); },
     tick(f, o, a) {
       if (a.t < .2) { f.inv = Math.max(f.inv, .1); f.fade = 1 - a.t / .2; }
       else if (!a.moved) {
-        a.moved = true; hitFx(f.x, GROUND - f.h / 2, 'mistball', 1.4); hitFx(f.x, GROUND - f.h / 2, 'shine', 1.2); spark(f.x, GROUND - f.h / 2, '#fff', 10); f.x = clamp(o.x - o.face * (o.w * .5 + f.w * .5 + 20), WALL_L, WALL_R); f.z = 0; f.face = o.x >= f.x ? 1 : -1; f.fade = 0; hitFx(f.x, GROUND - f.h / 2, 'mistball', 1.4); hitFx(f.x, GROUND - f.h / 2, 'shine', 1.2); spark(f.x, GROUND - f.h / 2, '#fff', 10); sfx('tele');
+        a.moved = true; a.lockX = o.x + a.err; a.mk = { x: a.lockX, r: o.w * .6 + 30, lock: 1 }; hitFx(f.x, GROUND - f.h / 2, 'mistball', 1.4); hitFx(f.x, GROUND - f.h / 2, 'shine', 1.2); spark(f.x, GROUND - f.h / 2, '#fff', 10); f.x = clamp(o.x - o.face * (o.w * .5 + f.w * .5 + 20), WALL_L, WALL_R); f.z = 0; f.face = o.x >= f.x ? 1 : -1; f.fade = 0; hitFx(f.x, GROUND - f.h / 2, 'mistball', 1.4); hitFx(f.x, GROUND - f.h / 2, 'shine', 1.2); spark(f.x, GROUND - f.h / 2, '#fff', 10); sfx('tele');
       } else if (a.t < .4) f.fade = (a.t - .2) / .2;
-      else { f.fade = 1; if (!a.hit) { a.hit = true; const c = center(o); aoe(f, c.x, c.y, o.w * .6, D(f, 50), 420, true, null, a.ty); } }
+      else { f.fade = 1; if (!a.hit) { a.hit = true; const c = center(o); a.mk = null; if (!aoe(f, a.lockX, c.y, o.w * .6, D(f, 50), 420, true, null, a.ty)) floatText(a.lockX, c.y - 30, 'MISS', '#ddd'); } }
     } },
   dash: { cost: 8, cool: 1.6, range: [150, 650], dur: .55,
     tick(f, o, a, dt) {
@@ -1151,13 +1174,13 @@ const ARCH = {
     tick(f, o, a) { f.vx = 0; if (!a.done && a.t >= .4) { a.done = true; shake = Math.max(shake, 10); waves.push({ owner: f, kind: 'surf', x: f.x + f.face * 30, vx: f.face * 520, t: 0, dur: 1.7, hit: false, dmg: D(f, 54), ty: a.ty, wt: f.kit.types[0], sv: a.sv }); sfx('beam'); } } },
   rain: { cost: 22, cool: 3.2, range: [200, 900], dur: .9,
     start(f, o, a) {
-      a.style = f.kit.types.includes('ice') ? 'ice' : f.kit.types.includes('fire') ? 'fire' : 'rock';
+      a.style = f.kit.types.includes('ice') ? 'ice' : f.kit.types.includes('fire') ? 'fire' : 'rock'; a.err = aimErr(f, o, a, .5); a.mk = { x: o.x + a.err, r: 220, lock: 1 };
       const off = a.miss ? (Math.random() < .5 ? -1 : 1) * rnd(210, 280) : 0;
-      for (let i = 0; i < 6; i++) rocks.push({ owner: f, x: clamp(o.x + off + (i - 2.5) * 85 + rnd(-25, 25), 40, WORLD_W - 40), y: -90, t: 0, delay: .5 + i * .12, style: a.style, dmg: D(f, 30), sv: a.sv && a.style === 'rock', first: i === 0 });
+      for (let i = 0; i < 6; i++) rocks.push({ owner: f, x: clamp(o.x + off + a.err + (i - 2.5) * 85 + rnd(-25, 25), 40, WORLD_W - 40), y: -90, t: 0, delay: .5 + i * .12, style: a.style, dmg: D(f, 30), sv: a.sv && a.style === 'rock', first: i === 0 });
       sfx('charge');
     }, tick(f, o, a) { f.vx = 0; f.charging = true; } },
   blizzard: { cost: 24, cool: 3.4, range: [200, 900], dur: .9,
-    start(f, o, a) { const off = a.miss ? (Math.random() < .5 ? -1 : 1) * rnd(210, 280) : 0; for (let i = 0; i < 7; i++) rocks.push({ owner: f, x: clamp(o.x + off + (i - 3) * 75 + rnd(-20, 20), 40, WORLD_W - 40), y: -90, t: 0, delay: .45 + i * .1, style: 'ice', dmg: D(f, 24), freeze: true, sv: a.sv }); sfx('charge'); },
+    start(f, o, a) { a.err = aimErr(f, o, a, .5); a.mk = { x: o.x + a.err, r: 230, lock: 1 }; const off = a.miss ? (Math.random() < .5 ? -1 : 1) * rnd(210, 280) : 0; for (let i = 0; i < 7; i++) rocks.push({ owner: f, x: clamp(o.x + off + a.err + (i - 3) * 75 + rnd(-20, 20), 40, WORLD_W - 40), y: -90, t: 0, delay: .45 + i * .1, style: 'ice', dmg: D(f, 24), freeze: true, sv: a.sv }); sfx('charge'); },
     tick(f, o, a) { f.vx = 0; f.charging = true; } },
   ring: { cost: 16, cool: 3, range: [100, 560], dur: .6,
     start(f, o, a) { zones.push({ kind: 'ring', owner: f, x: o.x, t: 0, dur: 1.9, r: 100, tick: 0, dmg: D(f, 14), col: colsOf(a.ty), ty: a.ty, miss: a.miss }); sfx('whip'); }, tick(f) { f.vx = 0; } },
@@ -1247,13 +1270,13 @@ const ARCH = {
     start(f, o, a) { a.phase = 0; sfx('whip'); },
     tick(f, o, a, dt) {
       f.vx = 0; f.inv = Math.max(f.inv, .1); const hi = Math.max(640, o.z + o.lift - f.lift + 360), tz = Math.max(50, o.z + o.lift - f.lift); // a flying foe is dived on at its own height
-      if (a.phase === 0) { f.vz = 0; f.z += 1900 * dt; if (f.z > hi) { a.phase = 1; a.t1 = 0; a.off = a.miss ? (Math.random() < .5 ? -1 : 1) * rnd(220, 280) : 0; a.mark = o.x + a.off; } }
+      if (a.phase === 0) { f.vz = 0; f.z += 1900 * dt; if (f.z > hi) { a.phase = 1; a.t1 = 0; a.off = a.miss ? (Math.random() < .5 ? -1 : 1) * rnd(220, 280) : 0; a.err = aimErr(f, o, a, .9); a.mark = o.x + a.off + a.err; a.mk = { x: a.mark, r: 170 }; } }
       else if (a.phase === 1) {
-        f.vz = 0; a.t1 += dt; if (a.t1 < .55) a.mark = o.x + a.off;
+        f.vz = 0; a.t1 += dt; if (a.t1 < .55) { a.mark = o.x + a.off + a.err; a.mk = { x: a.mark, r: 170 }; } else if (a.mk) a.mk.lock = 1;
         if (a.t1 >= .8) { a.phase = 2; f.x = clamp(a.mark, 60, WORLD_W - 60); f.face = o.x >= f.x ? 1 : -1; f.z = hi + 60; f.vz = -2400; }
       } else if (a.phase === 2) {
         f.vz = -2400; ghost(f);
-        if (f.z <= tz) { a.phase = 3; a.t3 = 0; f.vz = 0; const iy = o.z + o.lift > 60 ? center(o).y : GROUND - 60; boom(f.x, iy + 20, 170, colsOf(a.ty)[1], 26); puff(f.x, GROUND, 12, 'rgba(230,220,200,.8)', 200); aoe(f, f.x, iy, 170, D(f, 72), 560, true, null, a.ty); if (a.miss) floatText(f.x, GROUND - 140, 'MISS', '#ddd'); }
+        if (f.z <= tz) { a.phase = 3; a.t3 = 0; f.vz = 0; const iy = o.z + o.lift > 60 ? center(o).y : GROUND - 60; boom(f.x, iy + 20, 170, colsOf(a.ty)[1], 26); puff(f.x, GROUND, 12, 'rgba(230,220,200,.8)', 200); const hit = aoe(f, f.x, iy, 170, D(f, 72), 560, true, null, a.ty); a.mk = null; if (a.miss || !hit) floatText(f.x, GROUND - 140, 'MISS', '#ddd'); }
       } else { a.t3 += dt; if (a.t3 > .35) endAct(f); }
     } },
   combo: { cost: 14, cool: 2.6, range: [0, 300], dur: 1,
@@ -1324,7 +1347,7 @@ function startAct(f, name) {
   else if (name === 'special' || name === 'special2' || name === 'special3') {
     const i = name === 'special' ? 0 : name === 'special2' ? 1 : 2, sp = f.specs[i]; if (!sp) return;
     const A = ARCH[sp.key]; if (f.cool['s' + i] > 0 || f.ki < A.cost || !canSpend(f, sp.sta)) return;
-    spend(f, sp.sta); f.ki -= A.cost; f.cool['s' + i] = VAR.coolFor ? VAR.coolFor(f, i, A) : A.cool; if (o.ability.pressure) f.sta = Math.max(0, f.sta - 5); f.act = { name: 'sp', key: sp.key, t: 0, ty: sp.type, sp, miss: rollMiss(sp.acc), sv: SPV ? SPV.pick(f, sp.key, sp.type) : 0 };
+    spend(f, sp.sta); f.ki -= A.cost; f.cool['s' + i] = (VAR.coolFor ? VAR.coolFor(f, i, A) : A.cool) * lockCd(f, sp.key); if (o.ability.pressure) f.sta = Math.max(0, f.sta - 5); f.act = { name: 'sp', key: sp.key, t: 0, ty: sp.type, sp, miss: rollMiss(sp.acc), rep: lockRepN(f, sp.key), sv: SPV ? SPV.pick(f, sp.key, sp.type) : 0 };
     if (A.cost >= 16 && f.cineCool <= 0) { f.cineCool = 5; startCine(f, sp.type, sp.name); }
     moveBanner(f, sp.name, sp.type, sp.icon);
     A.start && A.start(f, aimFoe(f, o, A), f.act); if (!f.isAI && Math.abs(o.x - f.x) > reachOf(A)) floatText(f.x, GROUND - f.h - 14, 'TOO FAR', '#ffb347', 22); f.alertT = .5; f.alertLen = ALERT_LEN[sp.key] || 0; f.alertAim = AIM_KEYS.has(sp.key);
@@ -1489,6 +1512,7 @@ function aiInput(f, o, dt) {
     a.plan.t -= dt;
     if (a.plan.type === 'guard') { inp.guard = true; if (a.plan.duck) inp.down = true; }
     if (a.plan.type === 'charge') inp.charge = true;
+    if (a.plan.type === 'evade') { inp[a.plan.dir] = true; if (a.plan.dash && !a.plan.d) { a.plan.d = true; inp.dash = true; } }
     if (a.plan.type === 'jump' && !a.plan.done) { inp.up = true; a.plan.done = true; inp[toward] = true; }
     if (a.plan.t <= 0) a.plan = null;
     return inp;
@@ -1500,6 +1524,9 @@ function aiInput(f, o, dt) {
   }
   if (threat && Math.random() < Df.block * dt * 6) { a.plan = { type: Math.random() < .6 ? 'guard' : 'jump', t: .4 + Math.random() * .3, duck: Math.random() < .5 }; return inp; }
   a.t -= dt;
+  const mk = o.act && o.act.mk; // the foe's lock-on attack shows where it will land: step out of it
+  a.seenMk = mk && mk.x != null && Math.abs(mk.x - f.x) < (mk.r || 150) + f.w * .3 ? (a.seenMk || 0) + dt : 0;
+  if (a.seenMk > Df.react && !f.act && Math.random() < Df.block * dt * 7) { a.plan = { type: 'evade', dir: f.x <= mk.x ? 'l' : 'r', t: .45, dash: f.sta >= 14 && f.dashCool <= 0 && Math.random() < .5 }; a.seenMk = 0; return inp; }
   if (a.sx != null) { const sp = VAR.S.ents.find(e => e.springs); if (!sp || f.hp >= f.maxhp * .97 || Math.abs(a.sx - f.x) < sp.r * .5) a.sx = null; else { inp[a.sx > f.x ? 'r' : 'l'] = true; return inp; } } // walk into the Healing Springs
   if (a.goto != null) { if (!pickups.length || Math.abs(a.goto - f.x) < 24) a.goto = null; else { inp[a.goto > f.x ? 'r' : 'l'] = true; return inp; } } // walk to a pickup
   if (a.t <= 0) {
@@ -1560,10 +1587,11 @@ function updateFighter(f, o, inp, dt) {
   for (const k in f.cool) f.cool[k] = Math.max(0, f.cool[k] - dt);
   f.flash = Math.max(0, f.flash - dt); if (f.chromaT > 0) f.chromaT -= dt; f.inv = Math.max(0, f.inv - dt); f.guarding = false; f.charging = false; f.landT = Math.max(0, f.landT - dt); f.sqT = Math.max(0, f.sqT - dt);
   f.buffT = Math.max(0, f.buffT - dt); f.slowT = Math.max(0, f.slowT - dt); f.shieldT = Math.max(0, f.shieldT - dt); f.counterT = Math.max(0, f.counterT - dt); f.debT = Math.max(0, f.debT - dt); f.mult = f.buffT > 0 ? 1.25 : 1; statusFx(f, dt);
+  f.statImm = Math.max(0, (f.statImm || 0) - dt); if (f.sleepT > 0 || f.freezeT > 0) f.hadLock = true; else if (f.hadLock) { f.hadLock = false; f.statImm = 2.2; } // after a sleep or freeze wears off the fighter cannot be locked down again for a moment
   f.warnT = Math.max(0, f.warnT - dt); f.dashCool = Math.max(0, f.dashCool - dt); f.cineCool = Math.max(0, f.cineCool - dt); f.staDelay -= dt; f.laneCool = Math.max(0, f.laneCool - dt); f.alertT = Math.max(0, f.alertT - dt);
   f.lp += (f.lane - f.lp) * Math.min(1, dt * 8 * (f.laneRate || 1));
   if (f.gPrev) f.staDelay = Math.max(f.staDelay, .5); // holding guard pauses stamina regeneration
-  if (f.staDelay <= 0 && !f.dead) f.sta = Math.min(100, f.sta + (f.act ? 4.5 : 14) * (f.buffT > 0 ? 1.4 : 1) * (f.ability.regen ? 1.2 : 1) * LV_MUL[f.stored] * GM.sta * dt);
+  if (f.staDelay <= 0 && !f.dead) f.sta = Math.min(100, f.sta + (f.act ? 4.5 : 14) * (f.buffT > 0 ? 1.4 : 1) * (f.ability.regen ? 1.2 : 1) * (1.1 - .2 * (f.kit.wt || 0)) * LV_MUL[f.stored] * GM.sta * dt);
   if (!f.dead && !lab && f.sta >= 99.9) { f.fullT += dt; if (f.fullT >= 5 && f.stored < 4) { f.stored++; f.sta = 0; f.fullT = 0; floatText(f.x, GROUND - f.z - f.lift - f.h - 14, 'STAMINA LV ' + (f.stored + 1), '#ffe27a', 22); sfx('heal'); } } else f.fullT = 0;
   if ((f.buffT > 0) !== f.shiny) f.shiny = f.buffT > 0;
   if (!f.act || f.act.name !== 'grab') f.grabLift = 0; f.carriedT = Math.max(0, f.carriedT - dt);
@@ -1901,7 +1929,7 @@ function drawAura(g, f, k, cols = f.kit.aura) { // soft halo: a breathing glow r
 // battle effect sprites from Pokémon Showdown (tools/build_pmd.py downloads them)
 const FX = {};
 for (const n of 'fireball flareball electroball shadowball mistball waterwisp poisonwisp wisp energyball blackwisp mudwisp icicle rocks rock1 rock2 rock3 leaf1 leaf2 petal feather fist foot bone lightning shell shine sword web impact greenmetal1 bluefireball'.split(' ')) { const im = new Image(); im.src = `assets/fx/${n}.png`; FX[n] = im; }
-if (typeof TFX !== 'undefined') TFX.init(FX); if (typeof SIGFX !== 'undefined') SIGFX.init(FX);
+if (typeof TFX !== 'undefined') TFX.init(FX); if (typeof SIGFX !== 'undefined') SIGFX.init(FX); if (typeof MOREFX !== 'undefined') MOREFX.init(FX);
 if (typeof SHOTFX !== 'undefined') SHOTFX.init({ spr, FX, TYPE_COL });
 const SPV = typeof SPFX !== 'undefined' ? SPFX : null; if (SPV) SPV.init({ FX, muted: () => muted, low: () => lowQ, G: () => GROUND, laneY, vol: () => VOL.fx });
 const tfxS = f => clamp(f.h / 62, 1.4, 3);
@@ -2214,16 +2242,36 @@ function drawWeather(g) {
 }
 // small things moving in the arena so it never feels frozen
 const AMBIENT = { meadow: 'leaf', forest: 'leaf', volcano: 'ember', desert: 'dust', canyon: 'dust', cave: 'dust', stadium: 'dust', city: 'dust', ice: 'snow', night: 'fly', frozenlake: 'snow', ruins: 'fly', glade: 'leaf', cliffs: 'leaf', shrine: 'leaf', redcanyon: 'dust', champion: 'dust', pokeball: 'dust', ranch: 'leaf', crystalcave: 'dust', magmacrater: 'ember', plaza: 'leaf' };
+// depth effects: soft motes at two depths, low ground mist and a haze band at the horizon, tinted per map (hz = horizon y, hc = haze colour, mist = mist colour)
+const FXD = { t: '255,244,205' }, FXC = { champion: { t: '255,244,205', hz: 395, hc: '200,218,245' }, ranch: { t: '255,240,190', hz: 296, hc: '210,230,200', mist: '235,245,225' }, crystalcave: { t: '205,175,255', hz: 312, hc: '150,120,220', mist: '170,150,230' }, magmacrater: { t: '255,170,90', hz: 301, hc: '255,140,80' }, palmcove: { t: '255,250,225', hz: 330, hc: '210,235,245', mist: '255,255,255' }, plaza: { t: '255,245,215', hz: 324, hc: '215,225,240' }, pokeball: { t: '255,244,205', hz: 390, hc: '200,218,245' }, frozenlake: { t: '225,240,255', hz: 350, hc: '215,235,255', mist: '225,240,255' }, cliffs: { t: '255,250,235', hz: 362, hc: '215,235,245', mist: '240,250,255' }, ruins: { t: '190,205,235', hz: 348, hc: '150,170,210', mist: '170,190,210' }, ice: { t: '225,240,255', mist: '225,240,255' }, cave: { t: '230,200,160', mist: '200,180,150' }, forest: { t: '255,245,200', mist: '225,240,225' }, night: { t: '190,205,235' }, sea: { t: '180,220,255' }, water: { t: '200,235,255' }, volcano: { t: '255,170,90' }, desert: { t: '255,225,170' }, canyon: { t: '255,225,170' }, redcanyon: { t: '255,225,170' }, lab: { t: '160,230,255' }, storm: { t: '220,225,200' } };
+const FXSP = {}, vfxRnd = (i, n) => { const x = Math.sin(i * 91.7 + n * 12.9898) * 43758.5453; return x - Math.floor(x); }, vfxMk = (n, f) => Array.from({ length: n }, (_, i) => f(i)), VW = W + 260; // visual-only scatter, never the simulation's random numbers
+const FX_FAR = vfxMk(22, i => ({ x: vfxRnd(i, 1) * WORLD_W, y: 90 + vfxRnd(i, 2) * 330, s: 5 + vfxRnd(i, 3) * 5, a: .45 + vfxRnd(i, 4) * .3, v: 3 + vfxRnd(i, 5) * 5, p: vfxRnd(i, 6) * 6.28 }));
+const FX_MID = vfxMk(26, i => ({ x: vfxRnd(i + 50, 1) * WORLD_W, y: 150 + vfxRnd(i + 50, 2) * 470, s: 8 + vfxRnd(i + 50, 3) * 8, a: .5 + vfxRnd(i + 50, 4) * .35, v: 5 + vfxRnd(i + 50, 5) * 9, p: vfxRnd(i + 50, 6) * 6.28 }));
+const FX_MIST = vfxMk(7, i => ({ x: vfxRnd(i + 130, 1) * WORLD_W, w: 560 + vfxRnd(i + 130, 2) * 420, y: GROUND - 25 + vfxRnd(i + 130, 3) * 50, a: .38 + vfxRnd(i + 130, 4) * .2, z: .6 + vfxRnd(i + 130, 5) * .9, v: 6 + vfxRnd(i + 130, 6) * 10 }));
+function fxSprite(key, w, h, draw) { return FXSP[key] || (FXSP[key] = (() => { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d')); return c; })()); }
+const fxSoft = rgb => fxSprite('s' + rgb, 64, 64, g => { const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, `rgba(${rgb},1)`); r.addColorStop(.35, `rgba(${rgb},.55)`); r.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
+const fxMistSp = rgb => fxSprite('m' + rgb, 512, 128, g => { g.scale(4, 1); const r = g.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, `rgba(${rgb},.55)`); r.addColorStop(.6, `rgba(${rgb},.18)`); r.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = r; g.fillRect(0, 0, 128, 128); });
+const fxWrap = (wx, z, v) => (((wx - camX * z + now * v) % VW) + VW) % VW - 130;
+function drawMotes(g, fc) {
+  const sp = fxSoft(fc.t);
+  for (const [arr, z, tw] of [[FX_FAR, .35, false], [FX_MID, 1, true]]) for (const d of arr) { // far specks drift slowly, mid motes keep pace with the fighters
+    const x = fxWrap(d.x, z, d.v * .4), y = d.y + Math.sin(now * .35 + d.p) * (4 + d.s * .3) + (now * d.v * .25 % 40);
+    g.globalAlpha = Math.min(1, d.a * (tw ? .75 + .25 * Math.sin(now * 1.3 + d.p * 3) : 1)); g.drawImage(sp, x - d.s / 2, y - d.s / 2, d.s, d.s);
+  }
+  g.globalAlpha = 1;
+  if (fc.mist) { const ms = fxMistSp(fc.mist); for (const m of FX_MIST) { const fr = m.z > 1.05, x = fxWrap(m.x, m.z, m.v) - m.w / 2 + 130, y = m.y + (fr ? 60 : 0); g.globalAlpha = m.a * (fr ? .5 : .9); g.drawImage(ms, x, y - m.w * .09, m.w, m.w * .18); } g.globalAlpha = 1; }
+}
 function drawAmbient(g) {
   const id = curTheme.id, t = now, par = camX * .3, kind = AMBIENT[id] || (tod === 'night' ? 'fly' : undefined); g.save();
-  if (['meadow', 'forest', 'beach', 'stadium', 'canyon', 'desert', 'ranch', 'palmcove'].includes(id)) {
+  drawMotes(g, FXC[id] || FXD);
+  if (['meadow', 'forest', 'beach', 'stadium', 'canyon', 'desert', 'ranch', 'palmcove', 'champion', 'pokeball', 'plaza', 'cliffs'].includes(id)) {
     g.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 2; i++) { const x = (((i * 380 - par + 200) % (W + 300)) + W + 300) % (W + 300) - 150, a = .045 + .03 * Math.sin(t * .8 + i * 2), gr = g.createLinearGradient(x, 0, x + 160, H * .8); gr.addColorStop(0, `rgba(255,236,170,${a})`); gr.addColorStop(1, 'rgba(255,236,170,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 90, 0); g.lineTo(x + 330, H * .8); g.lineTo(x + 170, H * .8); g.fill(); }
     g.globalCompositeOperation = 'source-over';
   }
   if (id === 'sea' || id === 'water') { g.strokeStyle = 'rgba(200,240,255,.10)'; g.lineWidth = 3; for (let i = 0; i < 8; i++) { g.beginPath(); for (let x = 0; x <= W; x += 40) g.lineTo(x, 380 + i * 30 + Math.sin(x * .02 + t * 1.6 + i) * 6); g.stroke(); } } // shimmering water
   if (id === 'volcano' || id === 'magmacrater') { const gr = g.createLinearGradient(0, H * .55, 0, H); gr.addColorStop(0, 'rgba(255,90,20,0)'); gr.addColorStop(1, `rgba(255,90,20,${.14 + .07 * Math.sin(t * 3) + .03 * Math.sin(t * 11)})`); g.fillStyle = gr; g.fillRect(0, H * .55, W, H * .45); } // flickering lava glow
-  if (kind) for (let i = 0; i < 16; i++) {
+  if (kind && kind !== 'dust') for (let i = 0; i < 16; i++) { // plain dust is now the soft motes above
     const bx = (((i * 149.3 + t * 30 * (1 + i % 3) - par) % (W + 60)) + W + 60) % (W + 60) - 30;
     if (kind === 'leaf') { const y = ((i * 61 + t * 40 * (.6 + (i % 3) * .3)) % (H + 40)) - 20; g.fillStyle = i % 2 ? '#7fbf4a' : '#d8c04a'; g.globalAlpha = .8; g.beginPath(); g.ellipse(bx + Math.sin(t * 1.5 + i) * 24, y, 7, 3, t * 3 + i, 0, 6.283); g.fill(); }
     else if (kind === 'ember') { const y = H - ((i * 53 + t * 60 * (.5 + (i % 4) * .3)) % (H + 40)); g.fillStyle = '#ffb347'; g.globalAlpha = .5 + .4 * Math.sin(t * 9 + i); g.fillRect(bx + Math.sin(t + i) * 12, y, 2 + i % 3, 2 + i % 3); }
@@ -2804,13 +2852,12 @@ function endMatch() { VAR.matchEnd();
   $('overT').textContent = demo ? nm(winner.p.name).toUpperCase() + ' WINS' : win ? 'YOU WIN!' : 'YOU LOSE'; $('overT').style.color = win || demo ? '#ffd34d' : '#ff6a6a';
   $('overS').textContent = demo ? `${nm(P.p.name)} vs ${nm(E.p.name)}.` + (bestOf > 1 ? ` Rounds ${rounds.a}-${rounds.b}.` : '') : (win ? `${nm(me.p.name)} beat ${nm(other(me).p.name)}${NETG.on ? '.' : ' on ' + selDiff + '.'}` : NETG.on ? `${nm(other(me).p.name)} won this time.` : `${nm(E.p.name)} was too strong this time.`) + (bestOf > 1 ? ` Rounds ${rounds.a}-${rounds.b}.` : '');
   const ratio = stats.dealt / Math.max(1, stats.taken), grade = win ? (ratio >= 3 ? 'S' : ratio >= 1.8 ? 'A' : 'B') : (ratio >= .8 ? 'C' : 'D');
-  const pts = win && !practice && !demo && !NETG.on ? Math.round(({ Easy: 20, Normal: 40, Hard: 80 }[selDiff] || 40) * (bestOf > 1 ? 1.5 : 1)) : 0; // points for the app's ball shop
-  if (pts) { try { if (window.PF && window.PF.award) window.PF.award(pts); } catch (e) { } }
+  const rw = !practice && !demo && !NETG.on ? PROG.award({ win, you: selYou, foe: selRival, diff: selDiff, bo: bestOf, t: stats.t || 0, rounds: Math.max(1, rounds.n), taken: stats.taken }) : null, pts = rw ? rw.pts : 0; // research points: every offline fight pays, win or lose
   if (!practice && !demo && !NETG.on && !lab) { aiLoss = win ? 0 : Math.min(5, aiLoss + 1); try { localStorage.setItem('pf_loss', String(aiLoss)); } catch (e) { } }
   const need = win ? (ratio < 1.8 ? ['A', 1.8] : ratio < 3 ? ['S', 3] : null) : (ratio < .8 ? ['C', .8] : null), hpPct = Math.round(Math.max(0, me.hp) / me.maxhp * 100);
   const tile = (v, l, c) => `<div class="os ${c}"><b>${v}</b><small>${l}</small></div>`;
   $('ostats').innerHTML = tile(Math.round(stats.dealt), 'DAMAGE DEALT', 'g') + tile(Math.round(stats.taken), 'DAMAGE TAKEN', 'r') + tile(stats.combo, 'BEST COMBO', 'o') + tile(stats.parry, 'PARRIES', 'c') + (demo ? '' : tile(fmtT(stats.t || 0), 'FIGHT TIME', '') + tile(hpPct + '%', 'HP LEFT', hpPct >= 50 ? 'g' : hpPct >= 20 ? 'o' : 'r'));
-  $('ovGrade').innerHTML = `<div class="gr g${grade}">${grade}</div><div class="gt"><b>RATING</b><small>${ratio >= 99 ? '99+' : ratio.toFixed(1)}\u00d7 damage ratio${need ? `<br>${need[0]} at \u00d7${need[1]}` : ''}</small></div>` + (pts ? `<div class="gp"><b>+${pts}</b><small>POINTS \u00b7 ${selDiff.toUpperCase()}${bestOf > 1 ? ' \u00d71.5' : ''}</small></div>` : '');
+  $('ovGrade').innerHTML = `<div class="gr g${grade}">${grade}</div><div class="gt"><b>RATING</b><small>${ratio >= 99 ? '99+' : ratio.toFixed(1)}\u00d7 damage ratio${need ? `<br>${need[0]} at \u00d7${need[1]}` : ''}</small></div>` + (rw ? `<div class="gp"><b>${rw.pts ? '+' + rw.pts : '0'}</b><small>POINTS \u00b7 ${rw.parts.join(' \u00b7 ')}</small>${rw.goal ? `<span class="gn">NEXT: ${rw.goal.name.toUpperCase()} \u00b7 ${Math.min(rw.goal.have, rw.goal.cost)}/${rw.goal.cost}</span><span class="gbar"><u style="width:${Math.min(100, rw.goal.have / rw.goal.cost * 100)}%"></u></span>` : ''}</div>` : '');
   fillResult(me, win, ratio, grade, pts);
   if (tourOn) tourEnd(win); else { $('againBtn').textContent = demo ? 'WATCH AGAIN' : 'REMATCH'; $('menuBtn').style.display = ''; }
   $('over').classList.add('on');
@@ -2855,7 +2902,7 @@ function matchup(you, rival) {
 }
 const STAT_COL = { hp: '#5fe07a', atk: '#ff8a4a', spa: '#6aa8ff', spe: '#ffd34d' };
 const DESC = { strike: 'Lightning from the sky', blast: 'Exploding fireball', dig: 'Tunnel under, burst out', quake: 'Ground-shaking stomp', teleport: 'Vanish and strike', dash: 'Fast charging hit', wave: 'Big crashing wave', rain: 'Rocks or ice fall from above', blizzard: 'Freezing storm', ring: 'Trapping vortex', tornado: 'Knock-up gust', sleep: 'Spores: foe sleeps 3 s', poison: 'Spores: poison over time', para: 'Spores: paralyzes', selfdestruct: 'Huge blast, costs life', heal: 'Restores HP', buff: 'Power up for 10s', vine: 'Long whip lash', geyser: 'Eruptions toward the foe', cannon: 'Heavy slow shot', slash: 'Crescent blades', volley: 'Fan of homing shots', swoop: 'Fly up, dive down', combo: 'Rush and hit 4 times', leap: 'Jump and slam', minibeam: 'Short beam', drain: 'Steals HP', debuff: 'Weakens the foe', shield: 'Halves damage taken', counter: 'Reflects the next hit', metronome: 'A random move', spin: 'Roll through the foe', whirl: 'Spin and shred nearby', boulder: 'Bowling-ball boulder', roots: 'Roots tangle and slow', spikes: 'Line of erupting spikes', bloom: 'Spin leap, leaf fan' };
-// ---------------------------------------------------------------- type moves: 162 scripted specials (9 per type: 7 regular + 2 signature). The pixel-art visuals live in data/typefx.js (and data/sigfx.js for the signature moves); the rules are scripted here.
+// ---------------------------------------------------------------- type moves: 234 scripted specials (13 per type: 7 regular, 2 signature and 4 newer ones). The pixel-art visuals live in data/typefx.js (and data/sigfx.js for the signature moves); the rules are scripted here.
 // Times are in "mockup seconds" (the timeline of the artwork) and are scaled by ts; hits land where the foe stood when the move started unless {live:1}.
 const TM = {}, TM_BY_TYPE = {}; let tfx = [], tzones = [], weatherBase = null, wxClock = 0;
 const copies = new Map(); // Copycat: fighter -> { t: seconds left, id: Pokédex number it looks like }. The look is cosmetic; only the timer and the power-up affect the fight
@@ -2864,7 +2911,7 @@ function T(type, name, desc, o) {
   const key = slugOf(name), c = { key, name, type, desc, ts: 1.35, h: [], ...o }; TM[key] = c; (TM_BY_TYPE[type] = TM_BY_TYPE[type] || []).push(key);
   STA[key] = c.sta; BASE_SCORE[key] = c.score || 5; ARCH_ICON[key] = TYPE_ICON[type] || 'star-four-points'; DESC[key] = desc; ANIM_OF[key] = [c.anim || 'Attack'];
   if (c.pow) POWER_KEYS.add(key);
-  ARCH[key] = { cost: c.c, cool: c.cd, range: c.r || [150, 650], dur: c.d / c.ts + .3, when: c.when, start(f, foe, a) { tmStart(f, foe, a, c); }, tick(f, foe, a, dt) { tmTick(f, foe, a, dt, c); } };
+  ARCH[key] = { cost: c.c, cool: c.cd, range: c.r || [150, 650], dur: c.d / c.ts + .3 + (c.hide || c.tp ? .2 : 0), when: c.when, start(f, foe, a) { tmStart(f, foe, a, c); }, tick(f, foe, a, dt) { tmTick(f, foe, a, dt, c); } };
 }
 const rep = (n, t0, dt, dmg, r, kb, o, last) => Array.from({ length: n }, (_, i) => [t0 + i * dt, i === n - 1 && last ? last : dmg, r, kb, i === n - 1 && last ? 1 : 0, 0, 1, o || {}]);
 const L1 = { live: 1 };
@@ -2875,7 +2922,7 @@ function setWeather(id, dur) {
 const inWin = (w, t) => w.some(([a, b]) => t >= a && t < b);
 function tmStart(f, foe, a, c) {
   const S = clamp(f.h / 62, 1.4, 3), tc = center(foe), lift = f.z + f.lift;
-  a.c = c; a.S = S; a.x0 = f.x; a.gy = GROUND + laneY(f); a.tx = foe.x + (a.miss ? (Math.random() < .5 ? -1 : 1) * rnd(230, 300) : 0); a.ty = tc.y; a.done = {};
+  a.c = c; a.S = S; a.x0 = f.x; a.gy = GROUND + laneY(f); a.tx = foe.x + (a.miss ? (Math.random() < .5 ? -1 : 1) * rnd(230, 300) : 0); a.ty = tc.y; a.done = {}; a.err = lockKind(c.key) ? aimErr(f, foe, a, .8) : 0; a.lk = {};
   const nv = typeof TFX !== 'undefined' && TFX.vars ? TFX.vars(c.key) : 0; let v = 0; // each cast shows the original look or one of its variations, never the same one twice in a row
   if (nv) { const lv = f.lastV = f.lastV || {}, opts = []; for (let k = 0; k <= nv; k++) if (k !== lv[c.key]) opts.push(k); v = window.__forceVar !== undefined ? Math.min(nv, window.__forceVar) : opts[Math.floor(Math.random() * opts.length)]; lv[c.key] = v; }
   a.v = v; a.vk = v ? TFX.varKey(c.key, v) : ''; a.to = c.h.length ? c.h[0][0] : 0;
@@ -2883,15 +2930,15 @@ function tmStart(f, foe, a, c) {
   if (c.z) for (const [from, to, r, dmg, st, p, ev] of c.z) tzones.push({ owner: f, x: p === 'G' ? 0 : lerp(f.x, a.tx, p === undefined ? 1 : p), glob: p === 'G', r, dmg, st, age: 0, from: from / c.ts, to: to / c.ts, every: ev || .5, acc: 0, ty: c.type });
   sfx(c.sfx || 'charge');
 }
-function tmHit(f, foe, a, c, h) {
+function tmHit(f, foe, a, c, h, hi) {
   const [, dmg, r, kb, big, st, p = 1, o = {}] = h; if (foe.dead) return;
   const tc = center(foe); let x, y;
   if (o.self) { x = f.x; y = center(f).y; }
-  else if (o.live) { if (a.miss) { if (!a.said) { a.said = 1; floatText(tc.x, tc.y - 30, 'MISS', '#ddd'); } return; } x = tc.x; y = tc.y; }
+  else if (o.live) { if (a.miss) { if (!a.said) { a.said = 1; floatText(tc.x, tc.y - 30, 'MISS', '#ddd'); } return; } x = a.lk && a.lk[hi] ? a.lk[hi].x + a.err : tc.x; y = tc.y; }
   else { x = lerp(a.x0, a.tx, p); y = p >= 1 ? a.ty : GROUND - 50; }
   if (o.unb) f.unblockable = true;
   const ok = dmg > 0 ? aoe(f, x, y, r, D(f, dmg), kb, !!big, null, c.type) : circleRect(x, y, r, body(foe)) && Math.abs(f.lp - foe.lp) <= 1.2;
-  f.unblockable = false; if (!ok) return;
+  f.unblockable = false; if (o.live) a.mk = null; if (!ok) { if (o.live && a.lk && a.lk[hi]) floatText(x, y - 30, 'MISS', '#ddd'); return; }
   if (st && Math.random() < (o.sc === undefined ? 1 : o.sc)) applyStatus(foe, st === 'rand' ? ['burn', 'slow', 'freeze'][Math.floor(Math.random() * 3)] : st, true, f);
   if (o.leech) { const g = Math.round(D(f, dmg) * o.leech * .78); f.hp = Math.min(f.maxhp, f.hp + g); floatText(f.x, GROUND - f.z - f.lift - f.h - 10, '+' + g, '#7dff9a', 22); }
   if (o.launch) { foe.vz = o.launch; foe.hitT = Math.max(foe.hitT, .6); foe.hitBig = true; }
@@ -2930,7 +2977,8 @@ function tmTick(f, foe, a, dt, c) {
   if (c.hide) { const h = inWin(c.hide, t); f.fade = h ? 0 : 1; if (h) f.inv = Math.max(f.inv, .1); }
   if (c.tp && !a.tped && t >= c.tp) { a.tped = 1; const s = Math.sign(foe.x - f.x) || f.face; f.x = clamp(foe.x + s * (foe.w * .5 + f.w * .5 + 20), WALL_L, WALL_R); f.face = -s; f.vx = 0; puff(f.x, GROUND, 8, 'rgba(60,30,90,.7)', 120); }
   if (c.hop) for (let i = 0; i < c.hop.length; i++) if (!a.done['p' + i] && t >= c.hop[i][0]) { a.done['p' + i] = 1; f.vz = c.hop[i][1]; } // a leap: the caster jumps at this moment
-  for (let i = 0; i < c.h.length; i++) if (!a.done[i] && t >= c.h[i][0]) { a.done[i] = 1; tmHit(f, foe, a, c, c.h[i]); }
+  if (a.lk) for (let i = 0; i < c.h.length; i++) { const ho = c.h[i][7]; if (ho && ho.live && !a.lk[i] && !a.done[i] && t >= c.h[i][0] - .4) { a.lk[i] = { x: foe.x }; a.mk = { x: foe.x + a.err, r: c.h[i][2], lock: 1 }; } } // a move that aims at the foe commits to where it stands a moment before it lands
+  for (let i = 0; i < c.h.length; i++) if (!a.done[i] && t >= c.h[i][0]) { a.done[i] = 1; tmHit(f, foe, a, c, c.h[i], i); }
   if (a.vk) twistVar(f, foe, a, c, t);
   if (c.self) for (let i = 0; i < c.self.length; i++) if (!a.done['s' + i] && t >= c.self[i][0]) { a.done['s' + i] = 1; tmSelf(f, c, c.self[i]); }
   if (c.rec && !a.recd && c.h.length && a.done[c.h.length - 1]) { a.recd = 1; const l = Math.round(f.maxhp * c.rec); f.hp = Math.max(1, f.hp - l); floatText(f.x, GROUND - f.z - f.lift - f.h - 10, '-' + l, '#ff8a8a', 22); }
@@ -2953,7 +3001,8 @@ function tmDraw(layer, g) {
   for (const i of tfx) {
     const c = i.c; let mt = i.age * c.ts; if (c.loop && mt > c.loop[1]) mt = c.loop[0] + (mt - c.loop[0]) % (c.loop[1] - c.loop[0]);
     let tx = i.tx, ty = i.ty; if (i.v && !i.miss) { const o = other(i.f); tx = o.x; ty = center(o).y; } // a variation follows the foe live
-    if (typeof SIGFX !== 'undefined' && SIGFX.has(c.key)) { const fo = other(i.f); SIGFX.move(layer, c.key, g, mt, { x: i.x0, gy: i.gy, dir: i.dir, S: i.S, dx: (i.f.x - i.x0) * i.dir / i.S, cdy: (i.f.z + i.f.lift - i.lift) / i.S, lift: i.lift, tx: i.tx, ty: i.ty, fdx: (fo.x - i.tx) * i.dir / i.S, fdy: -(fo.z + fo.lift) / i.S, img: i.f.vimg, imgW: i.f.w / i.S, imgH: i.f.h / i.S, fimg: fo.vimg, fimgW: fo.w / i.S, fimgH: fo.h / i.S }); continue; }
+    const FXM = typeof SIGFX !== 'undefined' && SIGFX.has(c.key) ? SIGFX : typeof MOREFX !== 'undefined' && MOREFX.has(c.key) ? MOREFX : null;
+    if (FXM) { const fo = other(i.f); FXM.move(layer, c.key, g, mt, { x: i.x0, gy: i.gy, dir: i.dir, S: i.S, dx: (i.f.x - i.x0) * i.dir / i.S, cdy: (i.f.z + i.f.lift - i.lift) / i.S, lift: i.lift, tx: i.tx, ty: i.ty, fdx: (fo.x - i.tx) * i.dir / i.S, fdy: -(fo.z + fo.lift) / i.S, img: i.f.vimg, imgW: i.f.w / i.S, imgH: i.f.h / i.S, fimg: fo.vimg, fimgW: fo.w / i.S, fimgH: fo.h / i.S }); continue; }
     TFX.move(layer, c.key, g, mt, { x: i.x0, gy: i.gy, dir: i.dir, S: i.S, dx: (i.f.x - i.x0) * i.dir / i.S, lift: i.lift, tx, ty, v: i.v, to: i.to, img: i.f.vimg, imgW: i.f.w / i.S, imgH: i.f.h / i.S });
   }
 }
@@ -3142,6 +3191,138 @@ T('steel', 'Chrome Blade Fan', 'Five mirror blades fan out and fly into the foe'
 T('fairy', 'Crescent Moon Strike', 'A giant crescent moon swings down on the foe', { ...SGN, c: 26, cd: 5.5, sta: 34, pow: 1, r: [200, 600], ch: .8, h: [[1.25, 72, 160, 500, 1, 0, 1]], d: 2.3, anim: 'Charge' });
 T('fairy', 'Wish Star', 'A shooting star lands on you and heals', { ...SGN, c: 18, cd: 9, sta: 22, r: [0, 9999], self: [[1.0, 'heal', .2], [1.0, 'cure']], d: 2.0, anim: 'Charge', when: f => f.hp < f.maxhp * .85 });
 
+// ----- MORE TYPE MOVES: three new ones per type (an attack, a defensive or support move, and one more attack). Visuals live in data/morefx.js; every rule reuses what the older moves do.
+const SHD = f => f.shieldT <= 0, BFF = f => f.buffT <= 0, HEAL = f => f.hp < f.maxhp * .85, CTR = f => f.counterT <= 0;
+// normal
+T('normal', 'Wrecking Swing', 'A spiked ball whirls round and flings the foe', { c: 22, cd: 4.2, sta: 30, r: [150, 620], ch: .5, h: [[1.3, 64, 140, 360, 1, 0, 1, { live: 1, launch: 420 }]], d: 2.4, anim: 'Swing' });
+T('normal', 'Cheer Rally', 'Pennants and confetti: attack up for a while', { c: 16, cd: 10, sta: 20, r: [0, 9999], self: [[.6, 'buff', 14]], d: 2.0, anim: 'Charge', when: BFF });
+T('normal', 'Confetti Cannon', 'A party cannon blasts the foe back', { c: 22, cd: 4, sta: 28, r: [200, 800], ch: .6, h: [[1.05, 58, 170, 520, 1, 0, 1]], d: 2.2, anim: 'Shoot' });
+// fire
+T('fire', 'Phoenix Dive', 'Vanish as a fire-bird, then dive onto the foe', { c: 26, cd: 5.5, sta: 34, pow: 1, r: [200, 700], hide: [[.3, 1.3]], tp: 1.3, h: [[1.38, 76, 150, 520, 1, 'burn', 1, { live: 1, sc: .5 }]], back: [[2.0, 2.5, 1500]], d: 2.5, anim: 'Hop' });
+T('fire', 'Ember Veil', 'A flame dome that halves damage taken', { c: 18, cd: 11, sta: 22, r: [0, 9999], self: [[.6, 'shield', 9]], d: 1.8, anim: 'Charge', when: SHD });
+T('fire', 'Blaze Cyclone', 'A fire tornado lifts and burns the foe', { c: 24, cd: 4.6, sta: 30, r: [200, 760], ch: .5, h: [[.95, 12, 130, 0, 0, 'burn', 1, { live: 1, launch: 360, sc: .5 }], ...rep(4, 1.3, .25, 14, 130, 40, L1, 34)], d: 2.5, anim: 'Charge' });
+// water
+T('water', 'Aqua Lance', 'A water spear pins the foe in place', { c: 22, cd: 4, sta: 30, r: [200, 760], ch: .7, h: [[1.05, 68, 110, 300, 1, 'slow', 1, { live: 1, sc: .7 }]], d: 2.3, anim: 'Shoot' });
+T('water', 'Rain Veil', 'Rain curtain: small heal and a shield', { c: 18, cd: 11, sta: 22, r: [0, 9999], self: [[.6, 'shield', 7], [1.2, 'heal', .08]], d: 2.0, anim: 'Charge', when: SHD });
+T('water', 'Torrent Geyser', 'Three geysers burst up toward the foe', { c: 24, cd: 4.6, sta: 30, r: [200, 800], h: [[.85, 14, 90, 0, 0, 0, .45], [1.27, 18, 100, 0, 0, 0, .72], [1.64, 48, 120, 0, 1, 0, 1, { launch: 560 }]], d: 2.5, anim: 'Charge' });
+// electric
+T('electric', 'Static Chain', 'A lightning chain tightens round the foe', { c: 22, cd: 4.2, sta: 28, r: [200, 760], ch: .8, h: [[1.0, 18, 110, 100, 0, 'slow', 1, { live: 1, sc: .6 }], [1.3, 18, 110, 100, 0, 0, 1, L1], [1.6, 30, 120, 360, 1, 0, 1, L1]], d: 2.3, anim: 'Shoot' });
+T('electric', 'Overcharge', 'Crackling aura: attack up for a while', { c: 16, cd: 10, sta: 20, r: [0, 9999], self: [[.5, 'buff', 14]], d: 1.8, anim: 'Charge', when: BFF });
+T('electric', 'Ball Lightning', 'A slow plasma ball that blows up on the foe', { c: 26, cd: 4.6, sta: 34, pow: 1, r: [220, 860], ch: .8, h: [[1.65, 74, 140, 520, 1, 'slow', 1, { live: 1, sc: .6 }]], d: 2.4, anim: 'Charge' });
+// grass
+T('grass', 'Thorn Cage', 'Thorny vines cage and prick the foe', { c: 22, cd: 4.4, sta: 28, r: [180, 700], h: [[1.0, 12, 120, 0, 0, 'slow', 1, { sc: .8 }], [1.55, 52, 130, 240, 1, 0, 1]], d: 2.5, anim: 'Charge' });
+T('grass', 'Spring Bloom', 'Flowers bloom round you and restore HP', { c: 18, cd: 9, sta: 22, r: [0, 9999], self: [[1.0, 'heal', .2], [1.0, 'cure']], d: 2.0, anim: 'Charge', when: HEAL });
+T('grass', 'Spore Burst', 'A mushroom bursts into drowsy spores', { c: 20, cd: 5.5, sta: 26, r: [150, 700], h: [[1.1, 22, 150, 0, 0, 'sleep', 1, { sc: .45 }]], d: 2.3, anim: 'Charge' });
+// ice
+T('ice', 'Frost Nova', 'Frost bursts from under the foe and may freeze it', { c: 22, cd: 4.4, sta: 28, r: [150, 700], h: [[1.0, 44, 160, 200, 1, 'freeze', 1, { sc: .4 }]], d: 2.2, anim: 'Charge' });
+T('ice', 'Snow Cloak', 'A snow dome that halves damage taken', { c: 18, cd: 11, sta: 22, r: [0, 9999], self: [[.6, 'shield', 8]], d: 1.8, anim: 'Charge', when: SHD });
+T('ice', 'Snow Squall', 'A howling blizzard cone chills the foe', { c: 20, cd: 4, sta: 26, r: [150, 720], ch: .5, h: [[1.0, 12, 150, 120, 0, 'slow', 1, { live: 1, sc: .7 }], ...rep(2, 1.3, .3, 14, 150, 160, L1, 30)], d: 2.4, anim: 'Shoot' });
+// fighting
+T('fighting', 'Seismic Toss', 'Grab, hurl high and slam the foe down', { c: 24, cd: 5, sta: 32, pow: 1, r: [150, 600], rush: [[.4, .8, 1700]], back: [[2.05, 2.55, 1500]], h: [[.9, 8, 100, 0, 0, 0, 1, { live: 1, launch: 480 }], [1.58, 70, 140, 0, 1, 0, 1, { live: 1, slam: -1400 }]], d: 2.6, anim: 'Attack' });
+T('fighting', 'Focus Stance', 'Aura stance that counters the next hit', { c: 16, cd: 9, sta: 20, r: [0, 9999], self: [[.5, 'counter', 2.4]], d: 1.9, anim: 'Charge', when: CTR });
+T('fighting', 'Chi Wave Barrage', 'Five blazing fists fly out in a fan', { c: 22, cd: 4, sta: 28, r: [200, 800], ch: .6, h: rep(5, 1.05, .2, 15, 110, 150, L1, 32), d: 2.5, anim: 'Shoot' });
+// poison
+T('poison', 'Toxic Spike Field', 'Violet spikes and a poison puddle round the foe', { c: 22, cd: 4.6, sta: 28, r: [180, 720], h: [[.9, 20, 130, 100, 0, 'poison', 1, { sc: .8 }], [1.5, 24, 130, 160, 1, 0, 1]], z: [[1.0, 3.2, 130, 6, 'poison', 1, .5]], d: 2.4, anim: 'Charge' });
+T('poison', 'Acid Armor', 'A slime coat that halves damage taken', { c: 18, cd: 11, sta: 22, r: [0, 9999], self: [[.6, 'shield', 8]], d: 1.8, anim: 'Charge', when: SHD });
+T('poison', 'Toxic Cauldron', 'A cauldron tips its toxic brew over the foe', { c: 24, cd: 5, sta: 30, r: [150, 700], h: [[1.5, 58, 140, 0, 1, 'poison', 1, { sc: .8 }]], z: [[1.5, 3.4, 120, 6, 'poison', 1, .5]], d: 2.4, anim: 'Charge' });
+// ground
+T('ground', 'Pillar March', 'Earth pillars thrust up toward the foe', { c: 24, cd: 4.6, sta: 30, r: [200, 820], h: [[.8, 12, 90, 0, 0, 0, .25], [1.05, 12, 90, 0, 0, 0, .5], [1.3, 14, 90, 0, 0, 0, .75], [1.55, 50, 120, 0, 1, 0, 1, { launch: 520 }]], d: 2.4, anim: 'Charge' });
+T('ground', 'Mud Armor', 'A mud shell that halves damage taken', { c: 18, cd: 11, sta: 22, r: [0, 9999], self: [[.6, 'shield', 8]], d: 1.8, anim: 'Charge', when: SHD });
+T('ground', 'Quicksand Maw', 'Quicksand swallows the foe, then spits it out', { c: 22, cd: 5, sta: 30, r: [150, 700], h: [[1.0, 10, 140, 0, 0, 'slow', 1, { sc: 1 }], [1.7, 60, 150, 0, 1, 0, 1, { launch: 520 }]], d: 2.4, anim: 'Charge' });
+// flying
+T('flying', 'Updraft', 'A wind column lifts the foe, then drops it', { c: 22, cd: 4.6, sta: 30, r: [150, 700], h: [[1.0, 18, 130, 0, 1, 0, 1, { live: 1, launch: 600 }], [2.0, 48, 140, 300, 1, 0, 1, { live: 1, slam: -1200 }]], d: 2.5, anim: 'Charge' });
+T('flying', 'Boomerang Gale', 'A wind crescent that cuts going and returning', { c: 18, cd: 3.4, sta: 24, r: [200, 800], h: [[1.0, 36, 110, 300, 0, 0, 1, L1], [1.85, 34, 110, 300, 0, 0, 1, L1]], d: 2.4, anim: 'Swing' });
+T('flying', 'Cyclone Wings', 'Wing gusts form a twister that spins the foe', { c: 22, cd: 4.6, sta: 30, r: [160, 760], h: [[1.1, 22, 130, 0, 1, 0, 1, { live: 1, launch: 520 }], [1.8, 40, 140, 360, 1, 'confuse', 1, { sc: .35 }]], d: 2.4, anim: 'Charge' });
+// psychic
+T('psychic', 'Mind Prism', 'Prisms circle the foe and confuse it', { c: 22, cd: 4.4, sta: 28, r: [180, 720], ch: .5, h: [[1.3, 20, 130, 0, 0, 'confuse', 1, { live: 1, sc: .6 }], [1.9, 34, 130, 200, 1, 0, 1, L1]], d: 2.4, anim: 'Charge' });
+T('psychic', 'Mirror Room', 'Mirror shards counter the next hit', { c: 16, cd: 9, sta: 20, r: [0, 9999], self: [[.5, 'counter', 2.4]], d: 1.9, anim: 'Charge', when: CTR });
+T('psychic', 'Astral Orbit', 'Six orbs circle the foe, then crash in', { c: 24, cd: 4.6, sta: 30, r: [180, 760], ch: .6, h: rep(6, 1.5, .15, 14, 110, 150, L1, 26), d: 2.7, anim: 'Charge' });
+// bug
+T('bug', 'Swarm Dive', 'Vanish into a swarm and sting from all sides', { c: 20, cd: 4.4, sta: 26, r: [200, 700], hide: [[.3, 1.6]], tp: 1.6, h: rep(3, 1.2, .2, 14, 120, 100, L1, 24), back: [[2.1, 2.6, 1500]], d: 2.6, anim: 'Charge' });
+T('bug', 'Cocoon Guard', 'A silk cocoon that halves damage taken', { c: 18, cd: 11, sta: 22, r: [0, 9999], self: [[.6, 'shield', 9]], d: 1.8, anim: 'Charge', when: SHD });
+T('bug', 'Hive Swarm Wall', 'A wall of insects sweeps across the foe', { c: 22, cd: 4.4, sta: 28, r: [200, 820], h: rep(3, 1.1, .28, 16, 150, 200, L1, 30), d: 2.4, anim: 'Shoot' });
+// rock
+T('rock', 'Crystal Spires', 'Crystal spires burst up round the foe', { c: 22, cd: 4.4, sta: 28, r: [170, 720], h: [[.9, 16, 130, 0, 0, 'slow', 1], [1.4, 50, 140, 300, 1, 0, 1]], d: 2.4, anim: 'Charge' });
+T('rock', 'Granite Skin', 'Stone plates that halve damage taken', { c: 18, cd: 11, sta: 22, r: [0, 9999], self: [[.6, 'shield', 9]], d: 1.8, anim: 'Charge', when: SHD });
+T('rock', 'Meteor Shard Fall', 'Rock shards streak down along a line to the foe', { c: 24, cd: 4.6, sta: 30, r: [200, 860], h: [[.8, 10, 90, 60, 0, 0, .3], [1.0, 10, 90, 60, 0, 0, .5], [1.2, 12, 90, 60, 0, 0, .7], [1.55, 44, 130, 300, 1, 0, 1]], d: 2.4, anim: 'Charge' });
+// steel
+T('steel', 'Steel Rain', 'A volley of steel spears falls on the foe', { c: 24, cd: 4.6, sta: 30, r: [200, 840], ch: .4, h: rep(5, 1.0, .2, 12, 130, 80, null, 30), d: 2.6, anim: 'Charge' });
+T('steel', 'Alloy Plating', 'Metal plates: a short shield and attack up', { c: 18, cd: 11, sta: 22, r: [0, 9999], self: [[.7, 'shield', 6], [.7, 'buff', 8]], d: 1.8, anim: 'Charge', when: f => f.shieldT <= 0 && f.buffT <= 0 });
+T('steel', 'Piston Barrage', 'Three steel pistons punch the foe in turn', { c: 22, cd: 4.2, sta: 28, r: [150, 640], h: [[1.05, 22, 100, 200, 0, 0, 1, L1], [1.35, 22, 100, 200, 0, 0, 1, L1], [1.65, 40, 110, 480, 1, 0, 1, L1]], d: 2.3, anim: 'Swing' });
+// dark
+T('dark', 'Shadow Pit', 'A black pit swallows the foe, then throws it out', { c: 22, cd: 5, sta: 28, r: [150, 700], h: [[.9, 10, 140, 0, 0, 'slow', 1, { sc: 1 }], [1.65, 60, 150, 0, 1, 0, 1, { live: 1, launch: 560 }]], d: 2.4, anim: 'Charge' });
+T('dark', 'Dusk Pact', 'A blood-red moon: attack up for a while', { c: 16, cd: 10, sta: 20, r: [0, 9999], self: [[.6, 'buff', 14]], d: 2.0, anim: 'Charge', when: BFF });
+T('dark', 'Phantom Claws', 'Ghostly claws rake the foe from every side', { c: 22, cd: 4.4, sta: 28, r: [200, 720], ch: .4, h: rep(5, .9, .22, 15, 120, 180, L1, 32), d: 2.5, anim: 'Charge' });
+// fairy
+T('fairy', 'Starlight Rain', 'Glittering stars rain down on the foe', { c: 22, cd: 4.2, sta: 28, r: [200, 800], ch: .4, h: rep(6, .9, .18, 12, 130, 100, L1, 26), d: 2.4, anim: 'Charge' });
+T('fairy', 'Sparkle Ward', 'A glittering bubble: shield and cure', { c: 18, cd: 11, sta: 22, r: [0, 9999], self: [[.6, 'shield', 8], [.6, 'cure']], d: 1.8, anim: 'Charge', when: SHD });
+T('fairy', 'Rainbow Ribbon Whip', 'Rainbow ribbons wind round and cinch the foe', { c: 22, cd: 4.4, sta: 28, r: [180, 720], h: [[1.2, 16, 130, 0, 0, 'slow', 1, { live: 1, sc: .7 }], [1.8, 46, 130, 360, 1, 0, 1, L1]], d: 2.4, anim: 'Swing' });
+// ghost
+T('ghost', 'Phantom Parade', 'Five ghost copies rush through the foe', { c: 22, cd: 4.4, sta: 28, r: [200, 760], h: rep(5, .85, .24, 16, 110, 200, L1, 34), d: 2.4, anim: 'Charge' });
+T('ghost', 'Soul Lantern', 'A lantern drains the foe\u2019s HP into yours', { c: 20, cd: 4.6, sta: 26, r: [150, 700], h: [1.0, 1.4, 1.8].map(t => [t, 14, 120, 0, 0, 0, 1, { live: 1, leech: 1 }]), d: 2.5, anim: 'Charge' });
+T('ghost', 'Coffin Drop', 'A coffin drops on the foe and hurls it out', { c: 24, cd: 5, sta: 30, r: [150, 700], h: [[1.1, 30, 130, 0, 1, 0, 1], [1.95, 46, 140, 500, 1, 0, 1, { launch: 420 }]], d: 2.5, anim: 'Charge' });
+// dragon
+T('dragon', 'Dragon Breath', 'A cone of draconic flame in four pulses', { c: 24, cd: 4.4, sta: 30, r: [150, 700], ch: .8, h: rep(4, 1.0, .28, 16, 150, 100, L1, 30), d: 2.4, anim: 'Charge' });
+T('dragon', 'Scale Ward', 'A dome of dragon scales halves damage taken', { c: 18, cd: 11, sta: 22, r: [0, 9999], self: [[.6, 'shield', 9]], d: 1.8, anim: 'Charge', when: SHD });
+T('dragon', 'Wyrm Bite', 'A huge dragon head snaps shut twice', { c: 26, cd: 5, sta: 32, pow: 1, r: [150, 700], ch: .4, h: [[1.2, 34, 120, 200, 0, 0, 1, L1], [1.75, 56, 130, 420, 1, 0, 1, L1]], d: 2.4, anim: 'Charge' });
+
+// more moves: one extra for each type, each with its own arena-wide gimmick
+T('normal', 'Spotlight Slam', 'Dim lights, a spotlight slam and dizzy stars', { c: 20, cd: 4, sta: 26, r: [150, 700], ch: .4, h: [[1.1, 52, 130, 300, 1, 'confuse', 1, { sc: .35 }]], d: 2.3, anim: 'Charge' });
+T('fire', 'Mirage Rush', 'Fire mirages, then a real flaming dash', { c: 22, cd: 4.2, sta: 28, r: [200, 700], rush: [[.5, 1.1, 1800]], back: [[1.8, 2.4, 1500]], h: [[1.1, 62, 130, 560, 1, 'burn', 1, { live: 1, sc: .4 }]], d: 2.4, anim: 'Attack' });
+T('water', 'Flood Floor', 'The floor floods: a wave hits and the foe wades slowly', { c: 20, cd: 4.6, sta: 26, r: [150, 700], h: [[1.3, 44, 170, 300, 1, 'slow', 1, { sc: 1 }]], z: [[1.3, 3.4, 150, 0, 'slow', 1, .6]], d: 2.4, anim: 'Charge' });
+T('electric', 'Magnet Pull', 'A magnet drags the foe in, then a zap', { c: 22, cd: 4.4, sta: 28, r: [200, 760], h: [[.9, 8, 130, -650, 0, 'slow', 1, { live: 1, sc: 1 }], [1.5, 56, 130, 500, 1, 0, 1, { live: 1 }]], d: 2.4, anim: 'Charge' });
+T('grass', 'Pollen Cloud', 'A pollen cloud makes the foe sneeze: aim goes wide', { c: 16, cd: 5, sta: 22, r: [150, 700], h: [[1.4, 14, 140, 0, 0, 0, 1, { live: 1, debuff: 7 }]], d: 2.4, anim: 'Charge' });
+T('ice', 'Black Ice', 'Ice crawls under the foe and trips it', { c: 20, cd: 4.4, sta: 26, r: [150, 700], h: [[1.1, 32, 150, 0, 1, 'slow', 1, { trip: 1 }]], d: 2.3, anim: 'Charge' });
+T('fighting', 'Comic Combo', 'Three hits with POW, BAM and WHAM bursts', { c: 22, cd: 4.2, sta: 28, r: [150, 640], rush: [[.45, .85, 1700]], back: [[1.9, 2.4, 1500]], h: rep(3, 1.0, .3, 22, 110, 200, L1, 40), d: 2.4, anim: 'Attack' });
+T('poison', 'Acid Ceiling Drip', 'Acid drips fall on the foe and leave puddles', { c: 20, cd: 4.6, sta: 26, r: [200, 760], h: [[.95, 14, 110, 60, 0, 'poison', 1, { sc: .7 }], ...rep(3, 1.2, .2, 12, 110, 60, null, 22)], z: [[1.2, 3.2, 110, 5, 'poison', 1, .5]], d: 2.4, anim: 'Charge' });
+T('ground', 'Fault Line', 'The floor splits and the foe\u2019s slab heaves up', { c: 22, cd: 4.6, sta: 28, r: [150, 720], h: [[1.05, 40, 150, 260, 1, 0, 1, { launch: 360 }]], d: 2.3, anim: 'Charge' });
+T('flying', 'Gale Front', 'A wall of wind shoves the foe back', { c: 18, cd: 4, sta: 24, r: [100, 700], ch: .4, h: [[1.0, 34, 220, 680, 1, 0, .6]], d: 2.1, anim: 'Charge' });
+T('psychic', 'Time Warp', 'A clock freezes time round the foe: slowed, then struck', { c: 22, cd: 4.4, sta: 28, r: [180, 760], h: [[1.0, 10, 130, 0, 0, 'slow', 1, { live: 1, sc: 1 }], [1.5, 44, 130, 360, 1, 0, 1, { live: 1 }]], d: 2.4, anim: 'Charge' });
+T('bug', 'Cricket Chorus', 'A chirping chorus that stuns the foe', { c: 20, cd: 4.6, sta: 26, r: [150, 760], h: [[1.2, 20, 170, 200, 1, 'confuse', 1, { sc: .6 }], [1.7, 24, 170, 260, 0, 0]], d: 2.4, anim: 'Charge' });
+T('rock', 'Fossil Cage', 'Fossil ribs cage and squeeze the foe', { c: 22, cd: 4.6, sta: 28, r: [170, 720], h: [[1.0, 16, 130, 0, 0, 'slow', 1], [1.55, 52, 140, 300, 1, 0, 1]], d: 2.5, anim: 'Charge' });
+T('ghost', 'Boo Blackout', 'Darkness, glowing eyes and a boo face', { c: 22, cd: 5, sta: 28, r: [150, 760], h: [[1.45, 40, 140, 420, 1, 'confuse', 1, { live: 1, sc: .45 }]], d: 2.3, anim: 'Charge' });
+T('dragon', 'Draconic Gaze', 'A giant sky eye locks on and fires a beam', { c: 26, cd: 5, sta: 32, pow: 1, r: [200, 820], ch: .5, h: [[1.45, 64, 130, 420, 1, 0, 1, { live: 1 }]], d: 2.3, anim: 'Charge' });
+T('dark', 'Eclipse', 'An eclipse darkens the arena and shadows drag the foe', { c: 24, cd: 5, sta: 30, pow: 1, r: [200, 760], h: [[1.1, 12, 140, 0, 0, 'slow', 1, { live: 1, sc: 1 }], [1.7, 52, 140, 400, 1, 0, 1, { live: 1 }]], d: 2.5, anim: 'Charge' });
+T('steel', 'Anvil Drop', 'A cartoon anvil drops on the foe', { c: 22, cd: 4.4, sta: 28, r: [200, 760], h: [[1.1, 64, 130, 0, 1, 0, 1, { launch: 260 }]], d: 2.3, anim: 'Charge' });
+T('fairy', 'Rainbow Bridge', 'A rainbow arc flings the foe in a burst of colour', { c: 22, cd: 4.4, sta: 28, r: [200, 800], ch: .3, h: [[1.25, 46, 150, 520, 1, 0, 1, { live: 1 }]], d: 2.4, anim: 'Charge' });
+
+// which Pokémon get which of the newer moves: decided from their PokeAPI move lists (see newMoveOf)
+const NEW_PARENTS = {
+  wreckingswing: ['slam', 'mega-punch', 'strength', 'body-slam', 'mega-kick', 'thrash', 'stomp', 'take-down', 'double-edge'], cheerrally: ['swords-dance', 'focus-energy', 'howl', 'growl', 'sing', 'charm', 'encore', 'helping-hand', 'baton-pass'], confetticannon: ['hyper-voice', 'tri-attack', 'swift', 'hyper-beam', 'explosion', 'self-destruct', 'sonic-boom', 'present', 'barrage'], spotlightslam: ['flash', 'mimic', 'metronome', 'double-team', 'mirror-move', 'fake-out', 'transform', 'sketch', 'conversion'],
+  phoenixdive: ['fly', 'sky-attack', 'fire-blast', 'bounce', 'heat-wave', 'wing-attack', 'blaze-kick', 'sacred-fire', 'overheat'], emberveil: ['will-o-wisp', 'sunny-day', 'fire-spin', 'smokescreen', 'ember', 'protect', 'safeguard', 'flamethrower', 'heat-wave'], blazecyclone: ['fire-spin', 'flamethrower', 'heat-wave', 'overheat', 'eruption', 'twister', 'whirlwind', 'fire-blast', 'ember'], miragerush: ['flame-wheel', 'quick-attack', 'agility', 'extreme-speed', 'ember', 'fire-punch', 'blaze-kick', 'double-team', 'take-down'],
+  aqualance: ['water-pulse', 'hydro-pump', 'water-gun', 'bubble-beam', 'octazooka', 'waterfall', 'surf', 'dive', 'crabhammer'], rainveil: ['rain-dance', 'withdraw', 'bubble', 'mist', 'water-sport', 'protect', 'safeguard', 'recover', 'milk-drink'], torrentgeyser: ['surf', 'hydro-pump', 'water-spout', 'muddy-water', 'waterfall', 'whirlpool', 'dive', 'clamp', 'octazooka'], floodfloor: ['surf', 'muddy-water', 'whirlpool', 'bubble-beam', 'rain-dance', 'water-sport', 'mud-sport', 'water-spout', 'dive'],
+  staticchain: ['thunder-wave', 'thunder-shock', 'spark', 'charge', 'thunderbolt', 'thunder', 'shock-wave', 'thunder-punch', 'wrap'], overcharge: ['charge', 'agility', 'light-screen', 'thunder', 'thunderbolt', 'swords-dance', 'focus-energy', 'thunder-punch', 'spark'], balllightning: ['thunderbolt', 'shock-wave', 'zap-cannon', 'thunder', 'spark', 'thunder-shock', 'charge', 'thunder-wave', 'hyper-beam'], magnetpull: ['thunder-wave', 'lock-on', 'mind-reader', 'light-screen', 'supersonic', 'charge', 'spark', 'zap-cannon', 'shock-wave'],
+  thorncage: ['vine-whip', 'leech-seed', 'ingrain', 'razor-leaf', 'wrap', 'bind', 'constrict', 'needle-arm', 'leaf-blade'], springbloom: ['synthesis', 'aromatherapy', 'ingrain', 'sunny-day', 'morning-sun', 'absorb', 'mega-drain', 'giga-drain', 'milk-drink'], sporeburst: ['spore', 'sleep-powder', 'stun-spore', 'poison-powder', 'leech-seed', 'cotton-spore', 'grass-whistle', 'bullet-seed', 'petal-dance'], pollencloud: ['stun-spore', 'poison-powder', 'sweet-scent', 'sleep-powder', 'cotton-spore', 'magical-leaf', 'petal-dance', 'attract', 'yawn'],
+  frostnova: ['blizzard', 'icy-wind', 'ice-beam', 'hail', 'sheer-cold', 'powder-snow', 'aurora-beam', 'mist', 'haze'], snowcloak: ['mist', 'hail', 'reflect', 'haze', 'light-screen', 'protect', 'safeguard', 'powder-snow', 'icy-wind'], snowsquall: ['powder-snow', 'blizzard', 'hail', 'aurora-beam', 'icy-wind', 'ice-beam', 'whirlwind', 'sheer-cold', 'mist'], blackice: ['ice-beam', 'ice-ball', 'icy-wind', 'ice-punch', 'mist', 'powder-snow', 'aurora-beam', 'haze', 'rollout'],
+  seismictoss: ['seismic-toss', 'submission', 'low-kick', 'dynamic-punch', 'vital-throw', 'superpower', 'cross-chop', 'karate-chop', 'revenge'], focusstance: ['counter', 'bulk-up', 'focus-punch', 'detect', 'endure', 'protect', 'meditate', 'reversal', 'revenge'], chiwavebarrage: ['focus-punch', 'mach-punch', 'comet-punch', 'karate-chop', 'dynamic-punch', 'triple-kick', 'arm-thrust', 'sky-uppercut', 'superpower'], comiccombo: ['double-kick', 'rolling-kick', 'brick-break', 'mach-punch', 'comet-punch', 'triple-kick', 'jump-kick', 'high-jump-kick', 'cross-chop'],
+  toxicspikefield: ['spikes', 'poison-sting', 'toxic', 'poison-gas', 'poison-powder', 'smog', 'sludge', 'poison-fang', 'poison-tail'], acidarmor: ['acid-armor', 'acid', 'minimize', 'harden', 'withdraw', 'sludge', 'toxic', 'smog', 'iron-defense'], toxiccauldron: ['sludge-bomb', 'sludge', 'toxic', 'smog', 'poison-gas', 'acid', 'poison-fang', 'poison-tail', 'poison-sting'], acidceilingdrip: ['acid', 'sludge', 'poison-sting', 'sludge-bomb', 'smog', 'poison-tail', 'poison-powder', 'toxic', 'poison-gas'],
+  pillarmarch: ['earthquake', 'fissure', 'magnitude', 'dig', 'bone-club', 'rock-slide', 'stomp', 'rock-tomb', 'sand-tomb'], mudarmor: ['mud-sport', 'mud-slap', 'mud-shot', 'harden', 'defense-curl', 'sand-attack', 'rollout', 'withdraw', 'iron-defense'], quicksandmaw: ['sand-tomb', 'mud-shot', 'sand-attack', 'dig', 'mud-slap', 'mud-sport', 'spikes', 'whirlpool', 'wrap'], faultline: ['fissure', 'earthquake', 'magnitude', 'bone-club', 'dig', 'bonemerang', 'rock-slide', 'rock-throw', 'stomp'],
+  updraft: ['gust', 'whirlwind', 'fly', 'bounce', 'sky-attack', 'twister', 'razor-wind', 'aeroblast', 'wing-attack'], boomeranggale: ['wing-attack', 'aerial-ace', 'razor-wind', 'gust', 'peck', 'drill-peck', 'slash', 'cut', 'steel-wing'], cyclonewings: ['whirlwind', 'gust', 'razor-wind', 'twister', 'aeroblast', 'fly', 'bounce', 'mirror-move', 'wing-attack'], galefront: ['gust', 'whirlwind', 'razor-wind', 'aeroblast', 'mirror-move', 'twister', 'sky-attack', 'fly', 'agility'],
+  mindprism: ['confusion', 'psybeam', 'psychic', 'hypnosis', 'dream-eater', 'kinesis', 'extrasensory', 'psywave', 'confuse-ray'], mirrorroom: ['reflect', 'light-screen', 'barrier', 'mirror-coat', 'safeguard', 'magic-coat', 'cosmic-power', 'protect', 'mirror-move'], astralorbit: ['psychic', 'psywave', 'future-sight', 'psycho-boost', 'extrasensory', 'psybeam', 'luster-purge', 'mist-ball', 'confusion'], timewarp: ['future-sight', 'teleport', 'rest', 'calm-mind', 'doom-desire', 'amnesia', 'trick', 'meditate', 'skill-swap'],
+  swarmdive: ['pin-missile', 'twineedle', 'fury-cutter', 'leech-life', 'signal-beam', 'fury-attack', 'fury-swipes', 'spike-cannon', 'tail-glow'], cocoonguard: ['harden', 'string-shot', 'protect', 'spider-web', 'withdraw', 'defense-curl', 'minimize', 'iron-defense', 'bide'], hiveswarmwall: ['silver-wind', 'string-shot', 'pin-missile', 'megahorn', 'twineedle', 'signal-beam', 'fury-cutter', 'leech-life', 'spider-web'], cricketchorus: ['screech', 'supersonic', 'sing', 'growl', 'uproar', 'snore', 'tail-glow', 'metal-sound', 'roar'],
+  crystalspires: ['rock-blast', 'rock-tomb', 'ancient-power', 'rock-slide', 'rock-throw', 'sandstorm', 'rock-smash', 'rollout', 'spikes'], graniteskin: ['harden', 'iron-defense', 'defense-curl', 'rollout', 'sandstorm', 'withdraw', 'minimize', 'stockpile', 'endure'], meteorshardfall: ['rock-slide', 'rock-throw', 'ancient-power', 'rock-blast', 'rock-tomb', 'sandstorm', 'rollout', 'sheer-cold', 'hail'], fossilcage: ['bone-club', 'bonemerang', 'ancient-power', 'rock-tomb', 'skull-bash', 'rock-slide', 'bite', 'dig', 'rock-throw'],
+  phantomparade: ['shadow-ball', 'shadow-punch', 'night-shade', 'astonish', 'lick', 'curse', 'confuse-ray', 'nightmare', 'spite'], soullantern: ['lick', 'curse', 'night-shade', 'will-o-wisp', 'destiny-bond', 'grudge', 'spite', 'nightmare', 'pain-split'], coffindrop: ['shadow-ball', 'curse', 'nightmare', 'grudge', 'destiny-bond', 'spite', 'perish-song', 'night-shade', 'lick'], booblackout: ['astonish', 'confuse-ray', 'night-shade', 'hypnosis', 'scary-face', 'lick', 'curse', 'spite', 'nightmare'],
+  dragonbreath: ['dragon-breath', 'dragon-rage', 'dragon-claw', 'outrage', 'twister', 'dragon-dance', 'flamethrower', 'hyper-beam', 'bite'], scaleward: ['dragon-dance', 'dragon-rage', 'twister', 'rest', 'wrap', 'harden', 'protect', 'iron-defense', 'scary-face'], wyrmbite: ['bite', 'crunch', 'dragon-claw', 'outrage', 'hyper-fang', 'super-fang', 'headbutt', 'slash', 'dragon-breath'], draconicgaze: ['dragon-rage', 'hyper-beam', 'leer', 'scary-face', 'glare', 'mean-look', 'dragon-breath', 'outrage', 'roar'],
+  shadowpit: ['pursuit', 'feint-attack', 'thief', 'knock-off', 'torment', 'snatch', 'covet', 'mean-look'], duskpact: ['taunt', 'torment', 'swagger', 'flatter', 'fake-tears', 'memento', 'beat-up', 'screech', 'yawn'], phantomclaws: ['slash', 'scratch', 'feint-attack', 'crush-claw', 'fury-swipes', 'cut', 'metal-claw', 'dragon-claw', 'knock-off'], eclipse: ['crunch', 'thief', 'snatch', 'feint-attack', 'bite', 'pursuit', 'knock-off', 'torment', 'memento'],
+  steelrain: ['metal-claw', 'steel-wing', 'iron-tail', 'meteor-mash', 'doom-desire', 'metal-sound', 'sharpen', 'pin-missile', 'spike-cannon'], alloyplating: ['iron-defense', 'harden', 'metal-sound', 'steel-wing', 'defense-curl', 'protect', 'cosmic-power', 'withdraw', 'sharpen'], pistonbarrage: ['metal-claw', 'meteor-mash', 'mega-punch', 'mach-punch', 'comet-punch', 'iron-tail', 'fury-swipes', 'steel-wing', 'dizzy-punch'], anvildrop: ['iron-tail', 'meteor-mash', 'steel-wing', 'metal-claw', 'slam', 'stomp', 'strength', 'rock-smash', 'body-slam'],
+  starlightrain: ['wish', 'metronome', 'swift', 'sweet-kiss', 'moonlight', 'charm', 'sing', 'present', 'psych-up'], sparkleward: ['charm', 'moonlight', 'safeguard', 'light-screen', 'heal-bell', 'wish', 'sweet-kiss', 'refresh', 'aromatherapy'], rainbowribbonwhip: ['sweet-kiss', 'charm', 'wrap', 'bind', 'attract', 'lovely-kiss', 'sweet-scent', 'tickle', 'moonlight'], rainbowbridge: ['wish', 'moonlight', 'charm', 'sweet-kiss', 'tri-attack', 'sing', 'metronome', 'present', 'swift'],
+};let newAssign = null;
+function newMoveOf(p) { // the newer moves are spread over Pokémon by what they learn in PokeAPI: a Pokémon needs 4 of a move's related moves, gets at most one, no move reaches more than 6, and every move reaches a few
+  if (!newAssign) {
+    newAssign = {}; const cnt = {}, dex = POKEDEX.slice().sort((a, b) => a.id - b.id), hits = (q, key) => { const L = q._lset || (q._lset = new Set(q.moves)); return NEW_PARENTS[key].filter(m => L.has(m)).length; };
+    for (const q of dex) {
+      let best = null, bs = 1e9;
+      for (const key in NEW_PARENTS) { const c = TM[key]; if (!c || !q.types.includes(c.type) || (cnt[key] || 0) >= 6) continue; const h = hits(q, key); if (h < 4) continue; const s = (cnt[key] || 0) * 1000 - h * 120 + (q.id * 31 + key.length * 7) % 97; if (s < bs) { bs = s; best = key; } }
+      if (best) { newAssign[q.id] = best; cnt[best] = (cnt[best] || 0) + 1; }
+    }
+    for (const key in NEW_PARENTS) { // a move with fewer than 3 Pokémon takes the best matches of its type, borrowing from moves that have more than 3
+      const c = TM[key]; if (!c || (cnt[key] || 0) >= 3) continue;
+      const pool = dex.filter(q => q.types.includes(c.type) && hits(q, key) >= 1 && (!newAssign[q.id] || cnt[newAssign[q.id]] > 3)).sort((a, b) => hits(b, key) - hits(a, key) || a.id - b.id);
+      for (const q of pool) { if ((cnt[key] || 0) >= 3) break; const old = newAssign[q.id]; if (old) { if (cnt[old] <= 3) continue; cnt[old]--; } newAssign[q.id] = key; cnt[key] = (cnt[key] || 0) + 1; }
+    }
+  }
+  return newAssign[p.id];
+}
 // Copycat: the fighter looks like another Pokémon and a clock counts the 20 s down over its head (cosmetic; the power-up is the real effect)
 const copyImgs = {};
 function copyDraw(g) {
@@ -3159,10 +3340,11 @@ const copyHide = () => { for (const [f] of copies) if (!f.dead) { f.el.style.opa
 
 function statRows(p) { const mx = { hp: 255, atk: 190, spa: 194, spe: 160 }; return [['HP', 'hp'], ['ATK', 'atk'], ['SPA', 'spa'], ['SPE', 'spe']].map(([l, k]) => `<div class="srow"><span>${l}</span><i><b style="width:${Math.min(100, p[k] / mx[k] * 100)}%;background:${STAT_COL[k]}"></b></i><em>${p[k]}</em></div>`).join(''); }
 const moveIcons = (k, specs) => [`<div class="mi" title="${k.melee.name}">${ico(k.melee.icon)}</div>`, `<div class="mi" title="${k.ranged.name}">${ico(k.ranged.icon)}</div>`, ...specs.map(s => `<div class="mi" title="${s.name}">${ico(s.icon)}</div>`), `<div class="mi ult" title="${k.beam.name}">${ico(k.beam.icon)}</div>`].join('');
-// every Pokémon of the first three generations is always unlocked, in the app and in the browser (the ?mine= list is ignored)
-const mine = null;
-const owns = id => true;
+const freeSet = kit => kit.freeIdx || (kit.freeIdx = (() => { const set = new Set(defaultSpecIndices(kit)); for (let i = 0; i < kit.pool.length && set.size < PROG.FREE_MOVES; i++) set.add(i); return set; })()); // the three default specials plus the next one in the list are free
+const moveOwned = (p, s, i) => freeSet(buildKit(p)).has(i) || NETG.on || NETG.lobby || demo || q.has('preview') || PROG.hasMove(p.id, s.name); // the rest of a Pokémon's specials are bought (unlock.js)
+const owns = id => NETG.on || NETG.lobby || demo || q.has('preview') || PROG.owns(id); // online, watching and the move preview use every Pokémon; offline single player uses the research tree (unlock.js)
 function refreshMenu() {
+  if (!owns(selYou)) selYou = PROG.firstOwned() || selYou;
   document.querySelectorAll('.cell').forEach(c => { const id = +c.dataset.id; c.classList.toggle('you', id === selYou); c.classList.toggle('rival', id === selRival); c.classList.toggle('locked', !owns(id)); });
   $('slotYou').classList.toggle('act', activeSlot === 'you'); $('slotRival').classList.toggle('act', activeSlot === 'rival');
   for (const [slot, id, isAI] of [['You', selYou, false], ['Rival', selRival, true]]) {
@@ -3183,22 +3365,25 @@ function fitSprite(im) { // whole-number pixel scaling so small Pok\u00e9mon fil
   while (h * s > t * 1.25 && s > 1) s--; while (w * s > 270 && s > 1) s--; im.style.width = w * s + 'px'; im.style.height = h * s + 'px';
 }
 function openMoves(pid = selYou, onDone) { // onDone: continue a flow (the tournament) once the moves are confirmed
-  const p = dexById(pid), k = buildKit(p), need = Math.min(3, k.pool.length), tc = TYPE_HEX[p.types[0]] || '#3a4a7a';
-  let sel = loadouts[p.id] && loadouts[p.id].length === need ? [...loadouts[p.id]] : defaultSpecIndices(k);
+  const p = dexById(pid), k = buildKit(p), need = Math.min(3, k.pool.length), tc = TYPE_HEX[p.types[0]] || '#3a4a7a', owned = i => moveOwned(p, k.pool[i], i);
+  let sel = loadouts[p.id] && loadouts[p.id].length === need && loadouts[p.id].every(owned) ? [...loadouts[p.id]] : defaultSpecIndices(k), focus = -1;
   const pane = $('movesPane'); pane.style.setProperty('--a', tc); pane.style.setProperty('--b', '#4dec82'); $('mpBg').style.backgroundImage = menuBgUrl(); $('mpBox').style.setProperty('--tc', tc);
   $('mpImg').dataset.t = 120; $('mpImg').onload = () => fitSprite($('mpImg')); $('mpImg').src = spriteUrl(p);
   $('mpName').innerHTML = `<small>#${String(p.id).padStart(3, '0')}</small>${nm(p.name)}`; $('mpTypes').innerHTML = tags(p.types);
   const draw = () => {
     const keep = $('mpList').scrollTop;
-    $('mpTitle').textContent = `${nm(p.name).toUpperCase()} \u00b7 CHOOSE ${need} SPECIALS`; $('mpCount').textContent = `${sel.length} / ${need}`;
+    $('mpTitle').textContent = `${nm(p.name).toUpperCase()} \u00b7 CHOOSE ${need} SPECIALS`; $('mpCount').textContent = `${sel.length} / ${need}`; $('mpPts').textContent = PROG.points.toLocaleString();
     $('mpSlots').innerHTML = Array.from({ length: need }, (_, n) => sel[n] !== undefined ? `<div class="slot f"><i>${n + 1}</i>${ico(k.pool[sel[n]].icon)}</div>` : '<div class="slot">+</div>').join('');
-    $('mpList').innerHTML = k.pool.map((s, i) => { const n = sel.indexOf(i); return `<div class="mp ${n >= 0 ? 'sel' : ''}" data-i="${i}" style="--c:${TYPE_HEX[s.type] || '#888'}"><div class="ic">${ico(s.icon)}</div><div class="tx"><b>${s.name}${s.sig ? '<span class="sigstar" title="Signature move" style="color:#ffd34d;margin-left:5px">★</span>' : ''}<span class="tag" style="background:${TYPE_HEX[s.type] || '#888'}">${s.type.toUpperCase()}</span></b><small>${DESC[s.key]}</small></div><em>STAMINA ${s.sta}</em><div class="eye" title="Preview">${EYE}</div>${n >= 0 ? `<div class="ck">${n + 1}</div>` : ''}</div>`; }).join('');
+    $('mpList').innerHTML = k.pool.map((s, i) => { const n = sel.indexOf(i), o = owned(i), cst = PROG.moveCost(s.sta), pw = PROG.movePower(s.sta), pips = '<span class="pips">' + [1, 2, 3, 4, 5].map(x => `<i${x <= pw ? ' class="on"' : ''}></i>`).join('') + '</span>'; return `<div class="mp${o ? '' : ' lock'}${n >= 0 ? ' sel' : ''}${focus === i ? ' focus' : ''}" data-i="${i}" style="--c:${TYPE_HEX[s.type] || '#888'}"><div class="ic">${ico(s.icon)}</div><div class="tx"><b>${s.name}${s.sig ? '<span class="sigstar" title="Signature move" style="color:#ffd34d;margin-left:5px">★</span>' : ''}<span class="tag" style="background:${TYPE_HEX[s.type] || '#888'}">${s.type.toUpperCase()}</span></b><small>${DESC[s.key]}</small></div><div class="mm">${pips}${o ? `<em>STAMINA ${s.sta}</em>` : `<span class="price${PROG.points < cst ? ' poor' : ''}"><span class="rsCoin sm">P</span>${cst}</span>`}</div><div class="eye" title="Preview">${EYE}</div>${n >= 0 ? `<div class="ck">${n + 1}</div>` : o ? '' : '<div class="lk">\ud83d\udd12</div>'}</div>`; }).join('');
+    const buy = $('mpBuy'), note = $('mpNote');
+    if (focus >= 0 && !owned(focus)) { const s = k.pool[focus], cs = PROG.moveCost(s.sta); note.style.display = 'none'; buy.style.display = 'block'; buy.className = PROG.points >= cs ? '' : 'poor'; buy.textContent = PROG.points >= cs ? `UNLOCK ${s.name.toUpperCase()} \u00b7 ${cs} POINTS` : `NEED ${cs - PROG.points} MORE POINTS`; } else { buy.style.display = 'none'; note.style.display = ''; }
     $('mpList').scrollTop = keep;
-    $('mpList').querySelectorAll('.mp').forEach(el => el.onclick = e => { const i = +el.dataset.i; if (e.target.closest('.eye')) { openPreview(p, i); return; } if (sel.includes(i)) { if (sel.length > 1) sel = sel.filter(x => x !== i); } else { sel.push(i); if (sel.length > need) sel.shift(); } draw(); });
+    $('mpList').querySelectorAll('.mp').forEach(el => el.onclick = e => { const i = +el.dataset.i; if (e.target.closest('.eye')) { openPreview(p, i); return; } if (!owned(i)) { focus = focus === i ? -1 : i; draw(); return; } focus = -1; if (sel.includes(i)) { if (sel.length > 1) sel = sel.filter(x => x !== i); } else { sel.push(i); if (sel.length > need) sel.shift(); } draw(); });
   };
   draw(); $('mpList').scrollTop = 0; pane.classList.add('on');
+  $('mpBuy').onclick = () => { if (focus < 0) return; const s = k.pool[focus]; if (PROG.buyMove(p.id, s.name, s.sta)) { const t = $('mpToast'); t.textContent = 'UNLOCKED ' + s.name.toUpperCase(); t.className = 'show'; setTimeout(() => { t.className = ''; }, 1800); focus = -1; draw(); } };
   $('mpBack').onclick = () => { pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); };
-  $('mpDone').onclick = () => { if (sel.length === need) loadouts[p.id] = sel; pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); if (onDone) onDone(); };
+  $('mpDone').onclick = () => { if (sel.length === need) { loadouts[p.id] = sel; saveLd(); } pane.classList.remove('on'); refreshMenu(); if (NETG.lobby) NETG.refresh(); if (onDone) onDone(); };
 }
 // ---- move preview dialog: the eye button on a move opens a small window that runs this same game in ?preview mode (see the end of this file)
 const EYE = '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zm0 12.5a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>';
@@ -3222,12 +3407,12 @@ addEventListener('message', e => {
 let screenName = 'title', themeIdx = 0;
 function showScreen(n) {
   aceChallenge = null; vsWait = false; screenName = n; state = 'menu'; cine = null; demo = demoUrl; document.body.classList.remove('watch'); $('cine').classList.remove('on'); $('msg').classList.remove('on');
-  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane', 'cupPane', 'netPane']) $(id).classList.toggle('on', id === n);
+  for (const id of ['title', 'menu', 'over', 'pause', 'opts', 'movesPane', 'labPane', 'tourPane', 'cupPane', 'netPane', 'treePane']) $(id).classList.toggle('on', id === n);
   $('pickPane').classList.remove('on');
   if (n === 'title') { const a = POKEDEX[Math.floor(Math.random() * POKEDEX.length)], b = POKEDEX[Math.floor(Math.random() * POKEDEX.length)]; $('tImgA').src = spriteUrl(a); $('tImgB').src = spriteUrl(b); }
   if (n === 'menu') refreshMenu();
   if (n === 'title') refreshTourBtn();
-  if (n === 'title' && window.__refreshPts) window.__refreshPts();
+  if (n === 'title') PROG.paint();
 }
 const setThemeIdx = i => { themeIdx = (i + THEMES.length) % THEMES.length; setTheme(THEMES[themeIdx]); refreshMenu(); };
 let pickSlot = 'you', pickType = '', pickQ = '', pickGen = '', pickPg = -1;
@@ -3241,7 +3426,7 @@ function drawPicker() { // one page of 15 cards, filtered by the search text, th
   pickPg = clamp(pickPg, 0, pages - 1);
   const shown = list.slice(pickPg * PICK_PAGE, (pickPg + 1) * PICK_PAGE);
   $('pkGrid').innerHTML = shown.length ? shown.map(p => `<div class="pk${p.id === curYou ? ' you' : ''}${p.id === curRival ? ' rival' : ''}${(pickSlot === 'you' || pickSlot === 'tour') && !owns(p.id) ? ' locked' : ''}" data-id="${p.id}" style="--tc:${TYPE_HEX[p.types[0]]}"><span class="pid">#${String(p.id).padStart(3, '0')}</span>${p.id === curYou ? '<span class="bdg">YOU</span>' : ''}${p.id === curRival ? '<span class="bdg r">RIVAL</span>' : ''}<img src="${stillUrl(p)}" data-t="96" onload="fitSprite(this)" onerror="this.onerror=null;this.src='${spriteUrl(p)}'" alt=""><div class="pn">${nm(p.name)}</div><div class="tags">${tags(p.types)}</div></div>`).join('') : '<div id="pkNone">No Pokémon match</div>';
-  $('pkCount').textContent = (pickSlot === 'you' || pickSlot === 'tour') && mine ? `${list.filter(p => owns(p.id)).length} caught \u00b7 ${list.length} shown` : `${list.length} Pokémon`;
+  $('pkCount').textContent = (pickSlot === 'you' || pickSlot === 'tour') && !PROG.ua && !NETG.on && !NETG.lobby ? `${list.filter(p => owns(p.id)).length} unlocked \u00b7 ${list.length} shown` : `${list.length} Pokémon`;
   $('pkPager').innerHTML = pages > 1 ? `<button class="pgb" data-pg="${pickPg - 1}"${pickPg === 0 ? ' disabled' : ''}>\u2039</button>` + pgNums(pickPg, pages).map(i => i === '\u2026' ? '<span class="pgd">\u2026</span>' : `<button class="pgb${i === pickPg ? ' sel' : ''}" data-pg="${i}">${i + 1}</button>`).join('') + `<button class="pgb" data-pg="${pickPg + 1}"${pickPg >= pages - 1 ? ' disabled' : ''}>\u203a</button><span id="pkPg">Page ${pickPg + 1} / ${pages}</span>` : '';
 }
 function openPicker(slot) { pickSlot = slot; document.querySelectorAll('#pkTypes .tchip:not(.gen), #pkTypes .tsep').forEach(x => x.style.display = ''); if (slot !== 'lab' && slot !== 'tour') activeSlot = slot; $('pkTitle').textContent = slot === 'you' ? 'CHOOSE YOUR FIGHTER' : slot === 'tour' ? 'CHOOSE YOUR TOURNAMENT FIGHTER' : slot === 'lab' ? 'CHOOSE A POK\u00c9MON FOR THE LAB' : 'CHOOSE THE RIVAL'; $('pickPane').classList.add('on'); pickPg = -1; drawPicker(); $('pkGrid').scrollTop = 0; }
@@ -3262,35 +3447,35 @@ function buildMenu() {
   $('pkGrid').onclick = e => {
     const c = e.target.closest('.pk'); if (!c) return; const p = dexById(+c.dataset.id);
     if (pickSlot === 'lab') { if (labId !== p.id) { labId = p.id; labAb = 'own'; labSel = null; } closePicker(); return; }
-    if (pickSlot === 'tour') { if (!owns(p.id)) { $('pkTitle').textContent = `${nm(p.name)} is not in your collection yet`; setTimeout(() => { $('pkTitle').textContent = 'CHOOSE YOUR TOURNAMENT FIGHTER'; }, 1600); return; } closePicker(); openMoves(p.id, () => newTournament(p.id, tourCup)); return; }
-    if (pickSlot === 'you') { if (!owns(p.id)) { $('pkTitle').textContent = `${nm(p.name)} is not in your collection yet`; setTimeout(() => { $('pkTitle').textContent = 'CHOOSE YOUR FIGHTER'; }, 1600); return; } selYou = p.id; activeSlot = 'rival'; } else selRival = p.id;
+    if (pickSlot === 'tour') { if (!owns(p.id)) { $('pkTitle').textContent = `${nm(p.name)} is locked: unlock it in RESEARCH`; setTimeout(() => { $('pkTitle').textContent = 'CHOOSE YOUR TOURNAMENT FIGHTER'; }, 1600); return; } closePicker(); openMoves(p.id, () => newTournament(p.id, tourCup)); return; }
+    if (pickSlot === 'you') { if (!owns(p.id)) { $('pkTitle').textContent = `${nm(p.name)} is locked: unlock it in RESEARCH`; setTimeout(() => { $('pkTitle').textContent = 'CHOOSE YOUR FIGHTER'; }, 1600); return; } selYou = p.id; activeSlot = 'rival'; } else selRival = p.id;
     closePicker();
   };
   $('pickYou').onclick = e => { e.stopPropagation(); openPicker('you'); }; $('pickRival').onclick = e => { e.stopPropagation(); openPicker('rival'); };
   [$('sYouImg'), $('sRivalImg'), $('labImg')].forEach(im => { im.dataset.t = im.id === 'labImg' ? 130 : 165; im.onload = () => fitSprite(im); });
   $('slotYou').onclick = () => openPicker('you'); $('slotRival').onclick = () => openPicker('rival');
   $('movesBtn').onclick = e => { e.stopPropagation(); openMoves(); };
-  $('randYou').onclick = e => { e.stopPropagation(); const pool = mine && mine.size ? [...mine] : POKEDEX.map(p => p.id); selYou = pool[Math.floor(Math.random() * pool.length)]; activeSlot = 'you'; refreshMenu(); };
+  $('randYou').onclick = e => { e.stopPropagation(); const own = POKEDEX.map(p => p.id).filter(owns), pool = own.length ? own : POKEDEX.map(p => p.id); selYou = pool[Math.floor(Math.random() * pool.length)]; activeSlot = 'you'; refreshMenu(); };
   $('randBtn').onclick = e => { e.stopPropagation(); selRival = 1 + Math.floor(Math.random() * POKEDEX.length); activeSlot = 'rival'; refreshMenu(); };
   $('arPrev').onclick = e => { e.stopPropagation(); setThemeIdx(themeIdx - 1); }; $('arNext').onclick = e => { e.stopPropagation(); setThemeIdx(themeIdx + 1); };
   const dr = $('diffRow'); Object.keys(DIFF).forEach(n => { const b = document.createElement('button'); b.className = 'chip'; b.textContent = n; b.onclick = () => { selDiff = n; refreshMenu(); }; dr.appendChild(b); });
   $('goBtn').onclick = () => {
-    if (!owns(selYou)) { $('note').textContent = mine.size ? 'Pick one of your caught Pok\u00e9mon as YOU.' : 'Catch a first-generation Pok\u00e9mon with a Pok\u00e9 Ball first.'; return; }
+    if (!owns(selYou)) { $('note').textContent = 'Pick one of your unlocked Pok\u00e9mon as YOU.'; return; }
     audio(); startMatch();
   };
   $('againBtn').onclick = () => (NETG.on ? NETG.rematch() : tourOn ? openTour() : startMatch(demo && !demoUrl ? { watch: true } : undefined));
   $('watchBtn').onclick = () => { // your picked Pokémon and its moves, against the rival, both played by the AI
-    if (!owns(selYou)) { $('note').textContent = mine.size ? 'Pick one of your caught Pokémon as YOU.' : 'Catch a first-generation Pokémon with a Poké Ball first.'; return; }
+    if (!owns(selYou)) { $('note').textContent = 'Pick one of your unlocked Pok\u00e9mon as YOU.'; return; }
     audio(); startMatch({ watch: true });
   };
   $('menuBtn').onclick = toMenu;
   $('gear').onclick = togglePause; $('tExit').onclick = exitGame;
   $('tPlay').onclick = () => { audio(); showScreen('menu'); };
-  $('tQuick').onclick = () => { audio(); if (!owns(selYou)) { showScreen('menu'); return; } selRival = 1 + Math.floor(Math.random() * POKEDEX.length); startMatch(); };
   $('optVibe').onclick = () => { vibeOn = !vibeOn; try { localStorage.setItem('pf_vibe', vibeOn ? '1' : '0'); } catch (e) { } refreshPause(); buzz(40); };
   $('tPractice').onclick = () => { audio(); if (!owns(selYou)) { showScreen('menu'); return; } startMatch({ practice: true }); };
   $('dummyBtn').onclick = () => { dummyMode = (dummyMode + 1) % 3; $('dummyBtn').textContent = 'DUMMY: ' + ['IDLE', 'GUARD', 'FIGHTS BACK'][dummyMode]; };
   document.querySelectorAll('.rndchip').forEach(b => b.onclick = () => setRounds(+b.dataset.r)); setRounds(bestOf);
+document.querySelectorAll('.balchip').forEach(b => b.onclick = () => setBal(b.dataset.b === '1')); setBal(balanced);
   $('tOpts').onclick = $('optBtn').onclick = () => { refreshPause(); $('opts').classList.add('on'); $('optScroll').scrollTop = 0; optSpy(); };
   $('optClose').onclick = $('optBack').onclick = () => $('opts').classList.remove('on'); settingsInit();
   $('optScroll').addEventListener('scroll', optSpy);
@@ -3343,7 +3528,7 @@ function buildLab() {
   $('labPick').onclick = () => openPicker('lab');
   $('labBack').onclick = () => showScreen('title');
   $('labGo').onclick = () => {
-    const p = dexById(labId); if (labSel.length === Math.min(3, buildKit(p).pool.length)) loadouts[p.id] = [...labSel];
+    const p = dexById(labId); if (labSel.length === Math.min(3, buildKit(p).pool.length) && labSel.every(i => moveOwned(p, buildKit(p).pool[i], i))) { loadouts[p.id] = [...labSel]; saveLd(); }
     audio(); startMatch({ lab: true });
   };
   $('tLab').onclick = () => { audio(); labId = selYou; labAb = 'own'; labSel = null; showScreen('labPane'); refreshLab(); };
@@ -3432,7 +3617,7 @@ function tourAward() { // called once when the player wins a cup: returns the na
   if (CUPS.filter(c => c.type && badges.cup[c.id]).length === CUPS.length - 1) give('master');
   if (tier > (badges.tier[cup.id] || 0)) { if (!got.includes(cup.badge)) got.push(TN[tier] + ' rim'); badges.tier[cup.id] = tier; }
   if (!badges.hof[cup.id] || tier >= badges.hof[cup.id].tier) badges.hof[cup.id] = { t: Date.now(), you: tour.you, tier };
-  tour.bonus = pts; try { if (window.PF && window.PF.award) window.PF.award(pts); } catch (e) { }
+  tour.bonus = pts; PROG.add(pts);
   badgeSave(); return got;
 }
 function newTournament(you, cupId) {
@@ -3524,7 +3709,9 @@ function drawHof() {
 $('hofGrid').onclick = e => { const b = e.target.closest('.hofch'); if (b) challengeAce(b.dataset.c); };
 $('cpHof').onclick = () => { audio(); drawHof(); $('hofPane').classList.add('on'); };
 $('hofBack').onclick = () => $('hofPane').classList.remove('on');
+const cupOpen = c => !c.type || POKEDEX.some(p => owns(p.id) && p.types.includes(c.type)); // a type cup needs at least one unlocked fighter of that type
 function pickCup(id) { // a type cup only allows fighters of its type, so the type chips are hidden while it is open
+  if (!cupOpen(cupOf(id))) { $('cpTitle').textContent = `UNLOCK A ${cupOf(id).type.toUpperCase()}-TYPE FIGHTER FIRST`; setTimeout(() => { $('cpTitle').textContent = 'CHOOSE YOUR CUP'; }, 2200); return; }
   audio(); tourCup = id; const cc = cupOf(id), lock = !!cc.type; if (lock) pickType = '';
   document.querySelectorAll('#pkTypes .tchip:not(.gen)').forEach(x => x.classList.toggle('sel', x.dataset.t === pickType));
   openPicker('tour'); document.querySelectorAll('#pkTypes .tchip:not(.gen), #pkTypes .tsep').forEach(x => x.style.display = lock ? 'none' : '');
@@ -3532,17 +3719,17 @@ function pickCup(id) { // a type cup only allows fighters of its type, so the ty
 }
 function drawCupDiff() { $('cpDiff').innerHTML = ['Easy', 'Normal', 'Hard'].filter(n => DIFF[n]).map(n => `<span class="dchip${n === selDiff ? ' sel' : ''}" data-d="${n}">${n.toUpperCase()}<small>${{ Easy: 'BRONZE', Normal: 'SILVER', Hard: 'GOLD' }[n]}</small></span>`).join(''); }
 $('cpDiff').onclick = e => { const c = e.target.closest('.dchip'); if (!c) return; audio(); selDiff = c.dataset.d; refreshMenu(); drawCupDiff(); };
-$('cpNext').onclick = () => { audio(); const left = CUPS.filter(c => c.type && !badges.cup[c.id]); cupSel = (left.length ? left[Math.floor(Math.random() * left.length)] : cupOf('open')).id; drawCups(); };
+$('cpNext').onclick = () => { audio(); const left = CUPS.filter(c => c.type && !badges.cup[c.id] && cupOpen(c)); cupSel = (left.length ? left[Math.floor(Math.random() * left.length)] : cupOf('open')).id; drawCups(); };
 let cupSel = null; // the cup shown in the big showcase; tapping it again (or ENTER CUP) opens the fighter picker
 function drawCups() {
   const typed = CUPS.filter(c => c.type), cname = c => c.type ? c.type.toUpperCase() : 'OPEN';
   $('cpCount').textContent = `BADGES ${typed.filter(c => badges.cup[c.id]).length} / ${typed.length}`;
-  if (!cupOf(cupSel)) cupSel = (typed.find(c => !badges.cup[c.id]) || cupOf('open')).id;
-  $('cpStrip').innerHTML = CUPS.map(c => `<div class="mdl${c.id === cupSel ? ' sel' : ''}" data-c="${c.id}" style="--c:${c.type ? TYPE_HEX[c.type] : '#ffd34d'}">${medal(c, badges.cup[c.id], badges.tier[c.id])}<small>${cname(c)}</small>${badges.cup[c.id] ? '' : '<i class="nw"></i>'}</div>`).join('');
+  if (!cupOf(cupSel)) cupSel = (typed.find(c => !badges.cup[c.id] && cupOpen(c)) || cupOf('open')).id;
+  $('cpStrip').innerHTML = CUPS.map(c => `<div class="mdl${c.id === cupSel ? ' sel' : ''}${cupOpen(c) ? '' : ' lk'}" data-c="${c.id}" style="--c:${c.type ? TYPE_HEX[c.type] : '#ffd34d'}">${medal(c, badges.cup[c.id], badges.tier[c.id])}<small>${cname(c)}</small>${badges.cup[c.id] ? '' : '<i class="nw"></i>'}</div>`).join('');
   const c = cupOf(cupSel), a = c.ace ? dexById(c.ace) : null, got = badges.cup[c.id], tier = badges.tier[c.id];
   $('cpShow').style.setProperty('--c', c.type ? TYPE_HEX[c.type] : '#ffd34d');
   $('cpShow').innerHTML = `<div class="scw">${c.type ? CUP_SYM[c.type] : '\ud83c\udfc6'}</div><div class="scs l"><img src="assets/trainers/${c.tr}.png" alt=""><b>${c.tn}</b><small>GYM LEADER</small></div>`
-    + `<div class="scm"><div class="scn">${c.name.toUpperCase()}</div>${medal(c, got, tier)}<div class="scst${got ? ' got' : ''}">${got ? c.badge.toUpperCase() + ' \u00b7 ' + ['', 'BRONZE', 'SILVER', 'GOLD'][tier || 0] : 'NOT YET WON'}</div><div class="schint">${c.type ? 'Only ' + c.type + '-type fighters' : 'Any Pok\u00e9mon'}. Win the bracket, then beat the ace.</div></div>`
+    + `<div class="scm"><div class="scn">${c.name.toUpperCase()}</div>${medal(c, got, tier)}<div class="scst${got ? ' got' : ''}">${got ? c.badge.toUpperCase() + ' \u00b7 ' + ['', 'BRONZE', 'SILVER', 'GOLD'][tier || 0] : 'NOT YET WON'}</div><div class="schint">${c.type ? 'Only ' + c.type + '-type fighters' : 'Any Pok\u00e9mon'}. Win the bracket, then beat the ace.${cupOpen(c) ? '' : ` <b style="color:#ff8a8a">Unlock a ${c.type}-type fighter in RESEARCH to enter.</b>`}</div></div>`
     + `<div class="scs r">${a ? `<img src="${spriteUrl(a)}" alt=""><b>${nm(a.name)}</b><span>${tags(a.types)}</span>` : ''}<small>THE ACE</small></div>`;
   drawCupDiff();
 }
@@ -3589,19 +3776,15 @@ function openHow() {
 }
 addEventListener('message', e => { const d = e.data; if (!d || !d.ht) return; if (d.ht === 'ready') { htReady = true; if (htWant) { htWant(); htWant = null; } } else if (d.ht === 'close') { $('htBox').classList.remove('on'); window.focus(); } });
 $('tHow').onclick = () => { audio(); openHow(); }; $('pHow').onclick = openHow; $('htGo').onclick = openHow; $('htNo').onclick = () => $('htOffer').classList.remove('on');
-const fmtPts = n => n >= 1e7 ? Math.floor(n / 1e6) + 'M' : n >= 1e4 ? Math.floor(n / 1e3) + 'K' : String(n); // the Poké Ball button shows the points kept by the app
-window.__refreshPts = () => { try { if (window.PF && window.PF.wallet) $('tBallPts').textContent = fmtPts(window.PF.wallet()); } catch (e) { } };
-if (window.PF && window.PF.openBalls) { $('tBalls').style.display = 'flex'; window.__refreshPts(); }
-$('tBalls').onclick = () => { audio(); try { window.PF.openBalls(); } catch (e) { } };
 window.__back = () => {
+  if ($('starPane').classList.contains('on')) return;
   if ($('htBox').classList.contains('on')) { $('htFrame').contentWindow.postMessage({ htcmd: 'back' }, '*'); return; }
   if ($('htOffer').classList.contains('on')) { $('htOffer').classList.remove('on'); return; }
   if ($('pvModal').classList.contains('on')) closePreview(); else if ($('opts').classList.contains('on')) $('opts').classList.remove('on'); else if ($('pickPane').classList.contains('on')) closePicker(); else if ($('movesPane').classList.contains('on')) $('mpDone').onclick();
   else if (state === 'menu') { if (screenName === 'title') exitGame(); else if (screenName === 'netPane') NETG.leave(); else showScreen('title'); } else if (state === 'over') toMenu(); else togglePause();
 };
 const byName = s => { const n = +s; if (n) return n; const p = POKEDEX.find(p => p.name === String(s).toLowerCase()); return p ? p.id : 0; };
-buildMenu(); buildLab(); setTheme(THEMES[0]);
-if (mine && !owns(selYou)) selYou = [...mine][0] || selYou;
+buildMenu(); buildLab(); PROG.init(); setTheme(THEMES[0]);
 if (q.get('p')) selYou = byName(q.get('p')) || selYou;
 if (q.get('rival')) selRival = byName(q.get('rival')) || selRival;
 if (q.get('diff') && DIFF[q.get('diff')]) selDiff = q.get('diff');
@@ -3613,7 +3796,7 @@ document.querySelectorAll('[data-ic]').forEach(e => e.insertAdjacentHTML('afterb
   showScreen('title'); refreshPause(); refreshMenu(); requestAnimationFrame(frame);
 $('tSil').addEventListener('animationiteration', pickSil); pickSil();
 if (demo || q.has('go')) startMatch();
-if (q.has('howto')) openHow(); else { try { if (!localStorage.getItem('pf_howto') && !demo && !q.has('go') && !q.has('open') && !q.has('preview')) { localStorage.setItem('pf_howto', '1'); setTimeout(() => { if (screenName === 'title') $('htOffer').classList.add('on'); }, 600); } } catch (e) { } } // the NEW HERE? card shows once, on the very first launch
+if (q.has('howto')) openHow(); else { try { if (!localStorage.getItem('pf_howto') && !demo && !q.has('go') && !q.has('open') && !q.has('preview')) { setTimeout(() => { if (screenName === 'title' && !$('starPane').classList.contains('on')) { try { localStorage.setItem('pf_howto', '1'); } catch (e) { } $('htOffer').classList.add('on'); } }, 600); } } catch (e) { } } // the NEW HERE? card shows once, on the very first launch (after the starter pick)
 // ---------------------------------------------------------------- move preview (?preview=1&p=25&mv=0): the game becomes a small silent loop that casts one chosen move on a plain background.
 // The Moves screen can embed it in an iframe and switch Pok\u00e9mon / move with postMessage({pf:'pv', id, mv}); mv = index into kit.pool, or 'melee' | 'ranged' | 'beam'. It reads the real move data, so new moves preview with no extra work.
 if (q.has('preview')) {

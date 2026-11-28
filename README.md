@@ -65,7 +65,7 @@ The whole game is plain HTML, CSS and JavaScript. There is no build step and no 
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/title.jpg" alt="Title screen"><br><sub><b>Title screen.</b> Battle, quick fight, tournament, online, practice and the Move Lab.</sub></td>
+    <td width="50%"><img src="docs/title.jpg" alt="Title screen"><br><sub><b>Title screen.</b> Battle, research, tournament, online, practice and the Move Lab.</sub></td>
     <td width="50%"><img src="docs/menu.jpg" alt="Battle menu"><br><sub><b>Battle menu.</b> Pick both fighters and an arena. The centre panel shows how the type matchup plays out.</sub></td>
   </tr>
   <tr>
@@ -155,8 +155,8 @@ A few things the chart makes obvious: Steel resists ten types and is immune to P
 | Mode | What it is |
 | --- | --- |
 | Battle | Choose your fighter, the rival, the arena and the difficulty (Easy, Normal, Hard). |
-| Quick fight | Your fighter against a random rival, straight into the arena. |
-| Tournament | Choose one of 18 type cups or the Open Cup. In a type cup you can only bring a Pokémon of that type, and every opponent is of that type too. You fight through an eight fighter knockout bracket on arenas that suit the type; opponents hit harder each round, you can see your next opponent's types, moves and fighting style, change your own moves between rounds, and pick a perk after every win. Win the bracket and the cup's Gym Leader sends out their ace Pokémon with its strongest moves and extra health. Lose any fight and you are out. Beating the ace earns the cup's badge, with a bronze, silver or gold rim for the lowest difficulty you played on, bonus ball-shop points, and medals for a Flawless run, an Underdog win, a Hardcore (Hard difficulty) win, and Master for all 18 cups. Badges, the Hall of Fame and your bracket are saved on the device. The cup picker marks unwon cups as NEW, has a Next New Cup button and difficulty chips, and the Hall of Fame keeps run stats and lets you challenge the ace of any cup you have won. |
+| Research | Every offline battle pays points, win or lose (more for wins, streaks, flawless and quick KOs, Hard, best of 3 and your first win each day). Spend them to unlock fighters along a tree for each type; you start with 1 to 3 starters. A Pokémon starts with the first 4 of its specials free; the others are bought on the Moves screen for 35 to 245 points each, by move strength, and your chosen 3 are remembered. Online battles always have every Pokémon and every move, and Settings has an Unlock all switch and a backup code for your progress. |
+| Tournament | Choose one of 18 type cups or the Open Cup. In a type cup you can only bring a Pokémon of that type, and every opponent is of that type too. You fight through an eight fighter knockout bracket on arenas that suit the type; opponents hit harder each round, you can see your next opponent's types, moves and fighting style, change your own moves between rounds, and pick a perk after every win. Win the bracket and the cup's Gym Leader sends out their ace Pokémon with its strongest moves and extra health. Lose any fight and you are out. Beating the ace earns the cup's badge, with a bronze, silver or gold rim for the lowest difficulty you played on, bonus research points, and medals for a Flawless run, an Underdog win, a Hardcore (Hard difficulty) win, and Master for all 18 cups. Badges, the Hall of Fame and your bracket are saved on the device. The cup picker marks unwon cups as NEW, has a Next New Cup button and difficulty chips, and the Hall of Fame keeps run stats and lets you challenge the ace of any cup you have won. |
 | Online 1v1 | Fight a friend on another phone over Wi-Fi. |
 | Practice | A training dummy that stands still or guards. |
 | Move Lab | A sandbox with infinite stamina for trying every special move. |
@@ -222,6 +222,7 @@ The data files in `data/` are generated from PokeAPI and marked as generated, so
 
 - Pokémon data (stats, types, moves, abilities, learnsets and the type chart) from [PokeAPI](https://pokeapi.co/).
 - Animated sprites from the Pokémon Database, and battle backgrounds from Pokémon Showdown.
+- Move icons from [game-icons.net](https://game-icons.net/) by Lorc, Delapouite, Skoll, sbed, DarkZaitzev, Willdabeast and other contributors, used under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). `data/moveicons.js` is generated from them by `tools/build_moveicons.js`.
 - Boss trainer sprites in `assets/trainers/` from Pokémon Showdown (`play.pokemonshowdown.com/sprites/trainers`), drawn by the sprite artists credited there. Pokémon and its trainers are trademarks of Nintendo, Game Freak and The Pokémon Company; this is an unofficial fan project.
 - Online matchmaking uses [PeerJS](https://peerjs.com/).
 - Created by Amol Ashok Dalwai.
